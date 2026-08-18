@@ -107,13 +107,17 @@ part inside its own file; that's `layout.scad`'s job via `at()`. State the local
 origin and intended print orientation in a comment at the top.
 
 **For features *within* a part** (a boss on a face, a hole on a corner, ribs), prefer
-BOSL2's attachment system over hand-computed `translate()` offsets. A full, real
-BOSL2 clone is installed at `~/Documents/OpenSCAD/libraries/BOSL2` (verified: 56
-`.scad` files including `std.scad`, and `spur_gear()` below was test-rendered
-successfully against this install with the project's actual 11-tooth pinion
-parameters — see `references/setup-notes.md` for why this needed re-doing: an
-earlier, incomplete drop-in of just `gears.scad` alone was there before and
-silently failed on missing dependencies):
+BOSL2's attachment system over hand-computed `translate()` offsets.
+
+Confirm BOSL2 is actually installed before relying on it — `python3
+scripts/doctor.py` reports it, searching the platform's real library locations
+and `$OPENSCADPATH`. It checks for `std.scad`, not just a folder named `BOSL2`,
+because a directory with the right name is not evidence of a working install: on
+one machine that folder once held a single stray `gears.scad`, `include
+<BOSL2/std.scad>` failed to resolve, and the failure only surfaced mid-render
+(`references/setup-notes.md`). If doctor reports it `INCOMPLETE`, fix it with
+`git clone https://github.com/BelfrySCAD/BOSL2.git` into the library directory
+doctor names.
 
 ```openscad
 include <BOSL2/std.scad>
@@ -161,11 +165,10 @@ of the hand-rolled `(T1+T2)*mod/2` formula once profile shift is involved (the p
 formula is fine for equal/standard gears, but stops being exact once BOSL2's
 `profile_shift="auto"` kicks in for small tooth counts).
 
-If BOSL2 truly isn't available for some reason, MCAD's `involute_gears.scad` is
-another tested option -- but verify it's a complete MCAD install before relying on
-it (`~/Documents/OpenSCAD/libraries/MCAD` on this machine currently has only 2 of
-MCAD's files present, not a full clone -- check before use, don't assume). Either
-way: a tested library beats a fresh implementation, every time, for gear math.
+If BOSL2 truly isn't available, MCAD's `involute_gears.scad` is another tested
+option -- but check it's a complete install first (`doctor.py` reports it; a
+partial MCAD drop-in has been found in the wild more than once). Either way: a
+tested library beats a fresh implementation, every time, for gear math.
 
 ## 6. `assembly.scad` — MODE switch
 
@@ -349,6 +352,10 @@ After every check passes, report:
   a part's declared `// EXPECTED_BBOX: [x, y, z]`, with the tolerance derived
   from `$fn`/`$fa`/`$fs`. Needs only `trimesh` (confirmed lighter than
   check_collisions.py — no scipy/python-fcl needed for this one).
+- `scripts/doctor.py` — detects OpenSCAD, libraries (by entry-point file, not by
+  folder name), Python dependencies and any calibration profile; reports the
+  highest confidence tier the environment supports. Run it before trusting
+  anything environmental. Exit 0 ok / 2 degraded / 3 no OpenSCAD.
 - `scripts/check_features.py` — measures declared bores flat-to-flat by
   sectioning the mesh, catching the undersizing a bbox check cannot see. Needs
   `trimesh`, `shapely`, `scipy`, `networkx`.
@@ -363,6 +370,10 @@ After every check passes, report:
   degraded rather than passing.
 - `templates/joints.json` — starting point for declaring intentional contact
   pairs.
+- `../openscad-cad/references/confidence-tiers.md` — what may be claimed at each
+  tier, the gates each requires, and the default table that keeps the spec a
+  contract rather than an interrogation. State the tier reached in the final
+  report (§8).
 - `templates/part_template.scad` — starting point for a new part file, includes
   the `EXPECTED_BBOX` convention.
 - `templates/layout.scad` — starting point for a new assembly's `layout.scad`.

@@ -271,10 +271,16 @@ openscad --backend=Manifold -o ../my-bin.stl --export-format=binstl \
   gridfinity-rebuilt-bins.scad
 ```
 
-A working clone already exists at
-`Docs/03_Asmeniniai_projektai/3D_Spausdinimas/gridfinity-rebuilt-openscad/` on
-this machine — reuse it (`git pull` first if it's been a while) instead of
-re-cloning, and put generated bins in the sibling `Gridfinity_bins/` folder.
+Before cloning, look for an existing clone rather than assuming either way —
+this skill previously named one machine's absolute path, which is wrong
+everywhere else:
+
+```bash
+find ~ -maxdepth 6 -type d -name 'gridfinity-rebuilt-openscad' 2>/dev/null | head
+```
+
+If one turns up, reuse it (`git pull` first if it's been sitting), and put
+generated bins in a sibling folder next to it.
 
 Prefer these `-D` overrides (or editing the top variable block of a copy) over
 writing Gridfinity geometry from scratch, unless the user explicitly wants a
@@ -313,6 +319,37 @@ Per the library's own notes: printed internal threads work fine from M2+;
 external M3 threads are print-quality sensitive; M4+ is reliable. Flag this to
 the user if they're designing something load-bearing at M3 or below.
 
+## 4.5 Checking a single part numerically
+
+Looking at the render is not a dimensional check (§1). The `scad-modeler` skill's
+scripts are not assembly-only — two of them work on one part, and a single
+bracket or insert benefits from them as much as a gearbox does. If that skill is
+installed, find them at `~/.claude/skills/scad-modeler/scripts/` (or the sibling
+`scad-modeler/scripts/` in this repo):
+
+```bash
+python3 .../scripts/doctor.py            # what this machine can actually do
+python3 .../scripts/check_dimensions.py --stl build/part.stl --scad part.scad
+python3 .../scripts/check_features.py   --stl build/part.stl --scad part.scad
+```
+
+Declare what they should verify, in the `.scad` file itself:
+
+```openscad
+// EXPECTED_BBOX: [40, 20, 15]
+// EXPECTED_HOLE: [0, 0, 5, "Z", 8.0]
+```
+
+`check_dimensions.py` compares the exported STL's bounding box, with the
+tolerance derived from `$fa`/`$fs` rather than a flat guess.
+`check_features.py` slices the mesh and measures a bore flat-to-flat — the
+dimension a shaft actually binds on, which a bounding box cannot see. Both skip
+silently when nothing is declared, so adding a declaration is the whole cost.
+
+State the confidence tier reached in the final response — see
+`references/confidence-tiers.md`. A part with no numeric check is Tier 1, and
+saying so is more useful than implying more.
+
 ## 5. Output conventions
 
 - **Each distinct design gets its own project folder** (e.g.
@@ -337,6 +374,9 @@ the user if they're designing something load-bearing at M3 or below.
 
 ## Reference files
 
+- `references/confidence-tiers.md` — what may be promised at each tier and the
+  gates it requires, plus the default assumptions table. Name the tier in the
+  final response.
 - `references/tolerances.md` — per-side clearance values for common fits (loose
   drop-in, grid-constrained drop-in, friction fit), each sourced from a real part
   in this project set rather than guessed.

@@ -6,6 +6,11 @@ and libraries on this machine, not assumed from documentation or a prior model's
 libraries, etc.) rather than trusting this file blindly forever — same principle
 as the rest of this skill.
 
+> **This is a dated log, not a description of your machine.** Every absolute path
+> below records what was true on one machine on one date. Do not read them as
+> instructions or as current fact — run `python3 scripts/doctor.py`, which
+> detects the real locations and verifies each library by its entry-point file.
+
 ## OpenSCAD CLI flags (confirmed present via `openscad --help`)
 
 `--hardwarnings`, `--check-parameters=true`, `--check-parameter-ranges=true` all
