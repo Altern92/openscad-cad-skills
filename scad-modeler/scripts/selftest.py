@@ -76,7 +76,15 @@ difference() {{
     translate([-10, 0, -1]) true_hole(d = bore_d, h = plate_h + 2);
     // Uncompensated: should measure short. Its declaration lives in the
     // bad-bore file so the good run stays clean.
-    translate([10, 0, -1]) cylinder(d = bore_d, h = plate_h + 2);
+    // Forced to OpenSCAD's own true defaults ($fa=12, $fs=2 -- NOT this
+    // file's $fa={FA}/$fs={FS}) so the deficit is large enough (~0.233mm
+    // at bore_d={BORE_D}mm, n=13) to exceed check_features.py's default
+    // 0.05mm tolerance. At this file's own fine $fa/$fs the deficit is
+    // only ~0.006mm (n=84) and the check does not fail, which defeats the
+    // point of this test -- confirmed by actually running it before this
+    // fix (2026-08-18): "UNcompensated bore fails, as it must" reported
+    // FAIL because check_features.py returned OK on it.
+    translate([10, 0, -1]) {{ $fa = 12; $fs = 2; cylinder(d = bore_d, h = plate_h + 2); }}
 }}
 """
     open(os.path.join(d, "plate.scad"), "w").write(scad)
@@ -132,8 +140,17 @@ def main():
             return EXIT_FAIL
 
         print("\n2. Do the checkers reach the right verdicts?")
+        # --fa/--fs pinned explicitly: plate.scad's shared body also contains
+        # the bad-bore cylinder's local $fa=12/$fs=2 override (needed so
+        # check_features.py below has a real deficit to catch), and
+        # scad_tessellation.py's file scan is a flat "last assignment wins"
+        # text scan with no block-scope awareness -- it would otherwise pick
+        # that local override up as if it applied to the whole file, loosening
+        # this check's tolerance far past what $fa={FA}/$fs={FS} actually
+        # gives. Passing them here is what the plate is actually authored at.
         cd = run([sys.executable, os.path.join(HERE, "check_dimensions.py"),
-                  "--stl", stl, "--scad", os.path.join(d, "plate.scad")])
+                  "--stl", stl, "--scad", os.path.join(d, "plate.scad"),
+                  "--fa", str(FA), "--fs", str(FS)])
         record("envelope check passes on a correct plate", cd.returncode == 0,
                cd.stdout.strip().splitlines()[-1] if cd.stdout else "")
 
@@ -157,12 +174,32 @@ def main():
         if not info.get("summary"):
             record("--summary supported", False, "this build has no --summary")
         else:
-            s = run([scad_bin, "--render", "--summary", "all", "--summary-file", "-",
-                     os.path.join(d, "plate.scad")])
+            # ANSWERED, and the answer is no: `--render --summary all
+            # --summary-file -` with no `-o` at all hangs indefinitely (tested
+            # 2026-08-18, macOS, OpenSCAD 2026.06.12 -- multiple minutes of
+            # wall clock at near-zero CPU, so it is genuinely stuck, not just
+            # slow; adding --backend=Manifold made no difference, which rules
+            # out the CGAL-vs-Manifold CSG-evaluation slowness this looked
+            # like at first -- geometry evaluation itself was already done in
+            # 13ms per the CSG log). It only completes once a real `-o` export
+            # target is given, at which point it's instant (<5ms on this
+            # geometry). So --summary cannot skip the file export, only ride
+            # along with one already being written for another reason -- no
+            # cost saving over just reading the STL check_dimensions.py
+            # already needs to write anyway. -o points at a scratch file nulled
+            # right after; --backend=Manifold is kept since it's still correct
+            # practice for the export itself (OpenSCAD issue #5605).
+            summary_scratch = os.path.join(d, "_summary_scratch.stl")
+            summary_cmd = [scad_bin, "--render", "-o", summary_scratch,
+                            "--summary", "all", "--summary-file", "-"]
+            if info.get("manifold"):
+                summary_cmd += ["--backend=Manifold"]
+            summary_cmd += [os.path.join(d, "plate.scad")]
+            s = run(summary_cmd)
             out = (s.stdout or "") + (s.stderr or "")
             has_bbox = "bounding" in out.lower() or '"bbox"' in out.lower()
-            record("--summary reports a bounding box without -o", has_bbox,
-                   "check_dimensions.py could skip the STL export"
+            record("--summary reports a bounding box (still needs -o, see above)", has_bbox,
+                   "but -o was required to get it, so no STL round-trip is actually saved"
                    if has_bbox else "STL round-trip stays necessary")
             if "volume" in out.lower():
                 print("        note: 'volume' appears in the summary output too")
