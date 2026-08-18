@@ -18,6 +18,17 @@ user to repeat facts that are already written down. If a needed fact is missing,
 once rather than guessing — a wrong bearing bore or shaft diameter is not something a
 render will catch; it only shows up when the part doesn't fit.
 
+## 0.5. Planning (mandatory before §1, for any assembly with 3+ parts or a genuinely uncertain architecture)
+
+Don't write a single formula in §1 until the mechanical concept is settled
+and every part's dependency order is sketched — a real project's calculation
+work was wasted because architecture was decided *during* detailed
+calculation, not before it (`../INCIDENTS.md`, 2026-08-18). Full workflow,
+templates, and why (with correctly-scoped citations — the popular "10x-100x
+cheaper to fix early" curve is software-cost data, not mechanical, and
+shouldn't be cited as if it were) are in `references/planning.md`. Skip this
+step only for a 1-2 part assembly with an already-obvious architecture.
+
 ## 1. Calculation table (mandatory, before writing any geometry)
 
 Write a Markdown table before touching OpenSCAD:
@@ -389,6 +400,10 @@ pass, not something to analyze now; just log it accurately.
 - `../INCIDENTS.md` — append-only log of real bugs found and fixed (§8). Not
   reviewed automatically; a later pass reads it for patterns worth promoting
   into a permanent rule here.
+- `references/planning.md` — §0.5's full workflow: a 5-field decisions log, a
+  lightweight Pugh comparison for competing architectures, and a minimal
+  dependency matrix for part ordering. Grounded in real design-process
+  literature (Pahl & Beitz, DSM, Pugh) with citation caveats spelled out.
 - `scripts/validate_scad.sh` — render/validate every part + assembly, auto-discovers
   files under `parts/` (no manual list to keep in sync); also runs the bounding-box
   check below for any part that opts in.

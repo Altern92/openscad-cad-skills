@@ -24,6 +24,28 @@ Not every skill file edit belongs here -- only things that were actually
 
 ## Entries
 
+### 2026-08-18 -- rear_axle assembly had undocumented collisions across nearly every part pair
+- **Where:** `esp32_rc_modelis/mechanical/rear_axle/` (built in a separate/
+  parallel session, not this one)
+- **Symptom:** the user spotted a visible overlap in a rendered screenshot;
+  running `check_collisions.py` on it found far more than the single pair
+  already flagged in a code comment — the axle tubes and motor mount also
+  collided with both the diff carrier and the jackshaft housing.
+- **Root cause:** the reduction-scheme architecture and a key gear module
+  value were still unresolved/contradictory across prior documents when
+  detailed calculations and part geometry were written. Work proceeded
+  straight into the calculation table and geometry before the mechanical
+  concept was actually settled, and a center distance (CD2=25mm) was locked
+  in before checking whether it left room for two housings' full wall
+  thickness.
+- **Fix:** not fixed in that project itself (out of scope for this session)
+  -- but directly motivated a new `scad-modeler` §0.5 "Planning" stage
+  (decision log + lightweight architecture comparison + dependency ordering)
+  required before the calculation table, so a design commits to numbers only
+  after the concept is genuinely settled.
+- **Already promoted to a rule?** Yes -- `scad-modeler/SKILL.md` §0.5 and
+  `scad-modeler/references/planning.md` (this session, 2026-08-19).
+
 ### 2026-08-18 -- selftest.py's bad-bore check never actually failed
 - **Where:** `scad-modeler/scripts/selftest.py`
 - **Symptom:** the self-test's own headline claim ("UNcompensated bore fails,
