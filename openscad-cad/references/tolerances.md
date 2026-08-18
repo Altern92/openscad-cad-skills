@@ -36,24 +36,23 @@ unoptimised settings**, 100% infill for the capability specimens. Measured by
 CMM. That is close to a typical hobby setup, which is why the numbers below are
 worth anything to us — but they are one machine and one material.
 
-**Verification status (2026-08-18).** The paper's existence and its headline
-findings are independently confirmed -- read directly from the published
-abstract (Semantic Scholar API, not a paraphrase): "Achievable ISO 286-1
-International Tolerance grades ranged from IT9 to IT14," and GBTA results
-"confirmed systematic undersizing of cylindrical and curved features... deviations
-remained approximately constant across nominal sizes." The per-axis/per-size
-numbers in the two tables below and the specific "Bambu Lab X1-Carbon" printer
-model, however, come from a single earlier read of the full paper and could NOT
-be independently re-verified here: the paper is genuinely CC-BY open access
-(confirmed via Unpaywall), but both the publisher (Wiley) and the author's
-institutional repository (University of Trento, IRIS) currently sit behind a
-Cloudflare bot-challenge that blocked every legitimate automated fetch tried
-(DOI resolution, direct Wiley URL, IRIS bitstream and handle page, Semantic
-Scholar's cached PDF pointer -- all routed back to the same challenge, and no
-attempt was made to bypass it). Treat the exact table cells as plausible and
-consistent with the abstract's shape, not as independently double-checked --
-re-open the PDF directly before treating any single number here as load-bearing
-for a real fit decision.
+**Verification status (2026-08-18).** Fully confirmed against the primary
+source -- the user retrieved the actual PDF (automated fetching was blocked by
+a Cloudflare bot-challenge on both the publisher and the author's institutional
+repository; the paper is genuine CC-BY open access, just not reachable by
+script) and every number below was checked line-by-line against it. All of
+Table 3 (IT grades), all of Table 5 (cylinder deviations, recomputed
+independently from the paper's own nominal/measured columns -- see
+`scripts/` history), the cylindricity range (0.034-0.089mm), and the 3mm/12mm
+measured intervals matched exactly. One error found and fixed: this file
+previously said "milling and turning occupy IT7-IT10" -- the paper's actual
+Table 4 has **milling at IT9-11**, not IT7-10; only turning reaches IT7-10.
+One nuance worth knowing if replicating this: the cylinder/curve numbers
+below come from the GBTA specimens, printed at **15% gyroid infill**, not the
+100% infill used for the staircase/IT-grade specimens -- the paper states infill
+shouldn't matter much for these dimensions (deviation is dominated by contour
+deposition and boundary cooling, not infill), but it's a different print
+setting than the IT-grade table above.
 
 **Achievable IT grade by nominal size and axis** (Table 3, at 95% confidence
 with Pm, Pmk ≥ 1.33):
@@ -121,8 +120,9 @@ near a normal fit size was IT11 at Ø9 mm, and IT12–IT13 was typical — four 
 six grades coarser than H7. Writing "H7/g6" on a printed part is a
 precision-machining label over a process that cannot realise it: the same
 pseudo-rigour as claiming a full gear rating without material data. The paper's
-own Table 4 makes the point by comparison — milling and turning occupy IT7–IT10,
-FDM sits out at IT11 and coarser.
+own Table 4 makes the point by comparison — turning reaches IT7–IT10 and
+milling IT9–IT11, both finer than FDM's IT9–IT14 (this study), with FDM's own
+X/Y/Z columns bottoming out no better than IT9.
 
 Use functional fit classes plus a measured per-printer offset instead — describe
 what the joint must **do** (free clearance, guided slide, locating, light press),
