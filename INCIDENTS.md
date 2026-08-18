@@ -24,6 +24,35 @@ Not every skill file edit belongs here -- only things that were actually
 
 ## Entries
 
+### 2026-08-19 -- gearbox_frame.stl rendered as two physically disconnected bodies
+- **Where:** `esp32_rc_modelis/mechanical/.../gearbox_frame.scad` (a different,
+  parallel Claude Code session's own work; reported directly by that session)
+- **Symptom:** a part meant to be printed as one solid piece was actually two
+  unconnected bodies -- a floating disc (~1043mm³, bounds X:±9mm, Z:25-29mm)
+  matching the upper bearing tower exactly, visible as a piece "hanging in
+  air" in a render. `check_dimensions.py` passed (same overall bbox either
+  way) and `check_collisions.py` passed (it only checks BETWEEN separate STL
+  files, never within one file's own geometry).
+- **Root cause:** fixing a collision between the tower's support legs and a
+  worm gear's teeth widened the legs' radius from 7mm to 15mm. That solved
+  the collision. Nobody re-checked whether the legs, at the new radius, still
+  touched the disc they were supposed to hold up -- they didn't (disc radius
+  9mm, legs' new inner edge 12mm, a permanent 3mm gap). The session had a
+  working tool for exactly this (`trimesh` connected-body count) and used it
+  manually, once, after the bug was already visible by eye -- it was never a
+  standard, mandatory validation step.
+- **Fix:** promoted directly to a rule this session -- `scripts/
+  check_connectivity.py` (new; uses `trimesh.body_count`/`.split()`) is now
+  wired into `validate_scad.sh` as a MANDATORY, default-on check for every
+  part (opt out via `// EXPECTED_BODIES: N` for the rare genuinely-multi-body
+  part). `SKILL.md` §7 also now says explicitly: after any geometry fix,
+  re-run the whole validation cycle, not just the one check that was failing
+  -- the reporting session named this as the second, broader root cause
+  (stopped the moment `check_collisions.py` said OK).
+- **Already promoted to a rule?** Yes -- `scad-modeler/SKILL.md` §7,
+  `scripts/check_connectivity.py`, `scripts/validate_scad.sh`,
+  `templates/part_template.scad` (all this session, 2026-08-19).
+
 ### 2026-08-18 -- rear_axle assembly had undocumented collisions across nearly every part pair
 - **Where:** `esp32_rc_modelis/mechanical/rear_axle/` (built in a separate/
   parallel session, not this one)
@@ -87,6 +116,135 @@ Not every skill file edit belongs here -- only things that were actually
 - **Fix:** `SKILL.md` §6 now mandates `use`, not `include`, for part files in
   `assembly.scad`.
 - **Already promoted to a rule?** Yes -- `SKILL.md` §6 and `setup-notes.md`.
+
+### 2026-08-18 -- gearbox_case.scad EXPECTED_BBOX Z value fails validate_scad.sh's own tolerance
+- **Where:** `esp32_rc_modelis/mechanical/rear_axle/parts/gearbox_case.scad` (read-only
+  audit of a separate/parallel session's work)
+- **Symptom:** running `validate_scad.sh --all` against the current files:
+  `FAIL: gearbox_case.stl bbox mismatch ... Z: expected 70.900 mm, got
+  70.927 mm (diff 0.0273 mm > tol 0.0108 mm)`. X (51.5mm) and Y (67.2mm)
+  pass; only Z fails.
+- **Root cause:** the header comment's `// EXPECTED_BBOX: [51.5, 67.2,
+  70.9]` rounds the real rendered Z extent (70.927mm) to one decimal
+  place, but `check_dimensions.py`'s tolerance is derived from the
+  model's own facet resolution (~0.011mm here), far tighter than the
+  0.027mm rounding gap -- exactly the "declared bbox is a rounded
+  nominal" case SKILL.md §7 says needs `--abs-tol`/`--rel-tol`, which
+  was never added.
+- **Fix:** Not fixed -- read-only audit, scoped by user request
+  (2026-08-19); flagged for the project owner to address (either write
+  the full-precision 70.927 into the comment, or add an explicit
+  tolerance override).
+- **Already promoted to a rule?** not yet.
+
+### 2026-08-18 -- check_collisions.py currently fails on gearbox_case_bottom/top; no joints.json declares the intended split-line touch
+- **Where:** `esp32_rc_modelis/mechanical/rear_axle/` (positioned STLs
+  exported per SKILL.md §6/§7, checked with `check_collisions.py
+  --min-clearance 0.3`)
+- **Symptom:** `check_collisions.py` returns exit 3, `FAIL: UNINTENDED
+  INTERFERENCE: gearbox_case_bottom.stl <-> gearbox_case_top.stl` -- yet
+  `README.md`/`calculations.md` both describe this exact pair as
+  confirmed benign ("0.0mm³ ... patvirtinta esąs tikslus 0.0mm³ ...
+  teisingas clamshell elgesys" / "Kolizijų patikra ... švari, išskyrus
+  tikėtiną gearbox_case_bottom↔top prisilietimą"). Re-verified
+  independently with a manual trimesh boolean intersection: the overlap
+  is a genuine zero-volume degenerate surface at the Y=0 split plane
+  (`is_volume: False`), confirming it IS benign -- but the project has
+  no `joints.json` anywhere to declare it, so the check fails exactly as
+  SKILL.md §7 warns an undeclared "intentional contact" will.
+- **Root cause:** the clamshell split-line touch was identified and
+  reasoned about correctly during the original session, but was never
+  formalized as an `--expected-contacts` declaration
+  (`templates/joints.json`), so the validation pipeline as it stands
+  cannot actually be run to a clean pass -- the documented "švari"
+  claim isn't reproducible from the command as given in README.md.
+- **Fix:** Not fixed -- read-only audit, scoped by user request
+  (2026-08-19); flagged for the project owner to address (add a
+  `joints.json` declaring `gearbox_case_bottom`/`gearbox_case_top` as a
+  `touching` contact with `expected_interference_mm: [0.0, 0.0]`).
+- **Already promoted to a rule?** not yet.
+
+### 2026-08-18 -- calculations.md's CD1/CD2 values (33.6mm/26.5mm) don't match what params.scad's own gear_dist() calls compute (33.83mm/26.62mm)
+- **Where:** `esp32_rc_modelis/mechanical/rear_axle/calculations.md` +
+  `params.scad`
+- **Symptom:** every mention of the two center distances in
+  `calculations.md`, `README.md`, and inline `params.scad`/
+  `gearbox_case.scad` comments says CD1=33.6mm, CD2=26.5mm (the naive
+  `(T1+T2)×mod/2` hand formula). Directly querying the live top-level
+  variables from `params.scad` (`echo(CD1, CD2)`) gives 33.8326mm and
+  26.6206mm -- a 0.23mm and 0.12mm drift.
+- **Root cause:** `params.scad` correctly calls BOSL2's `gear_dist()`
+  for both stages (matching SKILL.md §5's own guidance), but P1 (12T)
+  and P2 (15T) are both below the ~17-tooth undercut threshold at 20°
+  pressure angle, so `gear_dist()` silently applies its automatic
+  profile-shift correction -- exactly the divergence SKILL.md §5
+  already warns about ("stops being exact once BOSL2's
+  profile_shift='auto' kicks in for small tooth counts").
+  `calculations.md`'s calculation table was never re-verified against
+  the actual `gear_dist()` output, so it still states the
+  pre-profile-shift hand values as the final "OK" numbers.
+- **Fix:** Not fixed -- read-only audit, scoped by user request
+  (2026-08-19); flagged for the project owner to address (currently
+  benign -- both real values are larger than documented, i.e. more
+  clearance, not less -- but should be corrected in `calculations.md`
+  so a future reader doesn't measure against the wrong nominal).
+- **Already promoted to a rule?** not yet -- SKILL.md §5 already
+  contains the general caution; this shows it wasn't actually applied
+  to double-check this project's own calculation table after the fact.
+
+### 2026-08-18 -- jackshaft_bearing_wall_at_diff assert in params.scad omits clearances the real geometry subtracts, understating the true minimum wall
+- **Where:** `esp32_rc_modelis/mechanical/rear_axle/params.scad`
+  (assert) vs. `parts/gearbox_case.scad` (`diff_cavity()`,
+  `jackshaft_bearing_pockets()`)
+- **Symptom:** `params.scad` computes
+  `jackshaft_bearing_wall_at_diff = CD2 - diff_ring_outer_r -
+  jackshaft_bearing_od/2` = 1.62mm (using the corrected CD2 from the
+  previous entry) and asserts it's `> 1.0`, i.e. reports a "safe"
+  ~1.6mm margin. But `gearbox_case.scad`'s own header comment
+  independently flags the real wall as "~1.2mm ... ties FDM
+  spausdinimo riba" (at the FDM printing limit) -- confirmed by hand:
+  the actual cavities are cut with `gear_spin_clearance` (0.4mm, added
+  to `diff_ring_outer_r` in `diff_cavity()`) and `bearing_press_fit`
+  (0.05mm, added to the bearing pocket diameter in
+  `jackshaft_bearing_pockets()`), neither of which the assert's formula
+  includes. Recomputing with both terms gives 1.196mm, matching the
+  code comment.
+- **Root cause:** the assert was written against nominal pitch/OD
+  dimensions only, not the actual clearance-inflated cavity radii the
+  geometry modules use -- so it protects against a *gross* tooth-count
+  regression but would not catch a smaller regression that pushes the
+  real (clearance-inflated) wall toward zero while the assert's own
+  optimistic formula still reports comfortable margin.
+- **Fix:** Not fixed -- read-only audit, scoped by user request
+  (2026-08-19); flagged for the project owner to address (add
+  `gear_spin_clearance` and `bearing_press_fit` to the assert's formula
+  so its "safe" verdict matches the geometry it's meant to guard).
+- **Already promoted to a rule?** not yet.
+
+### 2026-08-18 -- axle_d=6mm is incompatible with the MR105 bearings (fixed 5mm ID) at the wheel_hub end of the same half-shaft
+- **Where:** `esp32_rc_modelis/mechanical/rear_axle/params.scad`
+  (`axle_d`), `parts/wheel_hub.scad`, `BOM.md` #1/#7
+- **Symptom:** `params.scad` sets `axle_d = 6` ("atnaujinta iš 5mm --
+  nuotraukoje diff stebulė ~6mm; PATIKRINTI") and this single value is
+  used uniformly as the half-shaft diameter in both `axle_tube.scad`'s
+  bore and `wheel_hub.scad`'s central bore. But `wheel_hub.scad` also
+  seats two MR105 bearings (BOM #1: fixed 10×5×4mm, ID=5mm) at its two
+  ends, and the same half-shaft must pass through both. A uniform 6mm
+  shaft cannot pass through a 5mm-ID bearing.
+- **Root cause:** the 6mm figure comes from a photo measurement of the
+  *diff-side* output stub diameter; nothing in `calculations.md`'s
+  PATIKRINTI note ("gali reikėti keisti axle_d iš 5 į 6mm") considers
+  that the same `axle_d` variable is also used for the wheel-hub/bearing
+  end, where the bearing spec (MR105, ID fixed at 5mm) requires 5mm.
+  The two ends of the half-shaft need different diameters (a stepped
+  shaft) or a different bearing choice at the wheel end -- neither is
+  modeled or called out anywhere in the CAD or BOM.
+- **Fix:** Not fixed -- read-only audit, scoped by user request
+  (2026-08-19); flagged for the project owner to address (decide:
+  stepped half-shaft 6mm at diff / 5mm through the wheel_hub bearings,
+  or a different bearing/stub diameter, and update
+  `params.scad`/`BOM.md` accordingly).
+- **Already promoted to a rule?** not yet.
 
 ### 2026-08-18 -- tolerances.md overstated milling's precision
 - **Where:** `openscad-cad/references/tolerances.md`

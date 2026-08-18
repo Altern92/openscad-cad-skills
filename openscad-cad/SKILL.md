@@ -295,8 +295,8 @@ the user if they're designing something load-bearing at M3 or below.
 Looking at the render is not a dimensional check (§1). The `scad-modeler` skill's
 scripts are not assembly-only — two of them work on one part, and a single
 bracket or insert benefits from them as much as a gearbox does. If that skill is
-installed, find them at `~/.claude/skills/scad-modeler/scripts/` (or the sibling
-`scad-modeler/scripts/` in this repo):
+installed, find them in the `scad-modeler` skill's `scripts/` directory (the sibling
+`scad-modeler/scripts/` in this repo, or wherever that skill is installed):
 
 ```bash
 python3 .../scripts/doctor.py            # what this machine can actually do

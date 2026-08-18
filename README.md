@@ -17,13 +17,28 @@ validacijos skriptai yra `scad-modeler/scripts/`, bet veikia ir su viena detale.
 
 ## Instaliacija
 
+Claude Code:
+
 ```bash
 ln -s "$PWD/openscad-cad"  ~/.claude/skills/openscad-cad
 ln -s "$PWD/scad-modeler"  ~/.claude/skills/scad-modeler
 ```
 
+DeepSeek Harness (DSH):
+
+```bash
+mkdir -p ~/.dsh/skills
+ln -s "$PWD/openscad-cad"  ~/.dsh/skills/openscad-cad
+ln -s "$PWD/scad-modeler"  ~/.dsh/skills/scad-modeler
+ln -s "$PWD/INCIDENTS.md"  ~/.dsh/skills/INCIDENTS.md
+ln -s "$PWD/requirements.txt" ~/.dsh/skills/requirements.txt
+```
+
 Abu verta įdiegti kartu: `openscad-cad` nurodo `scad-modeler` skriptus, o tie
-savo ruožtu naudoja `openscad-cad/references/patterns.scad`.
+savo ruožtu naudoja `openscad-cad/references/patterns.scad`. DSH formato skirtumai
+minimalūs (vienodi `name`/`description` frontmatter); `scad-modeler` aprašyme
+negalima `: ` (dvitaškis+tarpas) — jis YAML'e reiškia raktą-reikšmę ir DSH skill'ą
+atmeta.
 
 ### Priklausomybės
 

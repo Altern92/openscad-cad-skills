@@ -13,6 +13,11 @@
 //                                 diameter. A bbox cannot see a bore that's too
 //                                 tight; this measures it. Delete if the part has
 //                                 no fit-critical round features.
+// A single printed part must render as ONE connected body by default --
+// validate_scad.sh checks this automatically (check_connectivity.py), no
+// declaration needed. Only add EXPECTED_BODIES if this file is genuinely,
+// deliberately more than one disconnected solid (rare):
+// EXPECTED_BODIES: 2   // delete this line unless that's really true
 // ============================================================
 
 include <../params.scad>

@@ -51,6 +51,7 @@ def find_patterns():
     for cand in (
         os.path.join(HERE, "..", "..", "openscad-cad", "references", "patterns.scad"),
         os.path.expanduser("~/.claude/skills/openscad-cad/references/patterns.scad"),
+        os.path.expanduser("~/.dsh/skills/openscad-cad/references/patterns.scad"),
     ):
         if os.path.isfile(cand):
             return os.path.abspath(cand)

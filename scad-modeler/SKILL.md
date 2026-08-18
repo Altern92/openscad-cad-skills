@@ -1,6 +1,6 @@
 ---
 name: scad-modeler
-description: Use for complex, multi-part parametric OpenSCAD mechanical assemblies — things with gears, bearings, reductions, multiple interacting printed parts, or where getting a dimension wrong means two parts collide or don't mesh. Triggers on "gear ratio", "reduction", "bearing", "shaft", "assembly", "BOM", "center distance", "mechanical design", "RC car", "gearbox", "multi-part", or requests to design several parts that must fit together and be validated, not just a single organizer/bracket. For a single simple part (an insert, a bracket, a cover, a shroud), use the openscad-cad skill instead — this skill's calculation-table + validation overhead is not worth it for those. This skill builds on openscad-cad (§2 render/export commands still apply) and adds: mandatory engineering calculations before geometry, centralized part positions, per-part local coordinates, and automated dimensional/collision validation.
+description: Use for complex, multi-part parametric OpenSCAD mechanical assemblies — things with gears, bearings, reductions, multiple interacting printed parts, or where getting a dimension wrong means two parts collide or don't mesh. Triggers on "gear ratio", "reduction", "bearing", "shaft", "assembly", "BOM", "center distance", "mechanical design", "RC car", "gearbox", "multi-part", or requests to design several parts that must fit together and be validated, not just a single organizer/bracket. For a single simple part (an insert, a bracket, a cover, a shroud), use the openscad-cad skill instead — this skill's calculation-table + validation overhead is not worth it for those. This skill builds on openscad-cad (§2 render/export commands still apply) and adds mandatory engineering calculations before geometry, centralized part positions, per-part local coordinates, and automated dimensional/collision validation.
 ---
 
 # SCAD Modeler — Multi-Part Mechanical Assemblies
@@ -12,7 +12,8 @@ gear pair doesn't mesh, not just "the pocket is 2mm too small."
 
 ## 0. Before anything else: read project facts
 
-Check `CLAUDE.md` (project-level, or the specific project folder) for already-decided
+Check the project's design docs (`CLAUDE.md` under Claude Code, `AGENTS.md`, or a
+project `README`/`design_decisions.md`) for already-decided
 facts: motor/component specs, gear ratios, tolerances, design decisions. Don't ask the
 user to repeat facts that are already written down. If a needed fact is missing, ask
 once rather than guessing — a wrong bearing bore or shaft diameter is not something a
@@ -257,6 +258,16 @@ exact flags (`--hardwarnings`, `--check-parameters=true`,
 `--check-parameter-ranges=true` are all confirmed-real flags on the installed
 OpenSCAD build, verified via `--help`).
 
+It also runs a **connectivity check** on every part, by default, with no
+declaration needed: a single printed part must render as one connected
+solid. A fix to one collision can silently break contact between two OTHER
+features that used to touch — a leg widened to clear a gear teeth can lose
+contact with the disc it was supposed to hold up, while the overall bounding
+box and every other check still passes clean (`INCIDENTS.md`, 2026-08-19).
+`scripts/check_connectivity.py` catches this via `trimesh`'s connected-body
+count; declare `// EXPECTED_BODIES: N` only for the rare part that's
+genuinely meant to be more than one disconnected solid in one STL.
+
 It also runs a **bounding-box check** on any part that declares one, catching
 the failure mode visual inspection alone misses: a part that renders and
 *looks* right but is subtly the wrong size. Declare it in the part file, next
@@ -378,6 +389,15 @@ openscad --backend=Manifold --render -o build/preview.png --imgsize=1200,900 --a
 Fix any failure at the source (wrong parameter, wrong layout position) — do not
 loosen an `assert()` or a collision threshold to make a failure go away.
 
+**After any geometry fix, re-run the whole cycle, not just the check you were
+fixing.** A fix for one failure can silently break something else that was
+previously fine and that nothing was watching — that's exactly how the
+connectivity bug above happened: a leg radius was widened until
+`check_collisions.py` said OK, and the session stopped there instead of
+re-running `validate_scad.sh --all`, which would have caught the new
+disconnection immediately. Stopping at the first green result for the thing
+you were looking at is not the same as the part being right.
+
 ## 8. Final report
 
 After every check passes, report:
@@ -407,6 +427,11 @@ pass, not something to analyze now; just log it accurately.
 - `scripts/validate_scad.sh` — render/validate every part + assembly, auto-discovers
   files under `parts/` (no manual list to keep in sync); also runs the bounding-box
   check below for any part that opts in.
+- `scripts/check_connectivity.py` — confirms a part's rendered STL is a single
+  connected body (default, no declaration needed) via `trimesh`'s connected-
+  body count; a bbox and a between-STL collision check both miss a part that
+  silently split into two disconnected islands. `// EXPECTED_BODIES: N` opts
+  out for the rare genuinely-multi-body part. Needs only `trimesh`.
 - `scripts/check_dimensions.py` — compares a rendered STL's bounding box against
   a part's declared `// EXPECTED_BBOX: [x, y, z]`, with the tolerance derived
   from `$fn`/`$fa`/`$fs`. Needs only `trimesh` (confirmed lighter than

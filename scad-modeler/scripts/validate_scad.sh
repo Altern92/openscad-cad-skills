@@ -43,6 +43,19 @@ validate_file() {
     fi
     echo "OK: $(du -h "$stl" | cut -f1)"
 
+    # Connectivity check: MANDATORY by default for parts/*.scad (not
+    # assembly.scad, which is legitimately many disconnected printed parts
+    # in one coordinate space). Unlike EXPECTED_BBOX/EXPECTED_HOLE this is
+    # not opt-in -- a single printed part silently rendering as two
+    # unconnected islands is a real, previously-uncaught failure mode
+    # (INCIDENTS.md, 2026-08-19: a leg-radius fix for one collision broke
+    # the legs' contact with the disc they were supposed to hold up, and
+    # nothing checked for it because no check looked for it). Declare
+    # `// EXPECTED_BODIES: N` in the part file for the rare intentional case.
+    if [[ "$scad" == parts/* ]]; then
+        python3 "$SCRIPT_DIR/check_connectivity.py" --stl "$stl" --scad "$scad"
+    fi
+
     # Bounding-box check: only runs if the part declares an expected size via
     # `// EXPECTED_BBOX: [x, y, z]` -- catches a part that renders fine and
     # *looks* right but is subtly the wrong size (wrong -D override, a units
