@@ -258,6 +258,18 @@ exact flags (`--hardwarnings`, `--check-parameters=true`,
 `--check-parameter-ranges=true` are all confirmed-real flags on the installed
 OpenSCAD build, verified via `--help`).
 
+Before any of that, it also runs two **project-level** gates (once, not per
+part), both opt-in by file existence: `check_assumptions.py` fails if
+`calculations.md` has any `Criticality: Critical` row in its decisions log
+(§0.5/`references/planning.md`) still unresolved, and
+`check_service_envelope.py` fails if a `service_envelope.md` exists with a
+blank field. These target "unverified initial assumptions" and "service-load
+mismatch" specifically — research (2026-08-19) found these to be the two
+most evidence-backed root causes of real mechanical failures, and nothing
+else in this chain checks either one, since every other check validates
+geometry *against* the calculation table, not whether the table's own inputs
+were right.
+
 It also runs a **connectivity check** on every part, by default, with no
 declaration needed: a single printed part must render as one connected
 solid. A fix to one collision can silently break contact between two OTHER
@@ -420,10 +432,22 @@ pass, not something to analyze now; just log it accurately.
 - `../INCIDENTS.md` — append-only log of real bugs found and fixed (§8). Not
   reviewed automatically; a later pass reads it for patterns worth promoting
   into a permanent rule here.
-- `references/planning.md` — §0.5's full workflow: a 5-field decisions log, a
+- `references/planning.md` — §0.5's full workflow: a 6-field decisions log
+  (including the `Criticality` column `check_assumptions.py` enforces), a
   lightweight Pugh comparison for competing architectures, and a minimal
   dependency matrix for part ordering. Grounded in real design-process
   literature (Pahl & Beitz, DSM, Pugh) with citation caveats spelled out.
+- `scripts/check_assumptions.py` — fails validation if a `Critical` row in
+  the decisions log is still unresolved. Targets the single most
+  evidence-backed root cause of real mechanical failures found in a
+  2026-08-19 research pass (wrong/unverified design assumptions), which no
+  geometry check can see. Opt-in: skips silently if `calculations.md` has no
+  decisions-log table.
+- `scripts/check_service_envelope.py` — fails if a `service_envelope.md`
+  (`templates/service_envelope.md`) exists with a blank field. Targets the
+  second most evidence-backed root cause (service-load/environment
+  mismatch — vibration, thermal, wear, duty cycle). Opt-in: skips if the
+  file doesn't exist.
 - `scripts/validate_scad.sh` — render/validate every part + assembly, auto-discovers
   files under `parts/` (no manual list to keep in sync); also runs the bounding-box
   check below for any part that opts in.

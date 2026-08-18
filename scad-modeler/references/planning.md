@@ -51,22 +51,39 @@ Four steps, in order. Each produces a small artifact that later steps (and
 
 ### 1. Decisions/assumptions log — start this first, before anything else
 
-Five fields, one row per fact/assumption/decision/risk/question that the
+Six fields, one row per fact/assumption/decision/risk/question that the
 design depends on:
 
-| ID | Type | Statement | Status | Evidence |
-|---|---|---|---|---|
-| F1 | Fact | Motor shaft is 3.175mm | Confirmed | Datasheet |
-| A1 | Assumption | Diff ring gear module is 1.0mm | Unverified | Estimated from a product photo, OD/tooth-count formula |
-| D1 | Decision | Two-stage jackshaft reduction, not single-stage | Confirmed | User chose this over direct-mesh option (see §2 below) |
-| R1 | Risk | CD2 may be too small for both housings' full wall thickness | Open | Needs check once both housings are sized |
-| Q1 | Question | Which side do motor leads exit? | Open | Ask user or guess + flag |
+| ID | Type | Criticality | Statement | Status | Evidence |
+|---|---|---|---|---|---|
+| F1 | Fact | Ordinary | Motor shaft is 3.175mm | Confirmed | Datasheet |
+| A1 | Assumption | Critical | Diff ring gear module is 1.0mm | Unverified | Estimated from a product photo, OD/tooth-count formula |
+| D1 | Decision | Ordinary | Two-stage jackshaft reduction, not single-stage | Confirmed | User chose this over direct-mesh option (see §2 below) |
+| R1 | Risk | Critical | CD2 may be too small for both housings' full wall thickness | Open | Needs check once both housings are sized |
+| Q1 | Question | Ordinary | Which side do motor leads exit? | Open | Ask user or guess + flag |
 
 Types: **Fact** (confirmed, cite the source), **Assumption** (used for now,
 not confirmed — this is what becomes a `PATIKRINTI` marker once it reaches
 the calculation table in §1), **Decision** (a choice made, with why),
 **Risk** (something that can break the design if unaddressed), **Question**
 (needs resolving, from the user or by looking something up).
+
+**Criticality** — mark **Critical** anything that feeds a load-bearing,
+strength, or fit-critical calculation (a gear module, a stress-relevant
+dimension, a bearing rating) — not just anything uncertain. Everything else
+is **Ordinary**. This distinction exists because "wrong or unverified initial
+design assumptions" is, by a wide margin, the most evidence-backed root
+cause of real mechanical failures across multiple large failure-analysis
+studies (2026-08-19 Perplexity research: ~79% of a 284-case chemical-process
+accident study involved a design error; design error outranked component
+failure as a root cause, 35% vs 18%, in a nuclear-industry dataset) — an
+*Ordinary* unresolved assumption is a normal, acceptable work-in-progress
+state; a *Critical* one left unresolved is exactly the failure mode those
+studies describe. `scripts/check_assumptions.py` enforces this: a `Critical`
+row whose `Status` isn't `Confirmed`/`Verified`/`Resolved` fails validation
+(§7) once this table exists — it's the same idea as DFMEA "critical/special
+characteristics" and a project assumptions register, adapted to a solo
+agent's calculation table rather than a full quality-management template.
 
 This log is the *source* for the calculation table's `PATIKRINTI` markers —
 not a separate parallel system. An `Assumption` row that's still

@@ -75,6 +75,21 @@ validate_file() {
 
 check_openscad
 
+# Project-level checks (run once, not per part) -- both opt-in by existence,
+# so a project that hasn't adopted these conventions yet isn't broken by
+# them. See references/planning.md for the decisions-log Criticality
+# convention and templates/service_envelope.md for the envelope fields.
+# These target "wrong/unverified initial assumptions" and "service-load
+# mismatch" specifically -- the two failure categories a 2026-08-19
+# Perplexity failure-analysis research pass found to have the strongest
+# real-world evidence as root causes, which nothing else in this chain
+# checks (every other check validates geometry against the calculation
+# table, not whether the calculation table's own inputs were right).
+if [ -f calculations.md ]; then
+    python3 "$SCRIPT_DIR/check_assumptions.py" --calc calculations.md
+fi
+python3 "$SCRIPT_DIR/check_service_envelope.py" --envelope service_envelope.md
+
 if [[ "$MODE" == "--all" ]]; then
     shopt -s nullglob
     parts=(parts/*.scad)
