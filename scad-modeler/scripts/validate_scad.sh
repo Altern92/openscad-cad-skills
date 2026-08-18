@@ -90,6 +90,14 @@ if [ -f calculations.md ]; then
 fi
 python3 "$SCRIPT_DIR/check_service_envelope.py" --envelope service_envelope.md
 
+# Enforces §0.5 Planning actually happened (>=2 architecture options or a
+# declared exemption, a confirmed decision, every layout.scad part present
+# in the plan) rather than existing only as prose a model could skip under
+# pressure -- the same gap that let the rear_axle incident happen in the
+# first place (INCIDENTS.md, 2026-08-18). Opt-in by plan.md's existence.
+python3 "$SCRIPT_DIR/check_plan.py" --plan plan.md \
+    $([ -f layout.scad ] && echo --layout layout.scad)
+
 if [[ "$MODE" == "--all" ]]; then
     shopt -s nullglob
     parts=(parts/*.scad)

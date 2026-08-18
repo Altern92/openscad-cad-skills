@@ -30,6 +30,14 @@ cheaper to fix early" curve is software-cost data, not mechanical, and
 shouldn't be cited as if it were) are in `references/planning.md`. Skip this
 step only for a 1-2 part assembly with an already-obvious architecture.
 
+Write it into `templates/plan.md` — copied to the project as `plan.md` —
+because prose here is advice a model can skip under pressure; a script that
+fails §7 isn't. `scripts/check_plan.py` fails if fewer than 2 architecture
+options are listed with no declared exemption, if no `Decision` row is
+confirmed, or if `layout.scad` names a part the plan never mentions — that
+last one catches a part invented later, during detailing, that skipped
+planning entirely, which is the failure mode that actually happened.
+
 ## 1. Calculation table (mandatory, before writing any geometry)
 
 Write a Markdown table before touching OpenSCAD:
@@ -437,6 +445,16 @@ pass, not something to analyze now; just log it accurately.
   lightweight Pugh comparison for competing architectures, and a minimal
   dependency matrix for part ordering. Grounded in real design-process
   literature (Pahl & Beitz, DSM, Pugh) with citation caveats spelled out.
+- `templates/plan.md` — copy to `plan.md` per project; the artifact
+  `check_plan.py` enforces. Ships deliberately unfillable-by-accident (the
+  raw template fails the check) — tested against 5 synthetic cases plus a
+  real `validate_scad.sh` integration run before being wired in.
+- `scripts/check_plan.py` — fails if §0.5 Planning didn't actually happen:
+  fewer than 2 architecture options with no declared exemption, no
+  confirmed `Decision` row, or a `layout.scad` part missing from the plan's
+  parts table (a part invented later, during detailing, that skipped
+  planning entirely — the most valuable of the three, and the exact gap
+  that let the rear_axle incident happen). Opt-in: skips if no `plan.md`.
 - `scripts/check_assumptions.py` — fails validation if a `Critical` row in
   the decisions log is still unresolved. Targets the single most
   evidence-backed root cause of real mechanical failures found in a
