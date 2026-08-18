@@ -378,8 +378,17 @@ After every check passes, report:
 - Any remaining `PATIKRINTI` items that couldn't be resolved.
 - Suggested print orientation per part.
 
+If a check failed during this session and you fixed it — not a routine
+addition, an actual bug (a wrong test, a hang, a false pass, an inaccurate
+claim caught by cross-checking) — append an entry to `../INCIDENTS.md` before
+finishing, using its entry format. This is raw data for a later pattern-review
+pass, not something to analyze now; just log it accurately.
+
 ## Reference files
 
+- `../INCIDENTS.md` — append-only log of real bugs found and fixed (§8). Not
+  reviewed automatically; a later pass reads it for patterns worth promoting
+  into a permanent rule here.
 - `scripts/validate_scad.sh` — render/validate every part + assembly, auto-discovers
   files under `parts/` (no manual list to keep in sync); also runs the bounding-box
   check below for any part that opts in.

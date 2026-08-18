@@ -342,9 +342,16 @@ saying so is more useful than implying more.
 - Before declaring a task done, re-check the rendered image against the user's
   stated dimensions — measure against what they asked for, don't just trust that
   the code "looks right" syntactically.
+- If something was actually wrong this session — not a routine addition, a
+  bug, a false pass, an inaccurate claim caught by cross-checking — append an
+  entry to `../INCIDENTS.md` before finishing (entry format is in that file).
+  Raw data for a later pattern-review pass, not something to analyze now.
 
 ## Reference files
 
+- `../INCIDENTS.md` — append-only log of real bugs found and fixed, shared
+  with `scad-modeler`. Not reviewed automatically; a later pass reads it for
+  patterns worth promoting into a permanent rule.
 - `references/gridfinity-params.md` — full bin/baseplate `-D` parameter
   tables (§3.2), moved out of this file so a Gridfinity lookup doesn't add to
   every skill load.
