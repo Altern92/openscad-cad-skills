@@ -51,17 +51,34 @@ function scad_fragments(r) =
 function across_flats_deficit(d) =
     d * (1 - cos(180 / scad_fragments(d / 2)));
 
-// Model diameter that yields d_target measured flat-to-flat. The facet count
-// is taken at the target size; the resulting change in n is second-order and
-// below the numeric floor at any practical size.
-function true_hole_d(d_target) =
-    d_target / cos(180 / scad_fragments(d_target / 2));
+// Facet count the compensation is computed against. Pass this as $fn when
+// building the hole (true_hole() below does) so the geometry uses exactly the
+// n the correction assumed. Without pinning it, OpenSCAD recomputes n from the
+// *enlarged* radius and can land one facet higher, leaving the correction
+// slightly off -- a fraction of a micron in practice, but free to eliminate.
+function true_hole_fn(d_target) = scad_fragments(d_target / 2);
+
+// Model diameter that yields d_target measured flat-to-flat.
+function true_hole_d(d_target) = d_target / cos(180 / true_hole_fn(d_target));
 
 function true_hole_r(r_target) = true_hole_d(2 * r_target) / 2;
 
+// Preferred form: pins $fn so the compensation and the geometry agree by
+// construction. Use the bare true_hole_d() only when something else owns the
+// cylinder call.
 module true_hole(d, h, center = false) {
-    cylinder(d = true_hole_d(d), h = h, center = center);
+    cylinder(d = true_hole_d(d), h = h, center = center, $fn = true_hole_fn(d));
 }
+
+// PRIOR ART: this is nophead's "polyhole" technique, in NopSCADlib as
+// utils/core/polyholes.scad -- `corrected_radius(r, n) = r / cos(180/sides(r, n))`,
+// the same correction, reached independently here from OpenSCAD's facet math.
+// The difference is how n is chosen: NopSCADlib forces `max(round(4*r), 3)`
+// facets, deliberately ignoring $fn/$fa/$fs so the result is reproducible
+// across files; the version here follows whatever $fa/$fs the model already
+// sets, which is what our STL-side check (scad-modeler/scripts/check_features.py)
+// measures against. If a project already uses NopSCADlib, prefer its polyhole
+// over this -- one owner per correction, and theirs is older and better tested.
 
 
 // ------------------------------------------------------------

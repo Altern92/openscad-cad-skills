@@ -204,6 +204,31 @@ Two bugs found by testing, not by reading:
 tree and pulls in an `rtree` dependency. Working from the raw section loops and
 picking the smallest one containing the probe point needs only `shapely`.
 
+**External library findings, verified against upstream READMEs (2026-08-18):**
+- **NopSCADlib generates BOMs, exploded views and assembly instructions.**
+  README, verbatim: *"Python scripts to generate Bills of Materials (BOMs), STL
+  files for all the printed parts, DXF files for CNC routed parts in a project
+  and a manual containing assembly instructions and exploded views by scraping
+  markdown embedded in OpenSCAD comments."* This overlaps SKILL.md §6's
+  hand-written BOM and §8's exploded views outright. Noted in §6; adopting it is
+  a project-level decision because it is a framework, not a drop-in.
+- **Pattern 0 has prior art: nophead's polyhole**, `utils/core/polyholes.scad`,
+  `corrected_radius(r, n) = r / cos(180 / sides(r, n))` — the same correction,
+  reached here independently from the facet math. Difference is facet choice:
+  NopSCADlib forces `max(round(4*r), 3)`, ignoring `$fn/$fa/$fs`; ours follows
+  the model's own `$fa/$fs`, which is what `check_features.py` measures against.
+- Pattern 0 now pins `$fn` in `true_hole()` so the correction and the geometry
+  use the same `n` by construction, as NopSCADlib does. **Checked whether this
+  mattered: it does not, at any size tested.** Recomputing `n` from the enlarged
+  radius gave the same facet count for Ø3, 5, 8, 10, 17, 17.2, 20 and 50 mm at
+  `$fa=2/$fs=0.3` — zero drift. The pin removes a theoretical failure mode, not
+  an observed one.
+- **BOSL2's "guaranteed minimum hole size" does not live on `circle()`.**
+  `shapes2d.scad` shows `circle()` taking only `r`/`d`; the inside-radius
+  parameters (`ir`/`id`, "Inside radius, at center of sides") are on
+  `regular_ngon()` and its `pentagon()`/`hexagon()`/`octagon()` wrappers. Don't
+  expect `circle()` to solve the undersizing.
+
 **Not verified — still open:**
 - Whether `openscad --summary bounding-box` can replace the STL→trimesh
   round-trip entirely (no OpenSCAD binary in the environment where this rework

@@ -212,6 +212,15 @@ from the unpositioned part file directly.
 
 Emit a BOM via `echo()` at the end of assembly mode (part name, material, quantity).
 
+If a project already uses **NopSCADlib**, don't hand-roll this: its README states
+it has "Python scripts to generate Bills of Materials (BOMs), STL files for all
+the printed parts, DXF files for CNC routed parts in a project and a manual
+containing assembly instructions and exploded views by scraping markdown
+embedded in OpenSCAD comments" (verified against the README, 2026-08-18). That
+covers this section and §8's exploded views outright. Adopting it is a whole
+framework, not a drop-in, so it's a project-level decision — but for a
+multi-part assembly that needs real build documentation it is the cheaper path.
+
 ## 7. Validation cycle (mandatory, every part and the full assembly)
 
 ```bash
