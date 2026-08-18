@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# Render/validate every part under parts/ plus assembly.scad, in one call.
+# Auto-discovers files (globs parts/*.scad) rather than a hand-maintained list,
+# so it can't silently skip a part someone forgot to register.
+#
+# Usage:
+#   scripts/validate_scad.sh --all              # every part + assembly.scad
+#   scripts/validate_scad.sh <part_basename>     # just parts/<name>.scad
+#
+# Flags used below (--hardwarnings, --check-parameters, --check-parameter-ranges)
+# were confirmed present via `openscad --help` on 2026-08-16 -- see
+# references/setup-notes.md in this skill if that ever needs re-checking.
+
+set -euo pipefail
+
+OPENSCAD=${OPENSCAD:-openscad}
+BUILD_DIR=${BUILD_DIR:-build}
+BACKEND=${BACKEND:-Manifold}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MODE=${1:---all}
+
+check_openscad() {
+    if ! command -v "$OPENSCAD" >/dev/null 2>&1; then
+        echo "ERROR: OpenSCAD not found ($OPENSCAD). Install it first." >&2
+        exit 1
+    fi
+    "$OPENSCAD" --version
+}
+
+validate_file() {
+    local scad="$1"
+    local stl="$2"
+    echo "--- Validating $scad -> $stl ---"
+    mkdir -p "$(dirname "$stl")"
+    "$OPENSCAD" --backend="$BACKEND" \
+        --hardwarnings \
+        --check-parameters=true \
+        --check-parameter-ranges=true \
+        -o "$stl" "$scad"
+    if [ ! -s "$stl" ]; then
+        echo "ERROR: STL is empty: $stl" >&2
+        exit 1
+    fi
+    echo "OK: $(du -h "$stl" | cut -f1)"
+
+    # Bounding-box check: only runs if the part declares an expected size via
+    # `// EXPECTED_BBOX: [x, y, z]` -- catches a part that renders fine and
+    # *looks* right but is subtly the wrong size (wrong -D override, a units
+    # slip, a parameter that didn't thread through correctly).
+    if grep -q '^[[:space:]]*//[[:space:]]*EXPECTED_BBOX' "$scad"; then
+        python3 "$SCRIPT_DIR/check_dimensions.py" --stl "$stl" --scad "$scad"
+    fi
+}
+
+check_openscad
+
+if [[ "$MODE" == "--all" ]]; then
+    shopt -s nullglob
+    parts=(parts/*.scad)
+    shopt -u nullglob
+    if [ ${#parts[@]} -eq 0 ]; then
+        echo "WARNING: no files found under parts/*.scad" >&2
+    fi
+    for scad in "${parts[@]}"; do
+        base="$(basename "$scad" .scad)"
+        validate_file "$scad" "$BUILD_DIR/$base.stl"
+    done
+    if [ -f assembly.scad ]; then
+        validate_file "assembly.scad" "$BUILD_DIR/assembly.stl"
+    fi
+else
+    scad="parts/$MODE.scad"
+    if [ ! -f "$scad" ]; then
+        echo "ERROR: $scad not found" >&2
+        exit 1
+    fi
+    validate_file "$scad" "$BUILD_DIR/$MODE.stl"
+fi
+
+echo "All validations passed."
