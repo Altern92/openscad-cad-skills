@@ -355,3 +355,26 @@ Findings:
 - Everything else (calculation table -> params.scad -> layout.scad -> part files ->
   assembly.scad -> validate_scad.sh -> check_collisions.py -> preview render) worked
   exactly as documented, no other deviations needed.
+
+## NopSCADlib install + purchased-hardware collision-checking (2026-08-19)
+
+Installed the same way as BOSL2: `git clone
+https://github.com/nophead/NopSCADlib.git` into
+`~/Documents/OpenSCAD/libraries/NopSCADlib`. Confirmed real, not just data:
+`ball_bearing(BBMR105)` (MR105 isn't a predefined constant, added it in the
+documented tuple format) rendered a watertight manifold solid with bounding
+box exactly `[10, 10, 4]` mm -- matching MR105's real OD10 x W4mm spec
+exactly, centered at the origin.
+
+Then a full round-trip through the actual pipeline, not just an isolated
+render: positioned the bearing against a printed housing's bearing pocket
+and ran `check_collisions.py` on both STLs. First attempt reported a false
+failure (48mm³ overlap) -- not a checker bug, a test-fixture bug: the
+housing's pocket was centered at z=3 while the bearing (per NopSCADlib's own
+centered-at-origin convention) sits at z=-2..2, so they were never actually
+aligned. Fixed the fixture (centered the pocket at z=0 to match), re-ran:
+correctly OK. A deliberately wrong pocket (offset + undersized) still
+correctly failed (166mm³ overlap). Confirms `check_collisions.py` needs zero
+modification to work on a vitamin -- it's just another STL -- and confirms
+the real, practical gotcha to flag: a vitamin's local origin convention
+(usually centered) has to be matched when positioning it, same as any part.

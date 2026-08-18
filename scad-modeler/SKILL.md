@@ -139,6 +139,21 @@ one machine that folder once held a single stray `gears.scad`, `include
 `git clone https://github.com/BelfrySCAD/BOSL2.git` into the library directory
 doctor names.
 
+## 4.5. Purchased hardware — position it too, not just its cavity
+
+A bearing, motor, or screw's *cavity* gets checked (`EXPECTED_HOLE`), but
+its own physical body is invisible to every check in §7 unless it's
+positioned as real geometry somewhere — this skill's whole validation chain
+only ever looks at `parts/*.scad`. Use
+[NopSCADlib](https://github.com/nophead/NopSCADlib)'s real, dimensionally-
+accurate solid models ("vitamins": `ball_bearing()`, `screw()`, `NEMA()`,
+`BLDC()`, ...) instead of skipping this or hand-drawing a placeholder —
+confirmed working end-to-end (2026-08-19): a positioned `ball_bearing()`
+correctly passed `check_collisions.py` against a correctly-sized housing
+pocket and correctly failed against a wrong one, no changes needed to the
+checker itself. See `references/hardware.md` for setup, the vitamin file
+naming convention, and the §8 BOM split (Printed vs. Purchased).
+
 ```openscad
 include <BOSL2/std.scad>
 
@@ -422,7 +437,10 @@ you were looking at is not the same as the part being right.
 
 After every check passes, report:
 - Files created/changed.
-- BOM: part name, material, quantity, key dimensions.
+- BOM: split **Printed** (material, print orientation, quantity) from
+  **Purchased** (NopSCADlib vitamin or supplier part number, quantity) —
+  see `references/hardware.md`. A print orientation on a bearing is a sign
+  something was missed, not a style choice.
 - Critical dimensions carried over from the calculation table (ratios, center
   distances, bearing fits) — these are what the user needs to double check against
   their own understanding of the mechanism.
@@ -440,6 +458,10 @@ pass, not something to analyze now; just log it accurately.
 - `../INCIDENTS.md` — append-only log of real bugs found and fixed (§8). Not
   reviewed automatically; a later pass reads it for patterns worth promoting
   into a permanent rule here.
+- `references/hardware.md` — §4.5: positioning purchased hardware
+  (NopSCADlib "vitamins" -- bearings, motors, screws) as real, checkable
+  geometry instead of an invisible cavity-only assumption. Confirmed
+  end-to-end against `check_collisions.py` with no changes to the checker.
 - `references/planning.md` — §0.5's full workflow: a 6-field decisions log
   (including the `Criticality` column `check_assumptions.py` enforces), a
   lightweight Pugh comparison for competing architectures, and a minimal
