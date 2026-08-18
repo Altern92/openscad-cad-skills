@@ -61,6 +61,7 @@ Patikrinimas, kuris niekada nekrenta, nieko neįrodo.
 
 | Įrankis | Ką pagauna |
 |---|---|
+| `check_plan.py` | neapsispręstą architektūrą, blokuojančias prielaidas, nesuplanuotas dalis |
 | `assert()` faile `params.scad` | konstrukcijos invariantus — sustabdo renderį |
 | `check_dimensions.py` | išorinį gabaritą prieš deklaruotą `EXPECTED_BBOX` |
 | `check_features.py` | gręžinio matmenį per briaunas — tai, į ką atsiremia velenas |
@@ -69,6 +70,17 @@ Patikrinimas, kuris niekada nekrenta, nieko neįrodo.
 
 Gabaritų tolerancija išvedama iš `$fa`/`$fs`, ne fiksuota. Kodėl tai svarbu ir
 kodėl gabaritas nemato per siauro gręžinio — `openscad-cad/references/tolerances.md`.
+
+## Projektavimo etapas
+
+Prieš skaičiavimus — architektūra. `scad-modeler` reikalauja plano
+(`templates/plan.md`): užduotis, **bent du principu besiskiriantys variantai**,
+Pugh palyginimas su sprendimu, ir priklausomybių eilė. `check_plan.py` tai
+tikrina kaip vartus, ne kaip patarimą.
+
+Kodėl: neteisingos architektūros negalima ištaisyti geresniais skaičiais žemiau
+srovės. Detalizavimas ant blogo koncepto nėra dalinis progresas — jis
+išmetamas. Metodas ir jo įrodymų bazė — `scad-modeler/references/planning.md`.
 
 ## Ribos
 

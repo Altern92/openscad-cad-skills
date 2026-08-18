@@ -1,6 +1,6 @@
 ---
 name: scad-modeler
-description: Use for complex, multi-part parametric OpenSCAD mechanical assemblies — things with gears, bearings, reductions, multiple interacting printed parts, or where getting a dimension wrong means two parts collide or don't mesh. Triggers on "gear ratio", "reduction", "bearing", "shaft", "assembly", "BOM", "center distance", "mechanical design", "RC car", "gearbox", "multi-part", or requests to design several parts that must fit together and be validated, not just a single organizer/bracket. For a single simple part (an insert, a bracket, a cover, a shroud), use the openscad-cad skill instead — this skill's calculation-table + validation overhead is not worth it for those. This skill builds on openscad-cad (§2 render/export commands still apply) and adds: mandatory engineering calculations before geometry, centralized part positions, per-part local coordinates, and automated dimensional/collision validation.
+description: Use for complex, multi-part parametric OpenSCAD mechanical assemblies — things with gears, bearings, reductions, multiple interacting printed parts, or where getting a dimension wrong means two parts collide or don't mesh. Triggers on "gear ratio", "reduction", "bearing", "shaft", "assembly", "BOM", "center distance", "mechanical design", "RC car", "gearbox", "multi-part", or requests to design several parts that must fit together and be validated, not just a single organizer/bracket. For a single simple part (an insert, a bracket, a cover, a shroud), use the openscad-cad skill instead — this skill's calculation-table + validation overhead is not worth it for those. Also triggers on "design a mechanism", "which architecture", "gearbox layout", or a brief vague enough that more than one mechanism would satisfy it. This skill builds on openscad-cad (§2 render/export commands still apply) and adds: a gated planning stage that fixes the architecture before any numbers, mandatory engineering calculations before geometry, centralized part positions, per-part local coordinates, and automated dimensional, collision and motion validation.
 ---
 
 # SCAD Modeler — Multi-Part Mechanical Assemblies
@@ -17,6 +17,39 @@ facts: motor/component specs, gear ratios, tolerances, design decisions. Don't a
 user to repeat facts that are already written down. If a needed fact is missing, ask
 once rather than guessing — a wrong bearing bore or shaft diameter is not something a
 render will catch; it only shows up when the part doesn't fit.
+
+## 0.5 Plan before calculating (mandatory for anything with a choice in it)
+
+Do not start computing ratios and centre distances until the architecture is
+chosen. A number is only as good as the concept it rests on, and Pahl & Beitz's
+observation holds: *"no design can hope to correct a poor solution concept in
+the embodiment design stage."* Detail work on the wrong architecture is not
+partial progress — it is discarded.
+
+The failure mode this exists for is specific to working from a vague or
+contradictory brief: the first plausible reading gets adopted silently, and
+everything downstream inherits it. Copy `templates/plan.md` to `design/plan.md`
+and fill four gates — task, **at least two architectures differing in
+principle**, a Pugh comparison naming the choice, and a dependency order saying
+which part is sized before which. Log every number that came from inference
+rather than a source as an assumption; mark it `blocking` if being wrong about
+it would change a decision.
+
+```bash
+python3 scripts/check_plan.py --plan design/plan.md --layout layout.scad
+```
+
+This is a gate, not a suggestion: it fails on one architecture option, a missing
+decision, an unresolved blocking assumption, or a part in `layout.scad` that
+never appeared in the design order — that last one catching a part invented
+mid-detail that skipped planning entirely.
+
+Skip this for a part with no architectural choice in it (one bracket, one
+insert). Use it whenever the brief admits more than one mechanism.
+
+`references/planning.md` has the method, the minimal Pugh and dependency
+formats, and an honest account of what the underlying literature does and does
+not support.
 
 ## 1. Calculation table (mandatory, before writing any geometry)
 
@@ -387,6 +420,9 @@ After every check passes, report:
   a part's declared `// EXPECTED_BBOX: [x, y, z]`, with the tolerance derived
   from `$fn`/`$fa`/`$fs`. Needs only `trimesh` (confirmed lighter than
   check_collisions.py — no scipy/python-fcl needed for this one).
+- `scripts/check_plan.py` — the planning gate: refuses detail work while the
+  architecture is unchosen, a blocking assumption stands, or a layout part never
+  went through the plan. Exit 0/1/4.
 - `scripts/motion_sweep.py` — interference and clearance through a declared
   motion cycle, with gear-tooth periodicity and adaptive refinement around the
   tightest position. Exit 0/2/3/4 like the others; `--json` for a machine-readable
@@ -411,6 +447,10 @@ After every check passes, report:
   contacts. `manifold3d` is an optional extra: without a boolean engine a
   declared press fit can't be measured against its range and the run reports
   degraded rather than passing.
+- `templates/plan.md` — the four planning gates, in the shape `check_plan.py`
+  reads.
+- `references/planning.md` — why concept precedes detail, minimal Pugh and
+  dependency-matrix formats, and what the literature actually supports.
 - `templates/joints.json` — starting point for declaring intentional contact
   pairs.
 - `../openscad-cad/references/confidence-tiers.md` — what may be claimed at each
