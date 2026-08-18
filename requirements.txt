@@ -1,0 +1,11 @@
+# Python dependencies for the validation scripts in scad-modeler/scripts/.
+# None are needed to write or render OpenSCAD -- only to check the result.
+# doctor.py reports which are present and which checks each one unlocks.
+
+trimesh          # mesh loading and bounding boxes; needed by every check
+shapely          # section contours; needed by check_features.py (bore measurement)
+scipy            # trimesh's own mesh checks; needed by check_collisions.py
+networkx         # trimesh graph operations
+python-fcl       # the actual collision math behind trimesh.collision
+manifold3d       # mesh booleans; without it a declared press fit cannot be
+                 # measured against its stated range (reported as degraded)

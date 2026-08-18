@@ -362,6 +362,10 @@ After every check passes, report:
   a part's declared `// EXPECTED_BBOX: [x, y, z]`, with the tolerance derived
   from `$fn`/`$fa`/`$fs`. Needs only `trimesh` (confirmed lighter than
   check_collisions.py — no scipy/python-fcl needed for this one).
+- `scripts/selftest.py` — end-to-end acceptance test: builds a part whose
+  answers are known in advance, runs the whole chain, and checks each tool
+  reaches the right verdict — including that the bore check *fails* on an
+  uncompensated bore. Run it once per machine before trusting the toolchain.
 - `scripts/doctor.py` — detects OpenSCAD, libraries (by entry-point file, not by
   folder name), Python dependencies and any calibration profile; reports the
   highest confidence tier the environment supports. Run it before trusting
