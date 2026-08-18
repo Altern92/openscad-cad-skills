@@ -65,6 +65,7 @@ Patikrinimas, kuris niekada nekrenta, nieko neįrodo.
 | `check_dimensions.py` | išorinį gabaritą prieš deklaruotą `EXPECTED_BBOX` |
 | `check_features.py` | gręžinio matmenį per briaunas — tai, į ką atsiremia velenas |
 | `check_collisions.py` | netyčinę interferenciją, per mažą tarpą, deklaruotus priveržimus |
+| `motion_sweep.py` | kirtimusi ir tarpus **per visą judesio ciklą**, ne vienoje pozoje |
 
 Gabaritų tolerancija išvedama iš `$fa`/`$fs`, ne fiksuota. Kodėl tai svarbu ir
 kodėl gabaritas nemato per siauro gręžinio — `openscad-cad/references/tolerances.md`.
@@ -72,11 +73,17 @@ kodėl gabaritas nemato per siauro gręžinio — `openscad-cad/references/toler
 ## Ribos
 
 Pasitikėjimo lygiai aprašyti `openscad-cad/references/confidence-tiers.md`.
-Skills siekia **Tier 4** — statinio mazgo patikrinimo. Neįgyvendinta:
+Skills siekia **Tier 5** — judesiu patikrinto mazgo.
 
-- **judesio sweep** — kolizijos tikrinamos vienoje pozoje, tad vyris ar
-  reduktorius gali būti laisvas ties 0° ir kirstis ties 37°;
-- **surinkimo sekos tikrinimas**;
+Judesio tikrinimas yra **mėginiavimas, ne įrodymas**: tarp dviejų mėginių
+niekas netikrinama. Adaptyvus tankinimas pagauna siaurus kirtimusis prie
+minimumo, bet siauras ir toli nuo minimumo esantis gali prasprūsti. Deklaruok
+žingsnį, kai remiesi rezultatu.
+
+Visiškai neįgyvendinta:
+
+- **surinkimo sekos tikrinimas** — mechanizmas gali praeiti Tier 5 ir vis tiek
+  būti nesurenkamas;
 - **apkrovos skaičiavimai** — be medžiagos duomenų tai būtų aritmetika,
   apsimetanti inžinerija;
 - **slicer printability vartai** — nė vienas iš trijų slicerių nedokumentuoja

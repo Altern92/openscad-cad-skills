@@ -1,14 +1,44 @@
-[
-  {
-    "_comment": "Intentional contact pairs for scripts/check_collisions.py. Names are matched case-insensitively as substrings of each STL's basename, so 'bearing_608' matches 'build/bearing_608.stl'. Declaring a pair licenses the interference you state -- not any interference: an overlap outside the range, or a declared press fit whose parts don't touch at all, still fails. Delete this _comment key and the examples below.",
+{
+  "_comment": "Joint declarations for check_collisions.py and motion_sweep.py. Part names are matched case-insensitively as substrings of each STL's basename, so 'bearing_608' matches 'build/bearing_608.stl'. Delete this _comment and replace the examples. The older bare-list form (contacts only, no motion) is still accepted.",
 
-    "pair": ["housing_bore", "bearing_608"],
-    "joint_type": "press_fit",
-    "expected_interference_mm": [0.05, 0.15]
-  },
-  {
-    "pair": ["lid", "body"],
-    "joint_type": "touching",
-    "expected_interference_mm": [0.0, 0.0]
-  }
-]
+  "contacts": [
+    {
+      "_comment": "Declaring a pair licenses the interference you state -- not any interference. An overlap outside the range fails, and so does a declared press fit whose parts do not touch. Declared pairs are also exempt from the motion sweep, since they are meant to stay in contact.",
+      "pair": ["housing_bore", "bearing_608"],
+      "joint_type": "press_fit",
+      "expected_interference_mm": [0.05, 0.15]
+    },
+    {
+      "pair": ["lid", "body"],
+      "joint_type": "touching",
+      "expected_interference_mm": [0.0, 0.0]
+    }
+  ],
+
+  "motion": [
+    {
+      "_comment": "'ratio' is this part's motion per unit of the sweep parameter. Meshing external gears turn OPPOSITE ways, so one ratio is negative -- getting that sign wrong is the easy mistake and produces a sweep that proves nothing. Give 'teeth' on every revolute driver and the sweep collapses to one tooth pitch; omit it to force the full range.",
+      "id": "gear_train",
+      "drivers": [
+        {"part": "gear_1", "type": "revolute",
+         "axis": [0, 0, 1], "origin": [0, 0, 0], "ratio": 1.0, "teeth": 20},
+        {"part": "gear_2", "type": "revolute",
+         "axis": [0, 0, 1], "origin": [45, 0, 0], "ratio": -0.5, "teeth": 40}
+      ],
+      "range_deg": [0, 360],
+      "step_deg": 2.0,
+      "min_clearance_mm": 0.3
+    },
+    {
+      "_comment": "For a prismatic driver, 'ratio' is millimetres per unit of the sweep parameter, so range_deg [0, 100] with ratio 0.5 travels 50 mm.",
+      "id": "drawer_slide",
+      "drivers": [
+        {"part": "slider", "type": "prismatic",
+         "axis": [1, 0, 0], "ratio": 0.5}
+      ],
+      "range_deg": [0, 100],
+      "step_deg": 1.0,
+      "min_clearance_mm": 0.4
+    }
+  ]
+}

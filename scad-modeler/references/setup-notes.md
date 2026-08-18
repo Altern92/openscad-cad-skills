@@ -288,6 +288,40 @@ does not give a file access to its caller's modules), and BOSL2 underpins §4 an
 §5 of this skill. Claims about this repo's contents are checkable against the
 repo; check them.
 
+**Motion sweep added (2026-08-18), verified by execution:**
+`scripts/motion_sweep.py` sweeps declared motion instead of checking one pose.
+Tested against a case whose answer is computable in advance — a 20 mm arm
+rotating about Z, and a Ø6 post whose inner edge sits at radius 21 or 19:
+
+| Case | Expected | Got |
+|---|---|---|
+| post at 21 (clear), no clearance requirement | pass, gap ≈1 mm | pass, 0.903 mm |
+| post at 19 (overlapping) | fail, interference | fail, 27 positions |
+| post at 21, `min_clearance_mm: 2.0` | fail on clearance, no interference | fail, tightest 0.903 mm |
+| meshing 20/40 teeth, ratios 1.0/−0.5 | sweep 18°, not 360° | 18.000°, 40 samples |
+| mismatched teeth 20/31 | periodicity refused, full 360° | 94 samples |
+| pair declared as a contact | skipped entirely | skipped |
+
+The first case is the interesting one. The naive expectation is that the worst
+clearance occurs at 0°, where the arm points straight at the post; the measured
+worst was **354.5°**, where the arm's *corner* passes nearer than its flat end,
+and 354.5 is not a multiple of the 5° step — only the adaptive refinement pass
+found it. That is the argument for the refinement pass existing, and also the
+argument for not trusting a coarse sweep.
+
+Design decisions worth not re-litigating:
+- **Gear maths stays in BOSL2.** An external proposal suggested reimplementing
+  centre distance with profile shift in Python; its formula added an involute
+  *function value* directly to an *angle*, which is dimensionally wrong, and its
+  backlash model widened the centre distance rather than thinning the tooth.
+  Both are the failure class §5 already warns about. `gear_dist()` owns this.
+- **Periodicity is applied only when every driver agrees on the period**, which
+  is exactly when the gears actually mesh. Disagreement means the shortcut is
+  unsound, so the full range is swept — confirmed by the 20/31 case above.
+- **Per-pair FCL managers**, not one internal check, because a declared press fit
+  must be exempt and `CollisionManager.in_collision_internal()` has no per-pair
+  exemption. Costs O(n²) managers; irrelevant at assembly scale.
+
 **Not verified — still open:**
 - Whether `openscad --summary bounding-box` can replace the STL→trimesh
   round-trip entirely (no OpenSCAD binary in the environment where this rework

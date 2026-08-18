@@ -320,9 +320,34 @@ carried on while claiming otherwise in its own docstring; FCL results on a
 non-watertight mesh aren't trustworthy, so it now changes the verdict. Use
 `--strict` to make it a hard fail.
 
-This is **one static pose**. A gearbox, hinge, latch or slider can be clear at
-0° and interfere at 37°; nothing here sweeps motion or checks that an assembly
-sequence exists. Don't read a pass as "the mechanism works."
+This is **one static pose**. For anything that moves, sweep it:
+
+```bash
+python3 scripts/motion_sweep.py --joints joints.json build/*.stl
+```
+
+Add a `motion` block to the same `joints.json` (see `templates/joints.json`):
+each driver gets an axis, an origin, and a `ratio` — its motion per unit of the
+sweep parameter. **Meshing external gears turn opposite ways, so one ratio is
+negative**; getting that sign wrong produces a sweep that proves nothing.
+
+Give `teeth` on every revolute driver and the sweep collapses to one tooth
+pitch — 18° instead of 360° for a 20-tooth gear, a 20× saving — applied only
+when every driver agrees on the period, which happens exactly when the gears
+really mesh. Declared contacts stay exempt: a press fit is meant to touch.
+
+A coarse pass is followed by fine re-sampling around the tightest position,
+because that is where a clash narrower than the step hides. In testing this
+mattered: on a swinging arm the worst clearance was not at the obvious 0° but
+at 354.5°, where the arm's *corner* passes nearer than its flat end, and only
+the refinement pass found it.
+
+**This is sampling, not proof.** A clash narrower than the step and far from the
+global minimum can still be missed. Lower `--step-deg` before concluding a
+design is clear, and never widen `min_clearance_mm` to make a failure go away.
+
+Still not checked at all: whether an assembly sequence physically exists, and
+anything to do with load or strength.
 
 This needs `trimesh`, `python-fcl` (trimesh's `CollisionManager` doesn't do
 collision detection itself — it wraps FCL), and `scipy` (trimesh's own mesh
@@ -362,6 +387,10 @@ After every check passes, report:
   a part's declared `// EXPECTED_BBOX: [x, y, z]`, with the tolerance derived
   from `$fn`/`$fa`/`$fs`. Needs only `trimesh` (confirmed lighter than
   check_collisions.py — no scipy/python-fcl needed for this one).
+- `scripts/motion_sweep.py` — interference and clearance through a declared
+  motion cycle, with gear-tooth periodicity and adaptive refinement around the
+  tightest position. Exit 0/2/3/4 like the others; `--json` for a machine-readable
+  result.
 - `scripts/selftest.py` — end-to-end acceptance test: builds a part whose
   answers are known in advance, runs the whole chain, and checks each tool
   reaches the right verdict — including that the bore check *fails* on an

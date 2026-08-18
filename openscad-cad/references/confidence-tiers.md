@@ -73,15 +73,39 @@ closer than the stated clearance."
 One static pose. A gearbox, hinge, latch or slider can be clear at 0° and
 interfere at 37°.
 
-## Tier 5 — Motion and load
+## Tier 5 — Motion-verified assembly
 
-**Not implemented.** Reaching it would need swept-volume or sampled-pose
-interference checking, assembly-sequence feasibility, and — for anything
-load-bearing — material data the skills do not have. A polymer gear rating
-without material properties is arithmetic dressed as engineering.
+**Input:** Tier 4, plus a `motion` block in `joints.json` declaring each moving
+part's axis, origin and ratio, and the clearance the mechanism needs while
+running.
+**Gates:** Tier 4, plus `motion_sweep.py` passing across the declared range.
+**May be said:** "at every sampled position of the declared motion, nothing
+interferes and nothing is closer than the stated clearance."
+**May NOT be said:** that the mechanism is proven clear.
 
-If a task genuinely needs Tier 5, say that the skill stops at Tier 4 and name
-what is unverified, rather than producing numbers that imply more.
+The distinction in that last line is the whole tier. This is **sampling, not a
+proof**: between two sampled positions nothing is checked. The adaptive pass
+refines around the tightest configuration, which catches narrow clashes near a
+minimum — in testing, a swinging arm's worst position was 354.5°, not the
+obvious 0°, because its corner passes nearer than its flat end — but a clash
+that is both narrow and far from the minimum can still slip between samples.
+Quote the step size when claiming this tier, and say it was sampled.
+
+Two more things gate honesty here rather than software: the ratios must be
+right (meshing external gears turn opposite ways — a wrong sign sweeps a
+mechanism that does not exist), and the declared range must actually cover the
+motion the part will see in use.
+
+## Out of scope entirely — not a tier
+
+**Assembly sequence.** Whether a physical insertion path exists is unchecked. A
+mechanism can pass Tier 5 and still be impossible to put together.
+
+**Load, stress and stiffness.** No material data, so no calculation. A polymer
+gear rating without material properties is arithmetic dressed as engineering,
+and printed parts are anisotropic in a way generic values do not capture. If a
+task needs this, say the skills stop at geometry and name what is unverified —
+do not produce numbers that imply more.
 
 ---
 

@@ -103,10 +103,16 @@ def load_contacts(path):
     except (OSError, ValueError) as e:
         print(f"ERROR: cannot read contacts file {path}: {e}", file=sys.stderr)
         sys.exit(EXIT_USAGE)
+    # Two accepted shapes: a bare list of contacts (the original form), or an
+    # object with "contacts" alongside the "motion" block motion_sweep.py reads
+    # from the same file. Both scripts share one joints.json.
+    if isinstance(data, dict):
+        data = data.get("contacts", [])
     if not isinstance(data, list):
-        print(f"ERROR: {path} must contain a JSON list of contact entries.",
-              file=sys.stderr)
+        print(f"ERROR: {path} must contain a JSON list of contact entries, or an "
+              f"object with a \"contacts\" list.", file=sys.stderr)
         sys.exit(EXIT_USAGE)
+    data = [e for e in data if isinstance(e, dict) and "pair" in e]
     for entry in data:
         if "pair" not in entry or len(entry.get("pair", [])) != 2:
             print(f"ERROR: contact entry missing a 2-element 'pair': {entry}",
