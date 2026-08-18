@@ -123,6 +123,48 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 
 ## Entries
 
+### 2026-08-19 -- short blind pilot holes near a curved tower wall left tiny negative-volume "ghost" bodies, not a real design error
+- **Where:** `esp32_rc_modelis/mechanical/steering_reduction_gearbox/parts/
+  gearbox_frame.scad` (`cap_pilot_holes_x`) and `bearing_cap.scad` -- a
+  different, parallel Claude Code session's own work while fixing the
+  incident below (jackshaft bearing axial retention); diagnosed from a
+  shared transcript, not fixed directly by this session.
+- **Symptom:** after adding M2 self-tap pilot holes for the new
+  `bearing_cap`, `trimesh.body_count`/`.split()` reported extra
+  disconnected bodies -- small, consistently NEGATIVE-volume shards
+  (~-10mm³ to -16mm³, i.e. inverted normals) near the pilot hole location.
+  Six debug variants were tried (removing a `-0.1mm` pre-offset, raising
+  `$fn` 32→64, widening the hole 1.6mm→2.0mm) -- none of them cleared it.
+  Only two configurations came out clean: a hole with a much larger
+  diameter (5mm), and a hole deliberately cut with generous overlap past
+  the tower's true outer surface instead of a precisely-sized blind depth.
+- **Root cause:** the pilot hole's outer end landed almost exactly tangent
+  to the tower's own curved outer cylindrical surface -- a near-tangent
+  intersection between two curved CSG surfaces. At that near-tangency,
+  floating-point/mesh-tessellation precision in the CGAL/Manifold boolean
+  engine can leave a tiny inverted-normal shard behind instead of a clean
+  cut, and the effect is insensitive to `$fn`/diameter tweaks that don't
+  change the tangency condition itself -- only genuine geometric margin
+  (bigger diameter, or a cut that clearly crosses the real surface with
+  overlap) fixes it. This is a known category of CSG boolean fragility
+  (grazing/near-tangent intersections), not a logic bug in the OpenSCAD
+  code, and not a real disconnected-body design error either -- a false-
+  positive-*adjacent* case for `check_connectivity.py`: the check correctly
+  reports extra bodies, but the fix is a modeling-margin change, not
+  evidence the part is actually two pieces.
+- **Fix:** Not fixed/confirmed by this session -- diagnosed and relayed as
+  a recommendation to the other session: replace the short blind pilot hole
+  with either a full through-hole, or a blind cut that starts clearly
+  outside the tower's outer surface with generous overlap margin, rather
+  than a depth calculated to land precisely at the wall.
+- **Already promoted to a rule?** not yet -- candidate for a part-file
+  modeling note ("give a boolean cut genuine overlap margin past a curved
+  surface it's not meant to just graze") and/or a `check_connectivity.py`
+  docstring note ("a small negative-volume disconnected body is often a
+  tangent-CSG-boolean artifact from a blind cut near a curved surface --
+  try more overlap/diameter before assuming the part design itself is
+  wrong").
+
 ### 2026-08-19 -- gearbox_frame.stl rendered as two physically disconnected bodies
 - **Where:** `esp32_rc_modelis/mechanical/.../gearbox_frame.scad` (a different,
   parallel Claude Code session's own work; reported directly by that session)
