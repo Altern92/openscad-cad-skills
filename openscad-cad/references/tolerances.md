@@ -25,6 +25,47 @@ Compensate **holes only**. On an external cylinder the polygon's vertices are
 the widest points, so a pin already measures its nominal diameter across
 corners — enlarging it tightens the fit instead of loosening it.
 
+## What accuracy FDM can actually hold — and why ISO fit labels don't apply
+
+Sourced findings, each marked by how far it was verified:
+
+- **Achievable ISO 286 IT grades on FDM are roughly IT9–IT14**, and which end you
+  land on depends on feature size and axis — IT9 was reported only at a 315 mm
+  X-axis dimension, IT10 around 120–250 mm, with the coarser grades covering
+  ordinary small features. *(Corroborated across two peer-reviewed sources at
+  abstract/snippet level: Gebre et al. 2026, "Influence of Geometry and Size on
+  Precision and Accuracy in FDM", DOI 10.1155/mdp2/7177386; and "Accuracy of FDM
+  PLA Polymer 3D Printing Technology Based on Tolerance Fields", MDPI Processes
+  11(10):2810. A third — Spitaels et al., EUSPEN 2022 — reports IT10–IT15 across
+  two printers. Full texts not read; publisher domains were unreachable from the
+  environment where this was written.)*
+- **Bigger features get better IT grades, and this is an artefact of how IT is
+  defined**, not of the printer improving: absolute deviation stays roughly
+  constant across nominal sizes while the IT band widens with size, so the same
+  physical error scores a better grade on a larger part. Percentage error
+  therefore grows as features shrink. *(Peer-reviewed, abstract level.)*
+- **Systematic undersizing of cylindrical and curved features is confirmed**, not
+  folklore. *(Peer-reviewed, abstract level — magnitudes by material/nozzle/layer
+  height are in full texts that were not read.)*
+
+**The practical consequence: do not label a printed fit with an ISO 286
+designation.** An H7 hole is IT7. FDM operating around IT12–IT14 is roughly an
+order of magnitude looser, so "H7/g6" on a printed part is a precision-machining
+label over a process that cannot realise it — the same pseudo-rigour as claiming
+a full gear rating without material data. Industry sources put it bluntly: ISO
+286 is "mostly irrelevant for FDM 3D printing due to the greater dimensional
+variability and surface roughness inherent to the material extrusion process."
+*(Secondary industry source.)*
+
+Use functional fit classes plus a measured per-printer offset instead — describe
+what the joint must **do** (free clearance, guided slide, locating, light press),
+not which machining grade it pretends to hold.
+
+`NEPATIKRINTA` — the exact IT band in µm for a given nominal size. Settle it
+against the ISO 286-1 table directly; a web search returned conflated rows and
+should not be trusted for this. The decision above does not depend on the exact
+figure.
+
 ## Empirical clearance values
 
 

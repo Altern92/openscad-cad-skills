@@ -229,6 +229,27 @@ picking the smallest one containing the probe point needs only `shapely`.
   `regular_ngon()` and its `pentagon()`/`hexagon()`/`octagon()` wrappers. Don't
   expect `circle()` to solve the undersizing.
 
+**Literature pass (2026-08-18) — what closed, what didn't:**
+- **FDM process capability**: IT9–IT14 achievable, size- and axis-dependent;
+  systematic undersizing of cylindrical features confirmed peer-reviewed. Folded
+  into `openscad-cad/references/tolerances.md` with the conclusion that ISO 286
+  fit designations must not be used as labels for printed fits. Abstract-level
+  only — publisher domains (doi.org, mdpi.com) were unreachable from here, so
+  feature-type magnitudes in mm remain unread.
+- **VLM inspection of renders**: no benchmark found that measures detecting
+  wrong dimensions, interference, or missing internal features from rendered
+  views. Existing CAD benchmarks measure generation, not inspection.
+  CADCodeVerify's visual-feedback loop moved accuracy 64.6% → 68.2%. Recorded in
+  `openscad-cad/SKILL.md` §1: the render is a sanity layer, not a gate.
+- **Slicer printability gate**: not implementable from documentation alone
+  today. OrcaSlicer has the only documented exit-code set (`-100
+  CLI_SLICING_ERROR`, `-51 CLI_VALIDATE_ERROR`, `-101 CLI_GCODE_PATH_CONFLICTS`
+  and others) but the docs are community-maintained and known to diverge from
+  actual behaviour (SIGSEGV/139). PrusaSlicer and CuraEngine have documented
+  CLIs but no documented exit-code semantics. Crucially, none of the three
+  documents thin-wall or non-manifold warnings as CLI-reachable. Revisit by
+  running them, not by reading.
+
 **Not verified — still open:**
 - Whether `openscad --summary bounding-box` can replace the STL→trimesh
   round-trip entirely (no OpenSCAD binary in the environment where this rework

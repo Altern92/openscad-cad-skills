@@ -64,6 +64,19 @@ capture — but running everything through the same render step keeps the workfl
 3. **Iterate**: adjust variables/code, re-render, re-view, repeat until it's right.
 4. **Export final geometry** (STL for printing) only once the preview looks right.
 
+**How much to trust step 2.** Looking at the render catches gross mistakes —
+wrong proportions, a missing feature, a part in the wrong place — and that is
+worth doing every time. It is not evidence that dimensions are correct. A
+literature check (2026-08) found no benchmark measuring how well a
+vision-language model detects wrong dimensions, interference, or missing
+internal features from rendered views; the CAD benchmarks that exist
+(CADPrompt, Text2CAD-Bench, CadBench, MUSE) measure *generation*, not
+*inspection*, and the one measured visual-feedback repair loop, CADCodeVerify,
+moved accuracy 64.6% → 68.2% — real but small. Treat the render as a sanity
+layer, never as a gate. Anything dimensional needs a number: an `assert()` in
+the model, or the STL-side checks in the `scad-modeler` skill
+(`check_dimensions.py` for the envelope, `check_features.py` for bores).
+
 ## 2. Commands
 
 Fast preview render (uses the OpenCSG preview path — same as pressing F5 in the
