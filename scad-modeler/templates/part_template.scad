@@ -8,6 +8,11 @@
 //                                 validate_scad.sh checks the rendered STL against
 //                                 this automatically; delete the line to skip
 //                                 (e.g. for an odd shape where a bbox isn't meaningful)
+// EXPECTED_HOLE: [0, 0, 0, "Z", 8.0]  // one line per fit-critical bore: a point on
+//                                 its axis, the axis, and the target across-flats
+//                                 diameter. A bbox cannot see a bore that's too
+//                                 tight; this measures it. Delete if the part has
+//                                 no fit-critical round features.
 // ============================================================
 
 include <../params.scad>

@@ -50,6 +50,14 @@ validate_file() {
     if grep -q '^[[:space:]]*//[[:space:]]*EXPECTED_BBOX' "$scad"; then
         python3 "$SCRIPT_DIR/check_dimensions.py" --stl "$stl" --scad "$scad"
     fi
+
+    # Feature check: a bbox is nearly blind to inscribed-polygon undersizing,
+    # which is what actually makes a bore too tight. Any part declaring
+    # `// EXPECTED_HOLE: [x, y, z, "Z", d]` gets its bores measured
+    # flat-to-flat instead.
+    if grep -q '^[[:space:]]*//[[:space:]]*EXPECTED_HOLE' "$scad"; then
+        python3 "$SCRIPT_DIR/check_features.py" --stl "$stl" --scad "$scad"
+    fi
 }
 
 check_openscad

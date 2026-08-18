@@ -173,6 +173,37 @@ this rework had left open:**
   below a micron of radius, so dimensionally irrelevant; mirrored in
   `scad_tessellation.py` for fidelity, omitted from `patterns.scad`.
 
+**Feature-level bore check added (2026-08-18), verified by execution:**
+`scripts/check_features.py` sections the mesh perpendicular to a declared hole
+axis and measures across-flats. Tested against meshes built with a known facet
+count, so the expected answer was computable in advance:
+
+| Bore | facets | theory | measured |
+|---|---|---|---|
+| Ø8, `$fa=2/$fs=0.3` equivalent | 84 | 7.9944 | 7.994 ✓ |
+| Ø8, OpenSCAD defaults | 13 | 7.7675 | 7.768 ✗ (correctly fails) |
+| Ø8 compensated via `d/cos(π/n)` | 13 | 8.0000 | 8.000 ✓ |
+
+Also verified: X-axis bores, a genuinely wrong diameter (the
+inscribed-polygon hint correctly does *not* fire), coordinates that miss the
+bore (errors out instead of silently measuring the outer wall), no declaration
+(skips, exit 0), missing file (exit 4).
+
+Two bugs found by testing, not by reading:
+- **Measuring to contour vertices instead of to the contour itself.** On a
+  polygonised bore every vertex sits at the *circumradius*, so a vertex-based
+  minimum is only right when the cutting plane happens to land on the mesh's
+  diagonal edges. It gave the correct answer at `z=0` and would have drifted
+  elsewhere. Now uses point-to-boundary distance; confirmed identical at `z=0`
+  and `z=3.7`.
+- **A point inside the part but not inside any bore** silently measured the
+  distance to the outer wall and reported it as a bore diameter. Now detected
+  and reported as an error.
+
+`trimesh.path.polygons_full` was deliberately avoided: it builds an enclosure
+tree and pulls in an `rtree` dependency. Working from the raw section loops and
+picking the smallest one containing the probe point needs only `shapely`.
+
 **Not verified — still open:**
 - Whether `openscad --summary bounding-box` can replace the STL→trimesh
   round-trip entirely (no OpenSCAD binary in the environment where this rework

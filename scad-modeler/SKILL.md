@@ -245,13 +245,31 @@ too loose and would pass a part that was genuinely the wrong size. Pass
 declared bbox is deliberately a rounded nominal. No `EXPECTED_BBOX` = skipped.
 
 **A bounding box is nearly blind to the error that actually breaks fits.**
-OpenSCAD puts a polygon vertex at angle 0, so the bbox touches the ideal radius
-on any axis where a vertex lands — it sees the envelope, not the
-inscribed-polygon *across-flats* deficit that makes a bore too tight. Green bbox
-check ≠ the bearing will seat. Use `true_hole_d()` from
-`openscad-cad/references/patterns.scad` (Pattern 0) for round fit-critical
-features, and see `references/tolerances.md` for which error layer is corrected
-where.
+OpenSCAD puts a polygon vertex at angle 0 (verified in upstream
+`primitives.cc`), so the bbox touches the ideal radius on any axis where a
+vertex lands — it sees the envelope, not the inscribed-polygon *across-flats*
+deficit that makes a bore too tight. Green bbox check ≠ the bearing will seat.
+
+For round fit-critical features, declare them and let them be measured:
+
+```openscad
+// EXPECTED_HOLE: [0, 0, 5, "Z", 8.0]   // axis point, axis, target across-flats Ø
+```
+
+`validate_scad.sh` then runs `scripts/check_features.py`, which slices the mesh
+perpendicular to that axis and measures the shortest distance across the bore —
+the dimension a shaft actually binds on. Default tolerance 0.05mm. It also
+reports across-corners, and when a hole is short flat-to-flat while correct
+across corners it names the cause: inscribed-polygon undersizing rather than a
+wrong parameter.
+
+How much this matters is entirely a function of facet resolution, which is why
+it's worth checking: a Ø8 hole is undersized by 0.006mm at `$fa=2, $fs=0.3` —
+negligible — but by **0.233mm at OpenSCAD's defaults**, which is a failed fit
+that nothing else in this chain notices. Fix it with `true_hole_d()` from
+`openscad-cad/references/patterns.scad` (Pattern 0) or by setting `$fa`/`$fs`
+finer. See `references/tolerances.md` for which error layer is corrected where —
+this is the CAD layer only, and the printer's own hole bias sits on top of it.
 
 For assemblies of 3+ parts, also run interference/clearance checking:
 
@@ -322,6 +340,9 @@ After every check passes, report:
   a part's declared `// EXPECTED_BBOX: [x, y, z]`, with the tolerance derived
   from `$fn`/`$fa`/`$fs`. Needs only `trimesh` (confirmed lighter than
   check_collisions.py — no scipy/python-fcl needed for this one).
+- `scripts/check_features.py` — measures declared bores flat-to-flat by
+  sectioning the mesh, catching the undersizing a bbox check cannot see. Needs
+  `trimesh`, `shapely`, `scipy`, `networkx`.
 - `scripts/scad_tessellation.py` — OpenSCAD's facet-count formula plus the
   inscribed-polygon error bounds, and the `$fn`/`$fa`/`$fs` parser that follows
   one level of `include`. Imported by `check_dimensions.py`; read its header for
