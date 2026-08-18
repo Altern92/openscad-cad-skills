@@ -234,20 +234,55 @@ to the part's own dimension variables:
 ```
 
 `validate_scad.sh` greps for that comment and, if present, runs
-`scripts/check_dimensions.py --stl <rendered.stl> --scad <part.scad>` — it
-compares the actual STL bounding box to the declared one, tolerance
-`max(0.3mm, 1% of the expected dimension)` per axis (confirmed: catches a
-deliberate 1mm mismatch on a 10mm part, passes an exact match, and passes a
-200mm part with mesh-tessellation-scale slack). No `EXPECTED_BBOX` comment =
-check is skipped, not required for every part (e.g. an odd shape where a
-bounding box isn't a meaningful sanity check on its own).
+`scripts/check_dimensions.py --stl <rendered.stl> --scad <part.scad>`. The
+tolerance is **derived from the model's own facet resolution**, not fixed: per
+axis it is `max(tessellation bound, 0.005mm)`, with `$fn`/`$fa`/`$fs` read from
+the part file and one level of its `include`s. The former flat
+`max(0.3mm, 1%)` was not a tessellation tolerance at all — at `$fa=2, $fs=0.3`
+the real mesh error is ~0.003mm at Ø20 and ~0.030mm at Ø200, so it was 10–65×
+too loose and would pass a part that was genuinely the wrong size. Pass
+`--abs-tol/--rel-tol` to opt back into a flat tolerance for a part whose
+declared bbox is deliberately a rounded nominal. No `EXPECTED_BBOX` = skipped.
 
-For assemblies of 3+ parts, also run collision detection — no two parts that
-shouldn't touch should overlap in 3D space:
+**A bounding box is nearly blind to the error that actually breaks fits.**
+OpenSCAD puts a polygon vertex at angle 0, so the bbox touches the ideal radius
+on any axis where a vertex lands — it sees the envelope, not the
+inscribed-polygon *across-flats* deficit that makes a bore too tight. Green bbox
+check ≠ the bearing will seat. Use `true_hole_d()` from
+`openscad-cad/references/patterns.scad` (Pattern 0) for round fit-critical
+features, and see `references/tolerances.md` for which error layer is corrected
+where.
+
+For assemblies of 3+ parts, also run interference/clearance checking:
 
 ```bash
-python3 scripts/check_collisions.py build/*.stl
+python3 scripts/check_collisions.py --min-clearance 0.3 \
+    --expected-contacts joints.json build/*.stl
 ```
+
+It distinguishes three verdicts rather than one boolean, because "do they
+overlap?" is the wrong question for a printed assembly:
+
+- **Unintended interference** — overlap with nothing declaring it. Fail.
+- **Insufficient clearance** — no overlap, but a gap below `--min-clearance`.
+  Two parts 0.02mm apart pass a pure overlap test and fuse in the print, so
+  without a threshold the check is close to meaningless. Default is 0 (overlap
+  only); set it to something the process can actually resolve.
+- **Intentional contact** — press fits, snap fits and threads are *supposed* to
+  overlap. Declare them in `templates/joints.json` and they are range-checked
+  instead of flagged; an undeclared overlap still fails, and a declared press
+  fit whose parts don't touch fails too.
+
+Exit codes: `0` pass, `2` degraded (a mesh wasn't watertight, or a declared
+interference couldn't be measured — treat as *not checked*, not as pass), `3`
+fail, `4` usage error. The non-watertight case previously printed a warning and
+carried on while claiming otherwise in its own docstring; FCL results on a
+non-watertight mesh aren't trustworthy, so it now changes the verdict. Use
+`--strict` to make it a hard fail.
+
+This is **one static pose**. A gearbox, hinge, latch or slider can be clear at
+0° and interfere at 37°; nothing here sweeps motion or checks that an assembly
+sequence exists. Don't read a pass as "the mechanism works."
 
 This needs `trimesh`, `python-fcl` (trimesh's `CollisionManager` doesn't do
 collision detection itself — it wraps FCL), and `scipy` (trimesh's own mesh
@@ -284,10 +319,20 @@ After every check passes, report:
   files under `parts/` (no manual list to keep in sync); also runs the bounding-box
   check below for any part that opts in.
 - `scripts/check_dimensions.py` — compares a rendered STL's bounding box against
-  a part's declared `// EXPECTED_BBOX: [x, y, z]`. Needs only `trimesh` (confirmed
-  lighter than check_collisions.py — no scipy/python-fcl needed for this one).
-- `scripts/check_collisions.py` — trimesh/FCL-based interference check between
-  already-positioned part STLs.
+  a part's declared `// EXPECTED_BBOX: [x, y, z]`, with the tolerance derived
+  from `$fn`/`$fa`/`$fs`. Needs only `trimesh` (confirmed lighter than
+  check_collisions.py — no scipy/python-fcl needed for this one).
+- `scripts/scad_tessellation.py` — OpenSCAD's facet-count formula plus the
+  inscribed-polygon error bounds, and the `$fn`/`$fa`/`$fs` parser that follows
+  one level of `include`. Imported by `check_dimensions.py`; read its header for
+  why across-flats deficit and bbox deviation are different quantities.
+- `scripts/check_collisions.py` — trimesh/FCL interference **and clearance**
+  check between already-positioned part STLs, with declared intentional
+  contacts. `manifold3d` is an optional extra: without a boolean engine a
+  declared press fit can't be measured against its range and the run reports
+  degraded rather than passing.
+- `templates/joints.json` — starting point for declaring intentional contact
+  pairs.
 - `templates/part_template.scad` — starting point for a new part file, includes
   the `EXPECTED_BBOX` convention.
 - `templates/layout.scad` — starting point for a new assembly's `layout.scad`.

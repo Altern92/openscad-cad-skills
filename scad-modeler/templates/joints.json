@@ -1,0 +1,14 @@
+[
+  {
+    "_comment": "Intentional contact pairs for scripts/check_collisions.py. Names are matched case-insensitively as substrings of each STL's basename, so 'bearing_608' matches 'build/bearing_608.stl'. Declaring a pair licenses the interference you state -- not any interference: an overlap outside the range, or a declared press fit whose parts don't touch at all, still fails. Delete this _comment key and the examples below.",
+
+    "pair": ["housing_bore", "bearing_608"],
+    "joint_type": "press_fit",
+    "expected_interference_mm": [0.05, 0.15]
+  },
+  {
+    "pair": ["lid", "body"],
+    "joint_type": "touching",
+    "expected_interference_mm": [0.0, 0.0]
+  }
+]

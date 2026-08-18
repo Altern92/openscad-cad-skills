@@ -1,5 +1,33 @@
 # Fit tolerances — reference values from real prints
 
+## Read this first: two different errors, two different fixes
+
+A hole that comes out too tight has two independent causes, and they must be
+corrected in different places. Correcting one twice, or both in the same place,
+makes the fit worse rather than better.
+
+| Layer | Cause | Size | Where it is corrected |
+|---|---|---|---|
+| **Tessellation (CAD)** | OpenSCAD builds circles as *inscribed* polygons, so a hole's flat-to-flat size is `d·cos(180/n)`, not `d`. Deterministic, exactly computable, has nothing to do with the printer. | `d·(1−cos(180/n))`. At `$fa=2, $fs=0.3`: ~0.003 mm at Ø20, ~0.030 mm at Ø200. At OpenSCAD's *defaults* (`$fa=12, $fs=2`): ~0.11 mm at Ø20 — 35× worse. | `true_hole_d()` in `patterns.scad` (Pattern 0) |
+| **Process bias (printer)** | FDM lays holes down undersized and outer surfaces oversized; varies with material, nozzle, layer height, speed, orientation. Statistical, must be measured. | Typically an order of magnitude larger than the tessellation error. | The clearance values in the table below, or a per-printer calibration profile |
+
+Two consequences worth stating plainly:
+
+- **Set `$fa`/`$fs` before blaming the printer.** At OpenSCAD's stock defaults
+  the CAD-side error alone is comparable to a fit clearance. `$fa = 2; $fs = 0.3;`
+  pushes it to a few microns, where it stops mattering.
+- **Do not stack compensations.** If you apply `true_hole_d()` *and* enable the
+  slicer's hole/XY expansion for the same hole, both enlarge it. Pick one owner
+  per layer: `true_hole_d()` owns the geometry error, the slicer or the
+  clearance value owns the process error.
+
+Compensate **holes only**. On an external cylinder the polygon's vertices are
+the widest points, so a pin already measures its nominal diameter across
+corners — enlarging it tightens the fit instead of loosening it.
+
+## Empirical clearance values
+
+
 Clearance values that came out of actual fit decisions on real parts in this
 project set, not guesses. Use these as starting points instead of re-deriving
 a clearance from scratch each time; adjust from here if a specific print
@@ -19,6 +47,11 @@ length) and lean toward 1mm/side as the contact length or the mating surface
 size grows, since a longer/larger friction fit is much less forgiving of
 being even slightly undersized (or slightly warped from printing) than a
 short one.
+
+These three rows are a small empirical sample (one person, one printer, a
+handful of parts) — good starting points, not calibrated process data. For a
+fit that has to work first try, print a coupon on your own machine and material
+and measure it rather than trusting the table.
 
 General principles behind all three rows:
 - These are all **per-side** (radius/offset) values — double for total

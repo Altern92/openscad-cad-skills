@@ -327,7 +327,10 @@ the user if they're designing something load-bearing at M3 or below.
 - `references/tolerances.md` — per-side clearance values for common fits (loose
   drop-in, grid-constrained drop-in, friction fit), each sourced from a real part
   in this project set rather than guessed.
-- `references/patterns.scad` — reusable geometry modules (`gridfinity_contour_pocket`,
+- `references/patterns.scad` — Pattern 0 is `true_hole_d()`/`true_hole()`, the
+  exact compensation for OpenSCAD's inscribed-polygon hole undersizing; apply it
+  to any round fit-critical hole (holes only, never pins). The rest are reusable
+  geometry modules (`gridfinity_contour_pocket`,
   `friction_sleeve`/`sleeve_wire_notch`, `bent_duct`) extracted from real parts;
   `use <patterns.scad>` the ones you need. The single-rectangular-pocket case is
   documented there as a snippet rather than a module — it depends on the Gridfinity

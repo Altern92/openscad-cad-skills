@@ -114,6 +114,58 @@ Practical consequence for this skill: `assembly.scad` must `use` its part files,
 trailing unconditional render call, silently duplicating that part's geometry on top
 of the positioned copy placed via `at()`.
 
+## Validation-script rework (2026-08-18) — what was verified, and how
+
+Three changes, prompted by an external review of this skill set. Marked by how
+each claim was established, because the two are not equally strong.
+
+**Derived mathematically, then checked numerically in Python:**
+- OpenSCAD's facet count is `$fn > 0 ? max(3,$fn) : ceil(max(min(360/$fa,
+  2πr/$fs), 5))`. Mirrored in `scripts/scad_tessellation.py`.
+- Inscribed-polygon deficit is `d·(1−cos(180/n))`. At `$fa=2, $fs=0.3` that is
+  0.0031 mm at Ø20 and 0.0305 mm at Ø200 — versus the old flat
+  `max(0.3 mm, 1%)` tolerance of 0.3 mm and 2.0 mm respectively. The old default
+  was therefore 10–65× too loose to function as a mesh-error gate. An
+  independent review derived the same figures.
+- **Across-flats deficit and bounding-box deviation are numerically the same
+  expression but describe different things**, and conflating them is the trap:
+  OpenSCAD places a vertex at angle 0, so when `n` is divisible by 4 (and
+  `$fa=2` gives exactly `n=180`) the bbox touches the ideal radius on every axis
+  and the bbox error is ~0. `d·(1−cos(180/n))` is a safe *upper bound* for the
+  bbox — appropriate for a tolerance — while it is the *realised* error
+  flat-to-flat, which is what makes a hole too tight. A bbox check consequently
+  cannot detect an undersized bore; only feature-level checking or the Pattern 0
+  compensation addresses that.
+
+**Verified by execution (Python 3, trimesh 5.0.0, python-fcl, manifold3d):**
+- `check_dimensions.py`: passes an exact 40×20×15 match, fails a deliberate 1 mm
+  X mismatch, skips cleanly when no `EXPECTED_BBOX` is declared, and honours
+  `--abs-tol` as a documented escape hatch.
+- The `$fa`/`$fs` parser resolves through `include <../params.scad>` and ignores
+  commented-out assignments. **A line-anchored regex would have silently missed
+  `$fs` in this skill's own template**, which writes `$fa = 2; $fs = 0.3;` on one
+  line — the fallback to OpenSCAD's defaults would then have produced a
+  tolerance ~35× too loose while looking like it worked. Caught by testing, not
+  by reading.
+- `check_collisions.py`: all four exit codes reproduced — 0 pass, 2 degraded
+  (non-watertight mesh), 3 fail, 4 usage. Verified that an undeclared 0.1 mm
+  overlap fails, that the same overlap declared as a press fit passes, that a
+  0.2 mm gap fails against `--min-clearance 0.3`, that a declared press fit
+  whose parts don't touch fails, and that `--strict` promotes a non-watertight
+  mesh from degraded to fail.
+- The old docstring/behaviour mismatch was real: it promised a non-zero exit for
+  a non-watertight mesh and only printed a warning. Confirmed against the code
+  before rewriting.
+
+**Not verified — still open:**
+- Whether `openscad --summary bounding-box` can replace the STL→trimesh
+  round-trip entirely (no OpenSCAD binary in the environment where this rework
+  was done). Settle it with `openscad --summary all --summary-file - model.scad`
+  on a current build; if it reports the bbox directly, `check_dimensions.py`
+  gains a much cheaper path.
+- Whether the `0.005 mm` numeric floor is right. It is reasoned from float32 STL
+  storage (~2.4e-5 mm ulp at 200 mm), not measured against real exports.
+
 ## End-to-end dogfood run (2026-08-16)
 
 Ran the full workflow once, top to bottom, on a synthetic (not real-project) 2-part
