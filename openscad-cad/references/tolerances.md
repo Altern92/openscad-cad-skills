@@ -36,6 +36,25 @@ unoptimised settings**, 100% infill for the capability specimens. Measured by
 CMM. That is close to a typical hobby setup, which is why the numbers below are
 worth anything to us — but they are one machine and one material.
 
+**Verification status (2026-08-18).** The paper's existence and its headline
+findings are independently confirmed -- read directly from the published
+abstract (Semantic Scholar API, not a paraphrase): "Achievable ISO 286-1
+International Tolerance grades ranged from IT9 to IT14," and GBTA results
+"confirmed systematic undersizing of cylindrical and curved features... deviations
+remained approximately constant across nominal sizes." The per-axis/per-size
+numbers in the two tables below and the specific "Bambu Lab X1-Carbon" printer
+model, however, come from a single earlier read of the full paper and could NOT
+be independently re-verified here: the paper is genuinely CC-BY open access
+(confirmed via Unpaywall), but both the publisher (Wiley) and the author's
+institutional repository (University of Trento, IRIS) currently sit behind a
+Cloudflare bot-challenge that blocked every legitimate automated fetch tried
+(DOI resolution, direct Wiley URL, IRIS bitstream and handle page, Semantic
+Scholar's cached PDF pointer -- all routed back to the same challenge, and no
+attempt was made to bypass it). Treat the exact table cells as plausible and
+consistent with the abstract's shape, not as independently double-checked --
+re-open the PDF directly before treating any single number here as load-bearing
+for a real fit decision.
+
 **Achievable IT grade by nominal size and axis** (Table 3, at 95% confidence
 with Pm, Pmk ≥ 1.33):
 
