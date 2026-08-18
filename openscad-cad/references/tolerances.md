@@ -27,44 +27,94 @@ corners — enlarging it tightens the fit instead of loosening it.
 
 ## What accuracy FDM can actually hold — and why ISO fit labels don't apply
 
-Sourced findings, each marked by how far it was verified:
+Primary source for this section, **read in full**: Gebre, Cristofolini, Zago &
+Gallo, "Influence of Geometry and Size on Precision and Accuracy in Fused
+Deposition Modeling (FDM) Additive Manufacturing", *Material Design & Processing
+Communications* 2026:7177386, DOI 10.1155/mdp2/7177386 (open access, 22 pp).
+Conditions: **Bambu Lab X1-Carbon, PLA, 0.16 mm layers, manufacturer-recommended
+unoptimised settings**, 100% infill for the capability specimens. Measured by
+CMM. That is close to a typical hobby setup, which is why the numbers below are
+worth anything to us — but they are one machine and one material.
 
-- **Achievable ISO 286 IT grades on FDM are roughly IT9–IT14**, and which end you
-  land on depends on feature size and axis — IT9 was reported only at a 315 mm
-  X-axis dimension, IT10 around 120–250 mm, with the coarser grades covering
-  ordinary small features. *(Corroborated across two peer-reviewed sources at
-  abstract/snippet level: Gebre et al. 2026, "Influence of Geometry and Size on
-  Precision and Accuracy in FDM", DOI 10.1155/mdp2/7177386; and "Accuracy of FDM
-  PLA Polymer 3D Printing Technology Based on Tolerance Fields", MDPI Processes
-  11(10):2810. A third — Spitaels et al., EUSPEN 2022 — reports IT10–IT15 across
-  two printers. Full texts not read; publisher domains were unreachable from the
-  environment where this was written.)*
-- **Bigger features get better IT grades, and this is an artefact of how IT is
-  defined**, not of the printer improving: absolute deviation stays roughly
-  constant across nominal sizes while the IT band widens with size, so the same
-  physical error scores a better grade on a larger part. Percentage error
-  therefore grows as features shrink. *(Peer-reviewed, abstract level.)*
-- **Systematic undersizing of cylindrical and curved features is confirmed**, not
-  folklore. *(Peer-reviewed, abstract level — magnitudes by material/nozzle/layer
-  height are in full texts that were not read.)*
+**Achievable IT grade by nominal size and axis** (Table 3, at 95% confidence
+with Pm, Pmk ≥ 1.33):
+
+| Nominal | X | Y | Z |
+|---|---|---|---|
+| 3 mm | IT13 | IT13 | **IT14** |
+| 6 mm | IT12 | IT12 | IT13 |
+| 9 mm | IT11 | IT13 | IT13 |
+| 12–15 mm | IT12 | IT13 | IT13 |
+| 18 mm | IT13 | IT13 | IT13 |
+| 24–30 mm | IT12–13 | IT12 | IT12 |
+| 36 mm | IT11 | IT11 | IT11 |
+| 39–94 mm | IT10–11 | IT10 | — |
+
+Two things follow that matter more than the headline "IT9–IT14":
+
+- **Small features are the worst case, and small features are most of what we
+  print.** Everything from 3–18 mm sits at IT12–IT14. The good grades only
+  appear above ~36 mm.
+- **Z is equal or worse than X/Y**, most clearly at the small end (IT14 vs IT13
+  at 3 mm). Build direction is a dimensional decision, not just a strength one.
+
+Measured intervals give the practical band directly: nominal 3 mm came out
+2.90–3.05 mm on X, nominal 12 mm came out 11.87–12.08 mm. **Roughly ±0.08 mm at
+3 mm and ±0.11 mm at 12 mm** — an order of magnitude more than any tessellation
+error, which is why the CAD-layer correction above is necessary but nowhere near
+sufficient.
+
+**External cylinders print undersize, and by a roughly constant absolute
+amount** (Table 5, vertical and horizontal cylinders Ø10–50 mm):
+
+| Nominal Ø | Vertical | Horizontal |
+|---|---|---|
+| 10 mm | −0.108 mm (−1.08%) | −0.076 mm (−0.76%) |
+| 20 mm | −0.147 mm (−0.74%) | −0.098 mm (−0.49%) |
+| 30 mm | −0.145 mm (−0.48%) | −0.106 mm (−0.35%) |
+| 40 mm | −0.139 mm (−0.35%) | −0.103 mm (−0.26%) |
+| 50 mm | −0.130 mm (−0.26%) | −0.156 mm (−0.31%) |
+
+Every single cylinder came out negative. Absolute deviation stays near
+−0.08…−0.16 mm regardless of size, so the *percentage* error explodes on small
+features — which is the whole reason IT grade improves with size. Cylindricity
+stayed tight (0.034–0.089 mm): the form is right, the size is not.
+
+**A conflict with the folklore, stated openly.** The common maker heuristic —
+and the "General principles" note further down this file — says holes print
+undersize and pins/bosses print *oversize*. This paper measures external
+cylinders printing **undersize** by up to 0.16 mm. Both can be true at different
+scales: extrusion-width and elephant-foot effects dominate at small features,
+while PLA thermal shrinkage (−0.26% to −1.08% here) dominates from ~10 mm up.
+Do not assume a pin will come out fat. Measure.
+
+**What this paper does *not* establish.** Its benchmark artefact is a door-handle
+geometry and, in the authors' own words, "geometrical features such as internal
+holes or unsupported overhangs are not explicitly included and would require
+dedicated benchmark artifacts." Hole undersizing is stated as *expected* from
+prior work, not measured here. So: undersizing of **external** cylindrical and
+curved features is measured; **internal hole** behaviour on FDM remains
+inferred, and is exactly what your own calibration coupon has to settle.
 
 **The practical consequence: do not label a printed fit with an ISO 286
-designation.** An H7 hole is IT7. FDM operating around IT12–IT14 is roughly an
-order of magnitude looser, so "H7/g6" on a printed part is a precision-machining
-label over a process that cannot realise it — the same pseudo-rigour as claiming
-a full gear rating without material data. Industry sources put it bluntly: ISO
-286 is "mostly irrelevant for FDM 3D printing due to the greater dimensional
-variability and surface roughness inherent to the material extrusion process."
-*(Secondary industry source.)*
+designation.** An H7 hole is IT7. The best grade this machine reached anywhere
+near a normal fit size was IT11 at Ø9 mm, and IT12–IT13 was typical — four to
+six grades coarser than H7. Writing "H7/g6" on a printed part is a
+precision-machining label over a process that cannot realise it: the same
+pseudo-rigour as claiming a full gear rating without material data. The paper's
+own Table 4 makes the point by comparison — milling and turning occupy IT7–IT10,
+FDM sits out at IT11 and coarser.
 
 Use functional fit classes plus a measured per-printer offset instead — describe
 what the joint must **do** (free clearance, guided slide, locating, light press),
 not which machining grade it pretends to hold.
 
-`NEPATIKRINTA` — the exact IT band in µm for a given nominal size. Settle it
-against the ISO 286-1 table directly; a web search returned conflated rows and
-should not be trusted for this. The decision above does not depend on the exact
-figure.
+Two limits on all of the above: it is **one printer, one material** (the authors
+say so explicitly — "specific to the PLA material and printer configuration
+adopted in this study"), and the deviations were position-dependent within the
+build chamber, with Z-direction error statistically tied to plate position from
+uneven fan cooling. Treat these numbers as the right *shape* of the problem and
+a sane starting point, not as your machine's constants.
 
 ## Empirical clearance values
 
@@ -100,7 +150,12 @@ General principles behind all three rows:
 - FDM printing tends to print holes/pockets slightly undersized and
   bosses/pins slightly oversized relative to the model — these values already
   bias toward "loose enough to still work after that," not the theoretical
-  CAD-perfect clearance.
+  CAD-perfect clearance. **Caveat, added after reading the measured data above:
+  the "pins print oversize" half of this is not safe above ~10 mm.** Gebre et al.
+  measured every external cylinder from Ø10–50 mm coming out 0.08–0.16 mm
+  *under* nominal, because PLA thermal shrinkage overtakes extrusion-width
+  effects as features grow. The heuristic holds at small scale; don't extrapolate
+  it upward.
 - When grid/space is genuinely not a constraint, default to 1.5mm/side and
   only tighten it once a real constraint (bed size, existing layout) forces
   the question — don't preemptively tighten for no reason.

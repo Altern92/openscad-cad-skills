@@ -230,12 +230,19 @@ picking the smallest one containing the probe point needs only `shapely`.
   expect `circle()` to solve the undersizing.
 
 **Literature pass (2026-08-18) — what closed, what didn't:**
-- **FDM process capability**: IT9–IT14 achievable, size- and axis-dependent;
-  systematic undersizing of cylindrical features confirmed peer-reviewed. Folded
-  into `openscad-cad/references/tolerances.md` with the conclusion that ISO 286
-  fit designations must not be used as labels for printed fits. Abstract-level
-  only — publisher domains (doi.org, mdpi.com) were unreachable from here, so
-  feature-type magnitudes in mm remain unread.
+- **FDM process capability**: Gebre et al. 2026 (DOI 10.1155/mdp2/7177386) later
+  **read in full** from a supplied PDF, upgrading this from abstract-level. Its
+  Tables 3 and 5 are now reproduced in
+  `openscad-cad/references/tolerances.md`: IT grade per nominal size and axis on
+  a Bambu Lab X1-Carbon in PLA at 0.16 mm layers, and measured undersizing of
+  every external cylinder Ø10–50 mm by 0.076–0.156 mm. Two findings changed what
+  the skill says rather than just confirming it: **3–18 mm features sit at
+  IT12–IT14**, so the "IT9–IT14" headline is misleading for the sizes we
+  actually print; and **external cylinders print undersize**, contradicting the
+  "pins print oversize" heuristic that was already in `tolerances.md` — both are
+  true at different scales, and the file now says so. The paper's artefact
+  contains no internal holes, which the authors state, so hole behaviour remains
+  inferred, not measured.
 - **VLM inspection of renders**: no benchmark found that measures detecting
   wrong dimensions, interference, or missing internal features from rendered
   views. Existing CAD benchmarks measure generation, not inspection.
