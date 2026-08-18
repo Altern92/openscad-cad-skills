@@ -17,8 +17,10 @@ errors follow from that, and conflating them produces wrong tolerances:
    printer.
 
 2. BOUNDING-BOX DEVIATION (what an STL bbox check can actually see).
-   NOT the same number. OpenSCAD places a polygon vertex at angle 0, so the
-   bbox touches the ideal radius wherever a vertex lands on an axis:
+   Same expression, different meaning. OpenSCAD emits vertex i at
+   `phi = 360*i/n` (verified in upstream primitives.cc, 2026-08-18), so vertex 0
+   sits at angle 0 and the bbox touches the ideal radius wherever a vertex lands
+   on an axis:
      - n divisible by 4  -> vertices at 0/90/180/270 deg, bbox error ~= 0
      - n even, n%4 == 2  -> X exact, Y short by 2r*(1 - cos(pi/n))
      - n odd             -> both axes short by up to 2r*(1 - cos(pi/n))
@@ -44,6 +46,11 @@ DEFAULT_FA = 12.0
 DEFAULT_FS = 2.0
 DEFAULT_FN = 0.0
 
+# src/geometry/Grid.h: const double GRID_FINE = 0.00000095367431640625 (2^-20).
+# Below this radius OpenSCAD short-circuits to 3 fragments. Dimensionally
+# irrelevant at any real size; mirrored only so this stays a faithful copy.
+GRID_FINE = 0.00000095367431640625
+
 # Floor for float32 STL storage plus mesh export rounding. At 200 mm a float32
 # ulp is ~2.4e-5 mm and a bbox spans two of them, so 0.005 mm is generous
 # without being meaningless.
@@ -63,16 +70,17 @@ _LINE_COMMENT_RE = re.compile(r'//.*$')
 
 
 def fragments_for_r(r, fn=DEFAULT_FN, fa=DEFAULT_FA, fs=DEFAULT_FS):
-    """Facet count for a full circle of radius r -- mirrors OpenSCAD's
-    Calc::get_fragments_from_r():
+    """Facet count for a full circle of radius r -- mirrors OpenSCAD's own
+    fragment calculation (verified against upstream source, 2026-08-18):
 
-        fn > 0 ? max(3, fn)
-               : ceil(max(min(360/fa, 2*pi*r/fs), 5))
+        r < GRID_FINE ? 3
+      : fn > 0        ? max(3, fn)
+      :                 ceil(max(min(360/fa, 2*pi*r/fs), 5))
     """
+    if r < GRID_FINE:
+        return 3
     if fn and fn > 0:
         return max(3, int(fn))
-    if r <= 0:
-        return 5
     return int(math.ceil(max(min(360.0 / fa, r * 2.0 * math.pi / fs), 5)))
 
 

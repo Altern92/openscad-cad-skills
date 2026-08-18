@@ -38,9 +38,11 @@
 //   translate([10, 10, -1]) true_hole(d = 8.2, h = 12);
 // ------------------------------------------------------------
 
-// Facet count for a circle of radius r -- mirrors OpenSCAD's
-// Calc::get_fragments_from_r(). $fn wins if set; otherwise the finer of the
-// angle limit and the size limit applies, with a floor of 5.
+// Facet count for a circle of radius r -- mirrors OpenSCAD's own fragment
+// calculation (verified against upstream source, 2026-08-18). $fn wins if set;
+// otherwise the finer of the angle limit and the size limit applies, with a
+// floor of 5. The r < GRID_FINE (2^-20) short-circuit to 3 is omitted here: it
+// only fires below a micron of radius.
 function scad_fragments(r) =
     ($fn > 0) ? max(3, floor($fn))
               : ceil(max(min(360 / $fa, r * 2 * PI / $fs), 5));

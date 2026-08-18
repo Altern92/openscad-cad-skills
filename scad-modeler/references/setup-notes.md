@@ -157,6 +157,22 @@ each claim was established, because the two are not equally strong.
   a non-watertight mesh and only printed a warning. Confirmed against the code
   before rewriting.
 
+**Verified against OpenSCAD's upstream source (2026-08-18), closing questions
+this rework had left open:**
+- `src/core/primitives.cc` emits circle/cylinder vertex `i` at
+  `phi = (360.0 * i) / num_fragments`, i.e. **there is always a vertex at angle
+  0**. That settles the phase question the bbox derivation depends on: with `n`
+  divisible by 4 (and `$fa=2` gives exactly `n=180`) vertices land on all four
+  axes and the bbox error is zero, while the across-flats deficit is unchanged.
+  The Pattern 0 compensation does not depend on phase at all, and the bbox
+  tolerance uses the phase-independent upper bound, so both were already correct
+  — but they are now correct *for a checked reason*.
+- The fragment formula is `ceil(fmax(fmin(360/fa, r*2*PI/fs), 5))` with an
+  `$fn > 0` short-circuit, plus a `r < GRID_FINE` short-circuit to 3.
+  `src/geometry/Grid.h` gives `GRID_FINE = 0.00000095367431640625` (2^-20) —
+  below a micron of radius, so dimensionally irrelevant; mirrored in
+  `scad_tessellation.py` for fidelity, omitted from `patterns.scad`.
+
 **Not verified — still open:**
 - Whether `openscad --summary bounding-box` can replace the STL→trimesh
   round-trip entirely (no OpenSCAD binary in the environment where this rework
