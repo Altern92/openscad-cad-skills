@@ -11,6 +11,105 @@ if a fix needs revising later, add a new entry that supersedes it and say so.
 Not every skill file edit belongs here -- only things that were actually
 *wrong* (a bug, a bad test, an inaccurate claim), not routine additions.
 
+## Pattern analysis (Phase 2, 2026-08-19)
+
+First real pass over the accumulated log (9 entries, 2026-08-16 to
+2026-08-19) -- three recurring patterns, not just isolated incidents. For
+each: the concrete mechanism Perplexity research turned up, honestly ranked
+by precedent strength. **None of this is implemented yet** -- research and
+write-up only, per explicit instruction; do not build from this section
+without a separate go-ahead.
+
+### Pattern 1 -- a declared/documented value drifts from what the live code
+actually computes, after the live computation is upgraded
+
+Instances: CD1/CD2 vs `gear_dist()` (below), `EXPECTED_BBOX` Z rounding
+(below), `jackshaft_bearing_wall_at_diff` assert omitting real clearance
+terms (below). Three of nine entries -- the strongest cluster in the log.
+
+**Proposed mechanism** (moderate precedent -- fits "contract programming" /
+dependency-integrity thinking, not a single named standard): stop writing
+safety margins as separate handwritten numbers. Make the margin a function
+that *calls the same helper function* the real geometry-cutting code calls
+for its clearance terms, so there is no parallel arithmetic to drift apart
+in the first place:
+
+```scad
+function shaft_clearance(d_nom, fit_class, printer_bias) =
+    d_nom + fit_delta(fit_class) + printer_bias;
+function shaft_safety_limit(...) =
+    shaft_clearance(...) - safety_subtraction(...);
+assert(shaft_safety_limit(...) > min_wall,
+       str("shaft_safety_limit=", shaft_safety_limit(...)));
+```
+
+Solo-scale guard version (no full parser needed): a small script that scans
+`.scad` files for `assert(`/`EXPECTED_*` and checks whether the formula it
+references shares a helper-function name with the "live" formula used
+elsewhere for the same quantity -- a lightweight dependency map, not full
+static analysis.
+
+### Pattern 2 -- a correctly-reasoned intentional contact (e.g. a clamshell
+split line) never gets formalized into the declaration file meant to check
+for exactly it
+
+Instance: `check_collisions.py` failing on `gearbox_case_bottom`/`top`
+(below) despite the touch being correctly identified as benign during the
+original design session.
+
+**Proposed mechanism** (most bespoke of the three -- no single standard
+pattern, but aligned with BIM/CAD clash-tolerance practice): don't just
+report "collision" -- classify the event (interference / contact / near
+miss) and auto-suggest a declaration stub for human confirmation instead of
+relying on someone remembering to write one by hand:
+- overlap volume > 0 → real interference, flag as before.
+- overlap volume == 0 and separation ≤ a touch tolerance (~0.02-0.05mm for
+  printed parts) → candidate intentional touch, auto-generate a
+  `joints.json` stub (part pair, `intentional_touch`, evidence, tolerance
+  used) for the human/agent to confirm rather than hand-write from scratch.
+- small positive gap below a separate, larger near-miss tolerance
+  (~0.1-0.2mm) → flag as a near-miss, do NOT auto-declare (this is likely a
+  real design sensitivity, not a benign touch).
+- stability check: if a tiny parameter jitter flips the verdict between
+  touch and overlap, treat it as a real problem, not benign -- don't
+  auto-suggest in that case.
+
+### Pattern 3 -- one shared params.scad variable is referenced by multiple
+parts that each have a DIFFERENT real hard constraint, and only one
+context's constraint gets checked
+
+Instance: `axle_d=6mm` shared across the diff-side stub (photo-measured,
+~6mm) and the wheel_hub end (MR105 bearing, fixed 5mm ID) (below) -- only
+the diff-side context was ever actually verified against.
+
+**Proposed mechanism** (strongest precedent of the three -- directly maps to
+established CAD constraint-dependency-graph research and to dependency
+tracking in systems like PostgreSQL, which won't let you break an object
+with unresolved dependents): a parameter provenance/context manifest. Each
+part file that consumes a shared parameter for a hardware-fit purpose
+declares which context and which constraint it's satisfying:
+
+```scad
+use_param("axle_d", "diff_stub_end", "photo_measured_~6mm");
+use_param("axle_d", "wheel_hub_bearing_end", "press_fit_MR105_bore5mm");
+```
+
+A small checker scans for every parameter referenced by ≥2 `use_param()`
+contexts and fails if any context's declared constraint was never actually
+exercised by a matching `assert()` nearby -- catching exactly the failure
+mode where one end of a shared dimension was checked and the other was
+silently assumed compatible. Doesn't require a full requirements-
+traceability system -- "no shared parameter may fan out into multiple hard
+constraints without a manifest entry (and a real assert) for each fan-out."
+
+### If/when this gets built
+
+Perplexity's own suggested build order, if these get implemented later:
+(1) the shared-helper-function convention for Pattern 1 (cheapest, closes
+the strongest cluster), (2) the clash classifier + auto-suggest for Pattern
+2, (3) the parameter context manifest for Pattern 3 (most novel tooling,
+build last). Not scheduled -- logged here for when there's a go-ahead.
+
 ## Entry format
 
 ```
