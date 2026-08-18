@@ -262,6 +262,32 @@ picking the smallest one containing the probe point needs only `shapely`.
   documents thin-wall or non-manifold warnings as CLI-reachable. Revisit by
   running them, not by reading.
 
+**Adjacent libraries evaluated (2026-08-18) — so this isn't re-litigated:**
+- **PolyGear** (github.com/dpellegr/PolyGear) — real, and strong where BOSL2 is
+  weakest: helix angle variable along the axis, so straight/spiral/herringbone/
+  zerol are one sweep, emitted as a single polyhedron. Noted in SKILL.md §5 as
+  the option for helical/bevel work. Not made the default: BOSL2 is what has
+  been test-rendered on this setup, and swapping a verified dependency for an
+  unverified one on a claim of "more parameters" is a downgrade in evidence.
+- **snapfit-scad** (github.com/CameronBrooks11/snapfit-scad) — real, provides
+  `snapfit()`/`snapfit_neg()` with `col_tol`/`neg_tol`. Deferred: it supplies the
+  *shape*, while the part that actually decides whether a snap fit works is the
+  tolerance, which is calibration-dependent and printer-specific. Worth revisiting
+  once a calibration profile exists.
+- **Round-Anything, dotSCAD** — no adoption case found. Round-Anything is
+  rounding via `[x, y, radius]` polygons with no fit/tolerance tooling despite
+  the name suggesting otherwise; dotSCAD is a maths helper library.
+- **MCAD, UB.scad, BOLTS, Knurled Finish, Constructive** — not evaluated in
+  depth; no specific gap in the current skills points at them.
+
+A caution worth recording: an external review asserted that `patterns.scad`
+opens with `use <gridfinity-rebuilt-openscad/...>`, defines `gridfinity_pocket()`,
+calls `gridfinity_baseplate()`, and that these skills do not use BOSL2. **All four
+are false** — `patterns.scad` has no include of any kind (deliberately: `use`
+does not give a file access to its caller's modules), and BOSL2 underpins §4 and
+§5 of this skill. Claims about this repo's contents are checkable against the
+repo; check them.
+
 **Not verified — still open:**
 - Whether `openscad --summary bounding-box` can replace the STL→trimesh
   round-trip entirely (no OpenSCAD binary in the environment where this rework

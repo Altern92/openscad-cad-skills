@@ -170,6 +170,16 @@ option -- but check it's a complete install first (`doctor.py` reports it; a
 partial MCAD drop-in has been found in the wild more than once). Either way: a
 tested library beats a fresh implementation, every time, for gear math.
 
+For **helical, herringbone or bevel** gears specifically, consider
+[PolyGear](https://github.com/dpellegr/PolyGear) instead. Its README claims
+"full control of the involute tooth profile, including pressure angle, backlash,
+variable helix angle, addendum, dedendum and profile shifting", with the helix
+angle variable *along the axis* so straight/spiral/herringbone/zerol are one
+parameter sweep, all emitted as a single polyhedron. BOSL2 covers straight spur
+gears well and is what has actually been test-rendered here, so it stays the
+default -- switch only for a profile it handles poorly, and render-test before
+trusting the result.
+
 ## 6. `assembly.scad` — MODE switch
 
 Import each part file with `use`, **not** `include`. Every part file ends with an
