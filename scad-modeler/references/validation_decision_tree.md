@@ -64,7 +64,7 @@ flowchart TD
 
     AllPass{"All of the above pass?"}
     AllPass -- no --> FixSource["Fix at the source,\nre-run validate_scad.sh --all\nfrom the top -- not just\nthe one check that failed"]
-    FixSource --> Validate
+    FixSource -. "retry: whole chain, not\njust the failed check" .-> Validate
 
     AllPass -- yes --> Situational["Situational MANUAL checks -- validate_scad.sh\ndoes NOT run these -- motion is no longer here,\nit auto-triggers above. NOT exclusive: check\nEVERY condition below independently, run ALL\nthat apply, in this order -- each downstream\ncheck assumes the upstream one is already clean"]
     Situational -->|"1. part has 2+ named\nsub-modules sharing\none union?"| Subfeature["check_subfeature_overlap.py --\nexport sub-modules solo first,\ndeclare fusions with --exempt"]
