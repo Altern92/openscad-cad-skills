@@ -133,6 +133,60 @@ if [[ "$MODE" == "--all" ]]; then
             python3 "$SCRIPT_DIR/check_bore_reachability.py" --bores bores.json ${built_stls[@]+"${built_stls[@]}"}
         fi
     fi
+
+    # Mechanics auto-trigger: opt-in via joints.json declaring a non-empty
+    # "motion" array (motion_sweep.py's own documented convention -- see its
+    # docstring, NOT design_manifest.json.motion, which two of this skill's
+    # own reference docs proposed independently and inconsistently with each
+    # other and with this already-tested script; joints.json is the one
+    # that's real). When present: static collision detection is ALWAYS the
+    # precondition of the dynamic sweep (a sweep over geometry that already
+    # collides at rest is meaningless -- references/validation_decision_tree.md),
+    # so both run here, in that order, automatically -- closing the gap where
+    # a moving assembly could pass validate_scad.sh --all without either ever
+    # having been run by anyone remembering to.
+    #
+    # Both checks need each part positioned in the shared assembly coordinate
+    # system, not the per-part local-origin STLs the loop above produces
+    # (SKILL.md §4) -- so this renders one positioned STL per part via
+    # assembly.scad's MODE="part"/PART="<name>" switch (SKILL.md §6) before
+    # calling either check.
+    if [ -f joints.json ] && [ -f assembly.scad ]; then
+        has_motion=$(python3 -c "
+import json, sys
+try:
+    d = json.load(open('joints.json'))
+except Exception:
+    sys.exit(1)
+motion = d.get('motion') if isinstance(d, dict) else None
+sys.exit(0 if motion else 1)
+" && echo yes || echo no)
+        if [ "$has_motion" = "yes" ]; then
+            echo "--- Mechanics: joints.json declares motion -- rendering positioned parts for static+dynamic checks ---"
+            mkdir -p "$BUILD_DIR/positioned"
+            shopt -s nullglob
+            positioned_stls=()
+            for scad in ${parts[@]+"${parts[@]}"}; do
+                base="$(basename "$scad" .scad)"
+                pstl="$BUILD_DIR/positioned/$base.stl"
+                "$OPENSCAD" --backend="$BACKEND" --hardwarnings \
+                    -D 'MODE="part"' -D "PART=\"$base\"" \
+                    -o "$pstl" assembly.scad
+                if [ -s "$pstl" ]; then
+                    positioned_stls+=("$pstl")
+                fi
+            done
+            shopt -u nullglob
+            if [ ${#positioned_stls[@]} -ge 2 ]; then
+                python3 "$SCRIPT_DIR/check_collisions.py" --expected-contacts joints.json \
+                    ${positioned_stls[@]+"${positioned_stls[@]}"}
+                python3 "$SCRIPT_DIR/motion_sweep.py" --joints joints.json \
+                    ${positioned_stls[@]+"${positioned_stls[@]}"}
+            else
+                echo "WARNING: joints.json declares motion but fewer than 2 parts rendered via MODE=\"part\" -- skipping mechanics checks. Check that assembly.scad's MODE/PART switch matches SKILL.md §6 and that parts/*.scad basenames match layout.scad's part names." >&2
+            fi
+        fi
+    fi
 else
     scad="parts/$MODE.scad"
     if [ ! -f "$scad" ]; then

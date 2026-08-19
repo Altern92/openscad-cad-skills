@@ -13,6 +13,18 @@ wrong primitive for a printed assembly:
                            overlap in the nominal model. Flagging those as
                            errors trains the operator to ignore the checker,
                            so they must be declared and range-checked instead.
+                           "Range-checked" is a plausibility bound, not an
+                           exact one: a boolean-intersection volume cannot be
+                           compared precisely to a linear
+                           expected_interference_mm range without knowing the
+                           contact area, so overlap beyond 25% of the smaller
+                           part's own volume fails as IMPLAUSIBLE DECLARED
+                           OVERLAP regardless of the declared range -- a
+                           declaration licenses a plausible surface fit, not
+                           gross overlap of any size (confirmed as a real gap:
+                           a declared 0.0-0.5mm press fit previously accepted
+                           a 1114mm^3 overlap between two ~R20mm cylinders
+                           with no check at all, INCIDENTS.md 2026-08-19).
 
 Declare intentional contacts in a JSON file passed with --expected-contacts:
 
@@ -233,17 +245,48 @@ def main():
                     f"{lo}-{hi} mm range (pip install manifold3d)")
                 degraded = True
             else:
-                # Volume is a severity signal, not a linear depth. Report it and
-                # let a zero-range declaration ("touching") catch real overlap.
+                # Volume is a severity signal, not a linear depth -- there is
+                # no exact way to compare a boolean-intersection volume
+                # against a linear "expected_interference_mm" range without
+                # knowing the contact area, so this cannot be a precise
+                # bounds check. But a declared range with hi > 0 must not
+                # mean "any volume at all passes" either -- confirmed as a
+                # real bug: two 8mm-thick, ~R20mm cylinders forced to overlap
+                # by 10mm (clearly wrong) reported "OK" against a declared
+                # 0.0-0.5mm press-fit range purely because hi was nonzero
+                # (INCIDENTS.md, 2026-08-19). A plausibility bound catches
+                # gross overlap while still not requiring the exact
+                # geometry-dependent conversion: a genuine surface-level
+                # interference fit cannot consume a large fraction of either
+                # part's own volume.
+                plausibility_frac = 0.25
+                min_own_vol = None
+                if hi > 0.0:
+                    try:
+                        if meshes[a].is_watertight and meshes[b].is_watertight:
+                            min_own_vol = min(abs(meshes[a].volume), abs(meshes[b].volume))
+                    except Exception:
+                        min_own_vol = None
+
                 if hi <= 0.0 and vol > 0.0:
                     failures.append(
                         f"DECLARED CONTACT EXCEEDED: {label} is declared "
                         f"'{joint}' with no permitted interference, but overlaps "
                         f"by {vol:.2f} mm^3")
+                elif min_own_vol and vol > plausibility_frac * min_own_vol:
+                    failures.append(
+                        f"IMPLAUSIBLE DECLARED OVERLAP: {label} is declared "
+                        f"'{joint}' ({lo}-{hi} mm), but the {vol:.2f} mm^3 "
+                        f"overlap is {100*vol/min_own_vol:.0f}% of the smaller "
+                        f"part's own volume -- far beyond what a surface-level "
+                        f"interference fit produces. This is gross overlap, not "
+                        f"a press fit; fix the position/size at the source.")
                 else:
                     notes.append(
                         f"OK (intentional {joint}): {label}, overlap "
-                        f"{vol:.2f} mm^3, declared range {lo}-{hi} mm")
+                        f"{vol:.2f} mm^3, declared range {lo}-{hi} mm"
+                        + (f" (within plausibility bound: {100*vol/min_own_vol:.1f}% "
+                           f"of smaller part's volume)" if min_own_vol else ""))
             continue
 
         if decl is not None:

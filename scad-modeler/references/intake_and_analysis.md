@@ -116,37 +116,31 @@ re-renders).
 Goal: never start from zero when a past design (or parametric template) covers
 half the problem. Two mechanisms:
 
-**A. Embedding index** (uses the DashScope `qwen3.7-text-embedding` credits —
-see `04_Kita/DashScope_Qwen_kreditu_naudojimas/`):
+**A. Direct read-through, not an embedding index.** An earlier version of this
+section specified a DashScope embedding index (vector search over past
+projects). Reconsidered 2026-08-19: the actual archive is a personal collection
+of a dozen or so past `.scad` projects, not a corpus at a scale where vector
+search earns its cost. At this size, reading every past project's `README.md`
+(plus the entry-point `.scad` file's top variable block if the README alone
+doesn't answer it) directly and judging similarity is both simpler — no
+external API, no vector store, no embedding pipeline to build and maintain —
+and likely *better*, since judging "is this gearbox similar" benefits from
+understanding module/tooth-count/motion-type context, not just text
+similarity. Do this:
 
-```json
-{
-  "index_name": "scad_variants_index",
-  "vector_dimensions": 1024,
-  "metric": "cosine",
-  "document_schema": {
-    "id": "variant_uuid_or_path",
-    "embedding_text_template": "{category} | {title} | {description} | Motion: {kinematics_type} | Vitamins: {vitamins_list} | KeyParams: {key_dimensions}",
-    "metadata": {
-      "file_path": { "type": "string" },
-      "primary_category": { "type": "string" },
-      "kinematics_type": { "type": "string" },
-      "vitamins_used": { "type": "array", "items": { "type": "string" } },
-      "parameter_names": { "type": "array", "items": { "type": "string" } },
-      "scad_entry_module": { "type": "string" }
-    }
-  },
-  "retrieval_flow": {
-    "query": "Embed extracted intake JSON summary: '{goal} {motion.dof_type} {vitamins}'",
-    "top_k": 3,
-    "rerank_filter": "Match vitamin overlap score (Jaccard) + motion DOF compatibility"
-  }
-}
-```
+1. List past project directories (e.g. everywhere else under
+   `3D_Spausdinimas/`, excluding the skill's own repo).
+2. Read each candidate's `README.md`; for a closer look at the ones that seem
+   plausible, read the entry-point `.scad` file's parameter block too.
+3. Judge similarity on the same axes an embedding rerank would have used
+   anyway — vitamins/hardware used, motion type, envelope size, category —
+   and surface 2–3 candidates worth adapting from.
 
-Indexed documents: each past project's `README.md` + the top variable block of
-its `.scad` entry point. Rerank the raw cosine hits by (a) Jaccard overlap of
-vitamins used, (b) motion DOF compatibility, (c) envelope fit.
+Revisit this if the archive grows into the hundreds of projects, where
+reading every candidate stops being practical — until then, an embedding
+index is infrastructure without a problem to solve. (DashScope access itself
+is still real and working, see `04_Kita/DashScope_Qwen_kreditu_naudojimas/`
+— just not needed for this.)
 
 **B. Parametric templates**: the Gridfinity tables
 (`openscad-cad/references/gridfinity-params.md`) and the reusable patterns
@@ -168,4 +162,4 @@ pretend a variant exists.
 | I-001 | Vitaminų filosofija: standartinės detalės modeliuojamos realiais matmenimis, BOM generuojama | https://github.com/nophead/NopSCADlib ; https://deepwiki.com/nophead/NopSCADlib/4-component-library-(vitamins) | pirminis | 2026-08-19 | su šaltiniu |
 | I-002 | FDM tarpų klasės (press/slip/transition) — sprendimo kriterijai | https://www.aon3d.com/applications/engineering-fits-how-to-design-for-3d-printed-assemblies/ | pirminis | 2026-08-19 | su šaltiniu |
 | I-003 | Judančių spausdintų dalių apribojimai (trintis, nusidėvėjimas) | https://thevirtualfoundry.com/3d-print-moving-parts/ | pirminis | 2026-08-19 | su šaltiniu |
-| I-004 | Embedding modelio naudojimas paieškai — DashScope qwen3.7-text-embedding | https://help.aliyun.com/zh/model-studio/model-pricing.md | pirminis | 2026-08-19 | su šaltiniu |
+| I-004 | ~~Embedding modelio naudojimas paieškai — DashScope qwen3.7-text-embedding~~ NEBENAUDOJAMA 2026-08-19: §3 pakeista tiesioginiu README skaitymu, žr. aukščiau kodėl | https://help.aliyun.com/zh/model-studio/model-pricing.md | pirminis | 2026-08-19 | pakeista |

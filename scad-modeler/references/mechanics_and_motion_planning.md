@@ -119,64 +119,69 @@ Standard bearings (608, 608ZZ, 6000, 6001, etc.) are modelled using NopSCADlib v
 
 ---
 
-## 3. Design Manifest (JSON) — motion block schema
+## 3. Motion declaration — `joints.json`, not `design_manifest.json`
 
-The design manifest (`design_manifest.json`) lives next to `layout.scad` and is the **single source of truth** for what moves, how, and with what clearances. When it exists, the mechanics pipeline runs automatically — `validate_scad.sh --all` auto-discovers it (single conditional in the shell script, same pattern as the existing `joints.json` discovery).
-
-### 3.1 Top-level structure
-
-```json
-{
-  "$schema": "scad-modeler-motion-v1",
-  "assembly_name": "string",
-  "parts": ["drivewheel.scad", "idler.scad", "chassis.scad"],
-  "purchased_components": [
-    { "name": "608ZZ bearing", "qty": 4, "bore_mm": 8, "od_mm": 22, "width_mm": 7 }
-  ],
-  "shafts": [
-    { "id": "main_shaft", "diameter_mm": 8, "material": "stainless_steel_8mm" }
-  ],
-  "motion": []
-}
-```
-
-### 3.2 Motion block — one entry per degree of freedom / kinematic pair
+**Corrected 2026-08-19** (built and tested this session, replacing an
+earlier draft of this section): the motion declaration this taxonomy feeds
+lives in **`joints.json`**, the same file `check_collisions.py` already
+reads for intentional-contact declarations — not a separate
+`design_manifest.json.motion` block. Two earlier drafts of this reference
+set (this file and `intake_and_analysis.md`) each independently proposed a
+`design_manifest.json.motion` trigger with mutually incompatible schemas,
+and neither matched `motion_sweep.py`'s actual, already-working interface.
+`design_manifest.json.motion.has_kinematics` (see `intake_and_analysis.md`
+§1) still exists as a coarse **intake-time** flag — "will this design need
+motion planning at all" — but the detailed per-joint declaration that
+actually drives `motion_sweep.py` is `joints.json`'s `motion` array,
+extended from the plain contacts list:
 
 ```json
 {
-  "id": "m001",
-  "type": "rotation",                       // "rotation" | "translation" | "flexure"
-  "subtype": "gear_pair",                   // see taxonomy in §1
-  "driver": {
-    "part": "drivewheel.scad",
-    "axis": { "origin": [0, 0, 0], "direction": [0, 0, 1] },
-    "range": { "min_deg": -180, "max_deg": 180, "continuous": true },
-    "teeth": 20
-  },
-  "driven": {
-    "part": "idler.scad",
-    "axis": { "origin": [30, 0, 0], "direction": [0, 0, 1] },
-    "ratio": -0.5,                          // negative = opposite rotation (external mesh)
-    "teeth": 40
-  },
-  "clearance_mm": 0.15,
-  "fit_type": "slip_light"                  // from fit table §2.1
+  "contacts": [
+    {"pair": ["shaft", "gear_1"], "joint_type": "press_fit",
+     "expected_interference_mm": [0.02, 0.08]}
+  ],
+  "motion": [
+    {
+      "id": "gear_train",
+      "drivers": [
+        {"part": "gear_1", "type": "revolute",
+         "axis": [0,0,1], "origin": [0,0,0], "ratio": 1.0, "teeth": 20},
+        {"part": "gear_2", "type": "revolute",
+         "axis": [0,0,1], "origin": [45,0,0], "ratio": -0.5, "teeth": 40}
+      ],
+      "range_deg": [0, 360],
+      "step_deg": 2.0,
+      "min_clearance_mm": 0.3
+    }
+  ]
 }
 ```
 
-Key fields for automation: `axis` (motion_sweep rotation center), `range` (sweep limits; `continuous` collapses to one tooth pitch when all drivers are revolute), `ratio` with correct sign (periodicity + drive direction checks), `teeth` (periodicity detection), `fit_type` (picks the clearance class from §2.1 for the `min_clearance` argument).
+See `motion_sweep.py`'s own docstring for the full field reference (`ratio`
+sign convention, `teeth` for periodicity collapse, `prismatic` drivers). The
+taxonomy in §1 maps a mechanism type to which of these fields matter; it
+does not define its own separate schema.
 
-For combined mechanisms (§1.5), add a `drives` array linking joint ids so the change-propagation tree knows part A's rotation feeds part B's translation:
+### 3.3 Trigger wiring (built, not just proposed)
 
-```json
-{ "id": "m003", "type": "translation", "subtype": "slider_on_track", "drives": ["m001"], "...": "..." }
-```
+`validate_scad.sh --all` detects a non-empty `joints.json#motion` array and,
+when present:
+1. Renders each part positioned in the shared assembly coordinate system via
+   `assembly.scad`'s `MODE="part"`/`PART="<name>"` switch (SKILL.md §6) —
+   the per-part STLs the main loop produces are in local coordinates
+   (SKILL.md §4) and are not valid inputs for cross-part interference
+   checking.
+2. Runs `check_collisions.py --expected-contacts joints.json` against those
+   positioned STLs — the static-pose precondition (a sweep over geometry
+   that already collides at rest is meaningless).
+3. Runs `motion_sweep.py --joints joints.json` against the same STLs.
 
-### 3.3 Trigger wiring
-
-- `motion_sweep.py` runs when `design_manifest.json` contains a non-empty `motion` array (mirror of how `check_collisions.py` triggers on `joints.json` presence).
-- `check_collisions.py` static pose is always a precondition of the sweep (same ordering rule as `validation_decision_tree.md`: sweep over static geometry that already collides is meaningless).
-- Failure of any mechanical check short-circuits: fix at source, re-run `validate_scad.sh --all` from the top.
+Tested end-to-end against a real two-part synthetic gear assembly: a clean
+tangent case passes; a deliberately-broken deep-overlap case fails with a
+propagating non-zero exit; a project with no `joints.json` or no `motion`
+array is unaffected (`INCIDENTS.md`, 2026-08-19). Failure of either check
+short-circuits: fix at source, re-run `validate_scad.sh --all` from the top.
 
 ---
 

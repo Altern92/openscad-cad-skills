@@ -123,6 +123,68 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 
 ## Entries
 
+### 2026-08-19 -- check_collisions.py accepted ANY overlap volume for a declared contact with a nonzero range
+- **Where:** `scad-modeler/scripts/check_collisions.py`, discovered while
+  building and testing the mechanics auto-trigger (below) against a
+  deliberately-broken synthetic gear pair.
+- **Symptom:** two cylinders forced to overlap by 10mm (1114.74mm³, ~44% of
+  the smaller cylinder's own volume -- an obviously wrong, unbuildable
+  position) reported `OK (intentional gear_mesh)` because they were declared
+  as a contact pair with `expected_interference_mm: [0.0, 0.5]`. The check's
+  own logic only ever compared the declared range's upper bound against zero
+  (`if hi <= 0.0 and vol > 0.0: FAIL`); any declared range with `hi > 0`
+  skipped volume validation entirely and always reported OK, regardless of
+  how large the real overlap was.
+- **Root cause:** a real measurement-type mismatch the code's own comment
+  half-acknowledged ("volume is a severity signal, not a linear depth") but
+  didn't actually act on for the common case (`hi > 0`) -- only the `hi <=
+  0` edge case was enforced. A boolean-intersection volume can't be compared
+  exactly to a linear interference-depth range without knowing contact area,
+  but "can't compare exactly" was implemented as "don't compare at all,"
+  silently disabling the check for every declared press-fit/gear-mesh
+  contact with any nonzero tolerance -- which is most of them.
+- **Fix:** added a plausibility bound: for `hi > 0`, overlap volume beyond
+  25% of the smaller part's own volume now fails as `IMPLAUSIBLE DECLARED
+  OVERLAP` regardless of the declaration. Not an exact fix (still can't
+  derive true linear interference from volume alone), but catches gross,
+  obviously-wrong overlap while still passing legitimate small interference
+  fits. Tested: the 1114.74mm³ case now correctly fails; a small legitimate
+  ~12mm³ overlap (0.5% of the smaller part's volume) still correctly passes;
+  the original zero-overlap tangent case still passes clean.
+- **Already promoted to a rule?** Yes -- fixed directly in the script.
+
+### 2026-08-19 -- mechanics (motion) checks required someone to remember to run them
+- **Where:** `scad-modeler/scripts/validate_scad.sh`.
+- **Symptom:** `check_collisions.py` and `motion_sweep.py` both existed and
+  worked, but neither was ever auto-triggered by `validate_scad.sh --all` --
+  a moving assembly could pass full validation without either ever running,
+  exactly the gap the user's own vision (point 4: "jei tai buna judancios
+  detales, automatiskai tai ir planuoja, net patikrina mechanika") called
+  out. `rules_manifest.yaml`'s R-09 could only mark this MANUAL.
+- **Root cause:** two of this skill's own reference docs
+  (`intake_and_analysis.md`, `mechanics_and_motion_planning.md`) each
+  independently proposed a `design_manifest.json.motion` auto-trigger with
+  mutually incompatible schemas (an object with `has_kinematics` vs. an
+  array of driver/driven joint objects) -- and BOTH were different from
+  `motion_sweep.py`'s own real, already-tested interface, which reads a
+  `motion` array from `joints.json` (the same file `check_collisions.py`
+  already uses for contacts). Neither doc's proposal matched the working
+  script.
+- **Fix:** wired the trigger to what `motion_sweep.py` actually reads:
+  `validate_scad.sh --all` now detects a non-empty `joints.json#motion`
+  array, renders each part positioned in assembly space via `assembly.scad`'s
+  `MODE="part"`/`PART="<name>"` switch (SKILL.md §6 -- the per-part STLs the
+  main loop produces are in local coordinates, not valid for cross-part
+  interference checking), then runs `check_collisions.py` (static
+  precondition) and `motion_sweep.py` (dynamic sweep) automatically, in that
+  order. Tested end-to-end against a real two-part synthetic gear assembly:
+  clean tangent case passes, a deliberately-broken deep-overlap case fails
+  with a non-zero exit code that propagates through `set -e`, and a
+  no-motion/no-joints.json project is unaffected (mechanics block correctly
+  skipped). `rules_manifest.yaml` R-09 updated to `kind: auto` accordingly.
+- **Already promoted to a rule?** Yes -- fixed directly in
+  `validate_scad.sh` and `rules_manifest.yaml` R-09.
+
 ### 2026-08-19 -- validate_scad.sh crashed on an empty parts/ directory under macOS's default bash
 - **Where:** `scad-modeler/scripts/validate_scad.sh`, and (root-caused from
   the same bug) `scad-modeler/scripts/check_rules.py`'s first version.

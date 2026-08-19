@@ -59,16 +59,16 @@ rules:
     gate: null
 
   - id: R-08
-    rule: "Collision/clearance (§7): 3+ positioned parts checked for unintended interference and insufficient clearance"
+    rule: "Collision/clearance (§7): 3+ positioned STATIC (non-moving) parts checked for unintended interference and insufficient clearance -- if the assembly moves, this is already covered by R-09's auto-trigger instead"
     applies: "always"
     kind: manual
     gate: null
 
   - id: R-09
-    rule: "Motion sweep (§7): if design_manifest.json.motion.has_kinematics is true, static collisions are checked first, then a full motion sweep"
-    applies: "json_true:design_manifest.json#motion.has_kinematics"
-    kind: manual
-    gate: null
+    rule: "Motion sweep (§7): if joints.json declares a non-empty 'motion' array, static collisions are checked first, then a full motion sweep -- both auto-triggered by validate_scad.sh --all against positioned parts rendered via assembly.scad's MODE=\"part\" switch"
+    applies: "json_true:joints.json#motion"
+    kind: auto
+    gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
 
   - id: R-10
     rule: "Change-propagation (§0/choice tree): a parameter edit's affected chain is traced with check_dependencies.py before assuming only the touched part needs re-checking"

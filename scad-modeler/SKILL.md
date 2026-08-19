@@ -622,8 +622,9 @@ pass, not something to analyze now; just log it accurately.
   — the prose below (with incident citations) wins if this ever drifts.
 - `references/intake_and_analysis.md` — Stage 0/0.5: requirements JSON
   schema (confirmed/estimated/unknown status discipline), printed-vs-purchased
-  decision criteria (NopSCADlib vitamins), embedding-based similar-variant
-  retrieval over past designs.
+  decision criteria (NopSCADlib vitamins), similar-variant retrieval over past
+  designs (direct read-through of past READMEs, not an embedding index — the
+  archive is ~12 projects, too small for vector search to earn its cost).
 - `references/mechanics_and_motion_planning.md` — motion taxonomy
   (rotation/translation/rolling/flexure), FDM fit-clearance tables,
   `design_manifest.json` motion block that auto-triggers the mechanics checks.

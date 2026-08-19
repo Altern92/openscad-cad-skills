@@ -10,19 +10,25 @@ check this file's date against the section headers it maps if in doubt, since
 nothing regenerates it automatically (2026-08-19).
 
 v2 changes (this revision): added **Stage 0 intake** (brief → requirements
-spec) and **Stage 0.5 analysis** (printed-vs-purchased classification +
-similar-variant retrieval), added the **change-propagation step** (dependency
-DAG — `check_dependencies.py`, see `change_propagation.md`), added the
-**rules-enforcement gate** (`check_rules.py` mandatory before the final
-report, see `rules_enforcement.md`), and wired the **mechanics stage** to
-trigger automatically from `design_manifest.json.motion` (see
-`mechanics_and_motion_planning.md`). The validated v1 core (env check,
-planning, narrative, `validate_scad.sh --all`, check ordering) is unchanged.
+spec, `check_intake.py` gate, built+tested 2026-08-19) and **Stage 0.5
+analysis** (printed-vs-purchased classification + similar-variant retrieval
+via direct README read-through, not an embedding index — the archive is too
+small to need one), added the **change-propagation step** (dependency DAG —
+`check_dependencies.py`, built+tested, see `change_propagation.md`), added
+the **rules-enforcement gate** (`rules_manifest.yaml` + `check_rules.py`,
+built+tested, mandatory before the final report, see `rules_enforcement.md`),
+and wired the **mechanics stage** to trigger automatically from a non-empty
+`joints.json#motion` array — NOT `design_manifest.json.motion`, which two
+earlier drafts of this reference set proposed independently and
+inconsistently with each other and with `motion_sweep.py`'s own real
+interface (see `mechanics_and_motion_planning.md` §3, corrected 2026-08-19).
+The validated v1 core (env check, planning, narrative, `validate_scad.sh
+--all`, check ordering) is unchanged.
 
 ```mermaid
 flowchart TD
     Start([Brief: user's detailed description\n+ info from other AIs]) --> Intake[Stage 0 INTAKE\nwrite requirements.json /\ndesign_manifest.json\n→ check_intake.py gate]
-    Intake --> Analysis[Stage 0.5 ANALYSIS\n1. classify each component:\nPRINTED vs PURCHASED\n2. retrieve 2-3 SIMILAR\npast variants to adapt\n(embeddings + templates)]
+    Intake --> Analysis[Stage 0.5 ANALYSIS\n1. classify each component:\nPRINTED vs PURCHASED\n2. retrieve 2-3 SIMILAR\npast variants to adapt\n(read past READMEs + templates,\nno embedding index at this archive size)]
     Analysis --> EnvNew{Toolchain/environment possibly\nchanged -- new machine, updated\nOpenSCAD, updated libraries,\nor never run here before?}
     EnvNew -- yes --> Doctor[doctor.py once\nreports confidence tier]
     Doctor --> Selftest[selftest.py once\nverifies the toolchain itself]
@@ -51,8 +57,8 @@ flowchart TD
     OptIn -->|part has\n// EXPECTED_HOLE| Features[check_features.py]
     OptIn -->|project has\nbores.json| BoreCheck[check_bore_reachability.py]
 
-    Validate --> Motion{design_manifest.json\nhas a motion block?\n(something moves)}
-    Motion -- yes --> Mechanics[MECHANICS stage:\nstatic collisions first,\nthen motion_sweep.py\n(see mechanics_and_motion_planning.md)]
+    Validate --> Motion{joints.json has a\nnon-empty "motion" array?\n(something moves --\nsee motion_sweep.py's own\ndocstring for the schema)}
+    Motion -- yes --> Mechanics["MECHANICS (built + tested 2026-08-19):\nrenders each part positioned via\nassembly.scad MODE=\"part\", then\ncheck_collisions.py (static precondition),\nthen motion_sweep.py (sweep)\n-- both AUTOMATIC, not situational"]
     Mechanics --> AllPass
     Motion -- no --> AllPass
 
@@ -60,14 +66,12 @@ flowchart TD
     AllPass -- no --> FixSource[Fix at the source,\nre-run validate_scad.sh --all\nfrom the top -- not just\nthe one check that failed]
     FixSource --> Validate
 
-    AllPass -- yes --> Situational["Situational manual checks -- validate_scad.sh\ndoes NOT run these. NOT exclusive: check EVERY\ncondition below independently, run ALL that\napply, in this order (each downstream check\nassumes the upstream one is already clean)"]
+    AllPass -- yes --> Situational["Situational MANUAL checks -- validate_scad.sh\ndoes NOT run these (motion is no longer here --\nit auto-triggers above). NOT exclusive: check\nEVERY condition below independently, run ALL\nthat apply, in this order (each downstream\ncheck assumes the upstream one is already clean)"]
     Situational -->|1. part has 2+ named\nsub-modules sharing\none union()?| Subfeature["check_subfeature_overlap.py\n(export sub-modules solo first,\ndeclare fusions with --exempt)"]
-    Situational -->|2. assembly has\n3+ positioned parts?| Collisions["check_collisions.py\n(declare press fits etc.\nin joints.json)"]
-    Situational -->|3. anything moves\n(gears, hinge, slider)?| Motion2["motion_sweep.py\n(motion block in design_manifest.json)"]
+    Situational -->|2. assembly has 3+ positioned\nparts and does NOT move\n(if it moves, already covered above)?| Collisions["check_collisions.py\n(declare press fits etc.\nin joints.json)"]
 
     Subfeature --> ChangeTree
     Collisions --> ChangeTree
-    Motion2 --> ChangeTree
     Situational -- none apply --> ChangeTree
 
     ChangeTree[CHANGE-PROPAGATION:\ncheck_dependencies.py records the\nparam->part dependency DAG;\non ANY edit, dirty-root from the\nchanged variable, recompute only\nthe affected chain in topo order\n(see change_propagation.md)\n-- fallback: full --all re-run]
@@ -82,9 +86,11 @@ flowchart TD
   are *gated* — `check_intake.py` verifies the spec file exists and matches the
   JSON schema before modeling may start. Detail:
   `scad-modeler/references/intake_and_analysis.md`.
-- **Mechanics triggers automatically** from `design_manifest.json.motion`;
-  static collision check is always a precondition of the motion sweep (sweep
-  over already-colliding static geometry is meaningless).
+- **Mechanics triggers automatically** from a non-empty `joints.json#motion`
+  array (built and tested 2026-08-19, wired directly into
+  `validate_scad.sh`) — not `design_manifest.json.motion`; static collision
+  check is always a precondition of the motion sweep (sweep over
+  already-colliding static geometry is meaningless).
 - **Change-propagation does not replace the blanket re-run**: it makes the
   usual case (one parameter edited) cheap and targeted, and escalates to the
   full `validate_scad.sh --all` on any parse uncertainty or when a file `mtime`
