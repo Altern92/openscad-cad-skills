@@ -99,6 +99,16 @@ jobs:
           curl -sL -o openscad.AppImage "https://files.openscad.org/snapshots/$LATEST"
           chmod +x openscad.AppImage
           sudo apt-get install -y libfuse2t64 || sudo apt-get install -y libfuse2 || true
+          # Confirmed missing on a bare ubuntu-latest runner (real CI run,
+          # 2026-08-19): "error while loading shared libraries:
+          # libEGL.so.1" -- the extracted AppImage needs Mesa's OpenGL/EGL
+          # libraries even for CLI-only rendering, which openscad's own
+          # CI-setup wiki page and multiple AppImage dependency issues
+          # confirm is a known requirement, not unique to this skill.
+          sudo apt-get install -y libegl1 libgl1 libglx-mesa0 libxkbcommon-x11-0 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xfixes0 \
+            libxcb-xinerama0
           ./openscad.AppImage --appimage-extract
           sudo ln -s "$PWD/squashfs-root/AppRun" /usr/local/bin/openscad
           # README.md documents this same requirement for headless Linux:
