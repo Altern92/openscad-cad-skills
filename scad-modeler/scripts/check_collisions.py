@@ -56,6 +56,21 @@ match), so "bearing_608" matches "build/bearing_608.stl". A declared pair that
 overlaps outside its stated range still fails -- the declaration licenses a
 specific interference, not any interference.
 
+A declared pair passing its depth range is ALSO checked for whether it
+touches in exactly one contiguous region. A max-over-all-contact-points
+penetration depth cannot tell "one legitimate contact zone" from "a
+legitimate zone plus a completely separate, unrelated one that happens to
+be similarly shallow" -- confirmed live: a declared gear-mesh contact's
+overlap split into 7 disjoint regions, one of them entirely outside the
+meshing feature's own physical extent, i.e. a real structural collision
+hiding behind the same declared range as the legitimate contact
+(INCIDENTS.md, 2026-08-19). More than one disjoint region fails as
+MULTIPLE DISJOINT CONTACT REGIONS by default. For a joint that genuinely
+touches in several places on purpose (a splined shaft, say), opt out with:
+
+    {"pair": ["shaft", "spline_hub"], "joint_type": "spline",
+     "expected_interference_mm": [0.0, 0.05], "multi_region_ok": true}
+
 SCOPE -- what this does NOT check
 ---------------------------------
 One static pose only. A gearbox, hinge, latch, cam or slider can be clear at 0
@@ -170,6 +185,60 @@ def overlap_volume(mesh_a, mesh_b):
         return float(inter.volume) if inter.is_volume else None
     except Exception:
         return None
+
+
+def intersection_regions(mesh_a, mesh_b, noise_floor=0.5):
+    """Split the boolean intersection of two meshes into disjoint connected
+    regions, returning a list of {"volume": mm^3, "bounds": [[x,y,z],[x,y,z]]}
+    for each region at or above noise_floor mm^3 (below that, a region is
+    tessellation noise -- the same floor check_subfeature_overlap.py uses by
+    default). None if no boolean engine is available or the computation
+    fails; [] if the parts don't actually overlap.
+
+    Why this exists: a single MAX-penetration-depth number over ALL contact
+    points for a pair (pair_penetration_depth, above) cannot tell "one
+    legitimate contact zone" from "a legitimate zone plus a completely
+    separate, unrelated one" -- both can produce a similar shallow max
+    depth. Confirmed as a real, live gap: a declared jackshaft/output_gear
+    "gear_mesh" contact's overlap split into 7 disjoint regions, one of
+    them (109.5mm^3) entirely outside the worm thread's own physical
+    extent -- i.e. a real structural collision (plausibly the output gear's
+    hub clipping the shaft's big_gear/transition region) hiding behind the
+    same declared-range check as the legitimate worm-tooth mesh
+    (INCIDENTS.md, 2026-08-19). A genuine single-purpose joint (a gear
+    mesh, a press fit) physically touches in ONE contiguous region;
+    multiple disjoint regions between the same declared pair is itself a
+    signal nothing before this checked for.
+    """
+    try:
+        inter = mesh_a.intersection(mesh_b)
+    except Exception:
+        return None
+    if inter is None or inter.is_empty:
+        return []
+    try:
+        pieces = inter.split(only_watertight=False)
+    except Exception:
+        return None
+
+    regions = []
+    for piece in pieces:
+        try:
+            vol = float(piece.volume)
+        except Exception:
+            continue
+        # Same degenerate-near-zero handling as check_subfeature_overlap.py's
+        # 2026-08-19 fix: a boolean engine can return a non-`is_volume`
+        # (not watertight/consistently wound) sliver whose raw .volume is
+        # still a trustworthy near-zero number. Only trust a non-`is_volume`
+        # piece's number when it's small; a large one that fails `is_volume`
+        # is genuinely unmeasurable, not evidence either way.
+        if not piece.is_volume and abs(vol) >= 1.0:
+            continue
+        if abs(vol) < noise_floor:
+            continue
+        regions.append({"volume": vol, "bounds": piece.bounds.tolist()})
+    return regions
 
 
 def pair_penetration_depth(contact_data, name_a, name_b):
@@ -293,12 +362,47 @@ def main():
                         f"DECLARED INTERFERENCE OUT OF RANGE: {label} is "
                         f"declared '{joint}' ({lo}-{hi} mm), but measured "
                         f"penetration depth is {depth:.3f} mm")
-                else:
-                    vol_str = f", overlap volume {vol:.2f} mm^3" if vol is not None else ""
-                    notes.append(
-                        f"OK (intentional {joint}): {label}, penetration "
-                        f"depth {depth:.3f} mm, declared range {lo}-{hi} mm"
-                        f"{vol_str}")
+                    continue
+
+                # Depth is within the declared range, but that alone doesn't
+                # prove this is ONE legitimate contact -- a max-over-all-
+                # contact-points depth can't distinguish that from a
+                # legitimate zone plus a separate, unrelated one that
+                # happens to be similarly shallow (confirmed live,
+                # INCIDENTS.md 2026-08-19: a declared gear-mesh contact's
+                # overlap split into 7 disjoint regions, one entirely
+                # outside the meshing feature's own extent). A genuine
+                # single-purpose joint touches in ONE contiguous region;
+                # more than one is a red flag by default. Declare
+                # "multi_region_ok": true on the contact entry for a joint
+                # that legitimately touches in several places (e.g. a
+                # splined shaft).
+                regions = intersection_regions(meshes[a], meshes[b])
+                multi_region_ok = bool(decl.get("multi_region_ok"))
+                if regions is not None and len(regions) > 1 and not multi_region_ok:
+                    region_list = "; ".join(
+                        f"{r['volume']:.1f}mm^3 at {[[round(c, 1) for c in pt] for pt in r['bounds']]}"
+                        for r in regions)
+                    failures.append(
+                        f"MULTIPLE DISJOINT CONTACT REGIONS: {label} is "
+                        f"declared '{joint}' as a single contact, but the "
+                        f"overlap splits into {len(regions)} spatially "
+                        f"separate regions: {region_list}. A single-purpose "
+                        f"joint touches in one contiguous region -- this "
+                        f"looks like a legitimate contact PLUS an unrelated "
+                        f"structural collision hiding behind the same "
+                        f"declared range. If this joint genuinely touches "
+                        f"in several places on purpose, declare "
+                        f"\"multi_region_ok\": true on this contact entry.")
+                    continue
+
+                vol_str = f", overlap volume {vol:.2f} mm^3" if vol is not None else ""
+                region_note = (f", {len(regions)} contact region(s)"
+                                if regions is not None else "")
+                notes.append(
+                    f"OK (intentional {joint}): {label}, penetration "
+                    f"depth {depth:.3f} mm, declared range {lo}-{hi} mm"
+                    f"{vol_str}{region_note}")
                 continue
 
             # No contact data for this pair (shouldn't normally happen when

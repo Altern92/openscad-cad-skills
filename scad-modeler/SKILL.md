@@ -447,8 +447,18 @@ overlap?" is the wrong question for a printed assembly:
   only); set it to something the process can actually resolve.
 - **Intentional contact** — press fits, snap fits and threads are *supposed* to
   overlap. Declare them in `templates/joints.json` and they are range-checked
-  instead of flagged; an undeclared overlap still fails, and a declared press
-  fit whose parts don't touch fails too.
+  by penetration depth (mm, matching the units `expected_interference_mm` is
+  written in) instead of flagged; an undeclared overlap still fails, and a
+  declared press fit whose parts don't touch fails too. A pair within range
+  is ALSO required to touch in exactly one contiguous region by default — a
+  max-over-all-contact-points depth can't tell a legitimate contact zone from
+  that same zone plus a separate, unrelated structural collision hiding
+  behind the same declared range; confirmed live, not hypothetical: a
+  declared gear-mesh contact's overlap split into 7 disjoint regions, one
+  entirely outside the meshing feature's own extent (`INCIDENTS.md`,
+  2026-08-19). Add `"multi_region_ok": true` on the contact entry only for a
+  joint that genuinely touches in several places on purpose (a splined
+  shaft, say).
 
 Exit codes: `0` pass, `2` degraded (a mesh wasn't watertight, or a declared
 interference couldn't be measured — treat as *not checked*, not as pass), `3`

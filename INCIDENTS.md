@@ -129,8 +129,10 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
   `esp32_rc_modelis/mechanical/steering_reduction_gearbox/`
   (`jackshaft.stl` [worm + big_gear on one printed part] vs
   `output_gear.stl` [worm wheel]), found live during a parallel Claude Code
-  session's re-validation of that project. NOT fixed -- logged only, per
-  explicit user instruction; a different session is implementing the fix.
+  session's re-validation of that project. Logged first without fixing
+  (explicit user instruction, since a different session was expected to
+  implement it); fixed directly in this session shortly after, once the
+  user asked for it here instead.
 - **Symptom:** the render looked visibly wrong to the user (parts appearing
   fused where they shouldn't be) despite the other session's own
   `check_collisions.py` initially reporting the declared `jackshaft`/
@@ -160,15 +162,28 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
   2026-08-19 volume-heuristic bug and its penetration-depth fix (both
   entries below) -- fixing "how much" is compared per pair does not fix
   "whether it's actually one physical contact or several unrelated ones."
-- **Fix:** NOT YET IMPLEMENTED (explicit instruction this session: log
-  only). Proposed, not built: for a declared-contact pair, split the
-  boolean intersection into connected components (the same technique the
-  other session used manually) and either (a) require exactly one
-  component, or (b) validate depth per component independently, flagging
-  more than one disjoint region as suspicious by default unless explicitly
-  exempted (e.g. a legitimately multi-point contact like a splined shaft).
-- **Already promoted to a rule?** Not yet -- proposed fix only, intentionally
-  left for a different session to implement.
+- **Fix:** added `intersection_regions()`: for a declared-contact pair that
+  passes its depth range, the boolean intersection is additionally split
+  into connected components (the same `.split(only_watertight=False)`
+  technique the other session used manually to find this in the first
+  place). More than one region at or above a 0.5mm³ tessellation-noise
+  floor fails as `MULTIPLE DISJOINT CONTACT REGIONS`, listing each
+  region's volume and bounds, unless the contact entry declares
+  `"multi_region_ok": true` (for a joint that genuinely touches in several
+  places on purpose, e.g. a splined shaft). Degenerate near-zero boolean
+  results are handled the same way as `check_subfeature_overlap.py`'s
+  same-day fix (trust a small `.volume` even when `is_volume` is false;
+  only distrust a large one). Tested against a synthetic reproduction of
+  the exact reported shape: two disjoint 0.2mm-deep, similarly-shallow
+  contact regions between the same declared pair now correctly fails; the
+  same pair with only the legitimate region present correctly passes; the
+  same two-region case with `multi_region_ok: true` declared correctly
+  passes. Full prior regression (0.1mm/0.3mm depth-range cases, the
+  synthetic gear-assembly `validate_scad.sh --all` integration) re-run and
+  confirmed unaffected.
+- **Already promoted to a rule?** Yes -- fixed directly in
+  `check_collisions.py`, documented in `SKILL.md` §7 and
+  `templates/joints.json`.
 
 ### 2026-08-19 -- validate_scad.sh's fail-fast (set -e) let one unrelated failure mask whether OTHER checks ran at all
 - **Where:** `scad-modeler/scripts/validate_scad.sh`, `scad-modeler/scripts/check_rules.py`,

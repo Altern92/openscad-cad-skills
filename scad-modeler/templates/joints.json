@@ -3,7 +3,7 @@
 
   "contacts": [
     {
-      "_comment": "Declaring a pair licenses the interference you state -- not any interference. An overlap outside the range fails, and so does a declared press fit whose parts do not touch. Declared pairs are also exempt from the motion sweep, since they are meant to stay in contact.",
+      "_comment": "Declaring a pair licenses the interference you state -- not any interference. An overlap outside the range fails, and so does a declared press fit whose parts do not touch. Declared pairs are also exempt from the motion sweep, since they are meant to stay in contact. A pair within range is ALSO required to touch in exactly one contiguous region by default -- a legitimate contact plus an unrelated structural collision can otherwise hide behind the same declared range (INCIDENTS.md, 2026-08-19). Add \"multi_region_ok\": true only for a joint that genuinely touches in several places on purpose (e.g. a splined shaft).",
       "pair": ["housing_bore", "bearing_608"],
       "joint_type": "press_fit",
       "expected_interference_mm": [0.05, 0.15]
