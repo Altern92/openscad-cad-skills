@@ -1,6 +1,6 @@
 ---
 name: scad-modeler
-description: Use for complex, multi-part parametric OpenSCAD mechanical assemblies — things with gears, bearings, reductions, multiple interacting printed parts, or where getting a dimension wrong means two parts collide or don't mesh. Triggers on "gear ratio", "reduction", "bearing", "shaft", "assembly", "BOM", "center distance", "mechanical design", "RC car", "gearbox", "multi-part", or requests to design several parts that must fit together and be validated, not just a single organizer/bracket. For a single simple part (an insert, a bracket, a cover, a shroud), use the openscad-cad skill instead — this skill's calculation-table + validation overhead is not worth it for those. This skill builds on openscad-cad (§2 render/export commands still apply) and adds mandatory engineering calculations before geometry, centralized part positions, per-part local coordinates, and automated dimensional/collision validation.
+description: Use for complex, multi-part parametric OpenSCAD mechanical assemblies — things with gears, bearings, reductions, multiple interacting printed parts, or where getting a dimension wrong means two parts collide or don't mesh. Triggers on "gear ratio", "reduction", "bearing", "shaft", "assembly", "BOM", "center distance", "mechanical design", "RC car", "gearbox", "multi-part", "design a mechanism", "which architecture", "gearbox layout", or a brief vague enough that more than one mechanism would satisfy it — or requests to design several parts that must fit together and be validated, not just a single organizer/bracket. For a single simple part (an insert, a bracket, a cover, a shroud), use the openscad-cad skill instead — this skill's calculation-table + validation overhead is not worth it for those. This skill builds on openscad-cad (§2 render/export commands still apply) and adds: a gated planning stage that fixes the architecture before any numbers, mandatory engineering calculations before geometry, centralized part positions, per-part local coordinates, and automated dimensional, collision and motion validation.
 ---
 
 # SCAD Modeler — Multi-Part Mechanical Assemblies
@@ -722,6 +722,9 @@ pass, not something to analyze now; just log it accurately.
   a part's declared `// EXPECTED_BBOX: [x, y, z]`, with the tolerance derived
   from `$fn`/`$fa`/`$fs`. Needs only `trimesh` (confirmed lighter than
   check_collisions.py — no scipy/python-fcl needed for this one).
+- `scripts/check_plan.py` — the planning gate: refuses detail work while the
+  architecture is unchosen, a blocking assumption stands, or a layout part never
+  went through the plan. Exit 0/1/4.
 - `scripts/motion_sweep.py` — interference and clearance through a declared
   motion cycle, with gear-tooth periodicity and adaptive refinement around the
   tightest position. Exit 0/2/3/4 like the others; `--json` for a machine-readable
@@ -746,6 +749,10 @@ pass, not something to analyze now; just log it accurately.
   contacts. `manifold3d` is an optional extra: without a boolean engine a
   declared press fit can't be measured against its range and the run reports
   degraded rather than passing.
+- `templates/plan.md` — the four planning gates, in the shape `check_plan.py`
+  reads.
+- `references/planning.md` — why concept precedes detail, minimal Pugh and
+  dependency-matrix formats, and what the literature actually supports.
 - `templates/joints.json` — starting point for declaring intentional contact
   pairs.
 - `scripts/check_bore_reachability.py` — §0.6/§7: point-containment scan along

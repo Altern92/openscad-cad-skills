@@ -24,14 +24,20 @@ cost more than early ones, consistently, across sources.
 
 **One citation to get right, not wrong**: the specific "1x / 10x / 100x /
 1000x by phase" cost-of-change curve people often quote is **Barry Boehm's
-1981 software-engineering data** (TRW/IBM/GTE/Bell Labs projects), not a
-mechanical-design measurement. Cite it, if at all, as "the same directional
-effect shows up in software cost data too" — not as if it were derived from
-CAD or mechanical assemblies. Mechanical/hardware change-cost literature
-supports the direction (late changes cost more) but not a clean universal
-multiplier. Getting this citation wrong is exactly the kind of thing
-`INCIDENTS.md` exists to catch — don't repeat the error by copying the neat
-1/10/100 chart into mechanical design contexts as if it were proven there.
+1981 software-engineering data** (TRW/IBM/GTE/Bell Labs projects), published
+in *Software Engineering Economics* (1981), not a mechanical-design
+measurement. Cite it, if at all, as "the same directional effect shows up in
+software cost data too" — not as if it were derived from CAD or mechanical
+assemblies. Mechanical/hardware change-cost literature supports the
+direction (late changes cost more) but not a clean universal multiplier.
+Getting this citation wrong is exactly the kind of thing `INCIDENTS.md`
+exists to catch — don't repeat the error by copying the neat 1/10/100 chart
+into mechanical design contexts as if it were proven there. A second,
+related error to avoid: the "IBM Systems Sciences Institute study" often
+cited alongside this curve (as if it independently corroborated the same
+multipliers) **does not exist as published research** — verified while
+reconciling this file with an independent parallel implementation of this
+same planning gate (2026-08-19). Don't cite it even as a supporting source.
 
 There's also direct AI-agent-specific support: gating an agent's editing
 until it has collected enough evidence before committing — i.e. exactly
