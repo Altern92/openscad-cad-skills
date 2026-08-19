@@ -74,26 +74,46 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Install OpenSCAD
-        # The official PPA tracks recent stable releases; Ubuntu's default
-        # apt package can be too old to have the --backend=Manifold flag
-        # this skill depends on (confirmed present via `openscad --help` on
-        # a 2026-06-12 build -- see scad-modeler/references/setup-notes.md).
-        # Not yet verified against a real GitHub Actions run -- if this step
-        # fails, check whether the PPA still exists/still ships a build new
-        # enough for --backend=Manifold before assuming the skill itself is
-        # broken.
+        # Confirmed broken (2026-08-19, real CI run): ppa:openscad/releases
+        # has no Release file for Ubuntu 24.04 "noble" -- 404 Not Found.
+        # GitHub's own openscad/openscad "latest" release is also wrong for
+        # this: it's 2021.01, which predates the --backend=Manifold flag
+        # this skill depends on entirely (confirmed via `gh api
+        # repos/openscad/openscad/releases/latest`). The flag only exists
+        # in the nightly/snapshot builds OpenSCAD publishes at
+        # files.openscad.org/snapshots/ -- the same channel
+        # scad-modeler/references/setup-notes.md documents for macOS
+        # (`brew install --cask openscad@snapshot`). Fetches the AppImage
+        # dynamically (not a pinned filename, which would go stale) and
+        # extracts it instead of running it directly, so no FUSE dependency
+        # is needed. Download mechanism verified directly (confirmed a
+        # valid, correctly-sized ELF AppImage at the constructed URL) --
+        # the extract-and-run step itself is not yet verified against a
+        # real Linux CI runner (this repo's development machine is macOS).
         run: |
-          sudo add-apt-repository -y ppa:openscad/releases
-          sudo apt-get update
-          sudo apt-get install -y openscad
-          openscad --version
+          set -e
+          LATEST=$(curl -sL "https://files.openscad.org/snapshots/" \
+            | grep -oE 'OpenSCAD-[0-9.]+-x86_64\.AppImage"' | tr -d '"' \
+            | sort -V | tail -1)
+          echo "Latest snapshot: $LATEST"
+          curl -sL -o openscad.AppImage "https://files.openscad.org/snapshots/$LATEST"
+          chmod +x openscad.AppImage
+          sudo apt-get install -y libfuse2t64 || sudo apt-get install -y libfuse2 || true
+          ./openscad.AppImage --appimage-extract
+          sudo ln -s "$PWD/squashfs-root/AppRun" /usr/local/bin/openscad
+          # README.md documents this same requirement for headless Linux:
+          # OpenSCAD's CLI rendering needs an OpenGL context even without a
+          # GUI, which needs a virtual framebuffer on a display-less CI
+          # runner.
+          sudo apt-get install -y xvfb
+          xvfb-run --auto-servernum openscad --version
 
       - name: Report environment (doctor.py)
-        run: python3 scad-modeler/scripts/doctor.py
+        run: xvfb-run --auto-servernum python3 scad-modeler/scripts/doctor.py
         continue-on-error: true # informational -- BOSL2/NopSCADlib aren't
         # installed in CI (selftest.py doesn't need them), so doctor.py is
         # expected to report a lower tier here than a fully set-up dev
         # machine; this step is diagnostic output, not a pass/fail gate.
 
       - name: Run selftest.py
-        run: python3 scad-modeler/scripts/selftest.py
+        run: xvfb-run --auto-servernum python3 scad-modeler/scripts/selftest.py
