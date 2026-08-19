@@ -25,6 +25,34 @@ the full range of motion," sampled and checked automatically, with the
 static-collision precondition, the declared-contact range, and the sweep
 itself all wired into one command.
 
+## How `scad-modeler` works
+
+```mermaid
+flowchart TD
+    Brief([User's design brief]) --> Intake["Intake\nconfirmed / estimated / unknown\nstatus on every number"]
+    Intake --> Split["Printed vs purchased\nclassification"]
+    Split --> PlanQ{"3+ parts, or\narchitecture genuinely\nuncertain?"}
+    PlanQ -- yes --> Plan["Planning gate\n2+ architectures compared,\na confirmed decision"]
+    PlanQ -- no --> Calc
+    Plan --> Calc["Calculation table\n(assert() invariants)"]
+    Calc --> NarrQ{"Feature touches a bearing /\nshaft / fastener, or shares\na union() with another feature?"}
+    NarrQ -- yes --> Narr["Physical assembly narrative\ninsertion path · neighbors ·\nretention · purchased-part fit"]
+    NarrQ -- no --> Geo
+    Narr --> Geo["Write the geometry"]
+    Geo --> Validate["Validation chain\nconnectivity · dimensions · bore\nreachability · sub-feature overlap ·\ndeclared-contact penetration depth"]
+    Validate --> MoveQ{"Does anything move?"}
+    MoveQ -- yes --> Sweep["Auto-triggered:\nstatic collision check,\nthen a full motion sweep"]
+    MoveQ -- no --> Rules
+    Sweep --> Rules
+    Rules["Rules-enforcement gate\nevery rule's real verdict,\nnot a remembered checklist"]
+    Rules --> Report(["Final report\nBOM · confidence tier · citations"])
+```
+
+This is the high-level shape; the exact "which check applies to my
+situation right now" decision tree — all ~15 scripts, every trigger
+condition — lives in
+[`scad-modeler/references/validation_decision_tree.md`](scad-modeler/references/validation_decision_tree.md).
+
 ## Skills
 
 | Skill | For |
