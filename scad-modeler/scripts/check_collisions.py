@@ -13,18 +13,32 @@ wrong primitive for a printed assembly:
                            overlap in the nominal model. Flagging those as
                            errors trains the operator to ignore the checker,
                            so they must be declared and range-checked instead.
-                           "Range-checked" is a plausibility bound, not an
-                           exact one: a boolean-intersection volume cannot be
-                           compared precisely to a linear
-                           expected_interference_mm range without knowing the
-                           contact area, so overlap beyond 25% of the smaller
-                           part's own volume fails as IMPLAUSIBLE DECLARED
-                           OVERLAP regardless of the declared range -- a
-                           declaration licenses a plausible surface fit, not
-                           gross overlap of any size (confirmed as a real gap:
-                           a declared 0.0-0.5mm press fit previously accepted
-                           a 1114mm^3 overlap between two ~R20mm cylinders
-                           with no check at all, INCIDENTS.md 2026-08-19).
+                           "Range-checked" means against penetration depth in
+                           mm (FCL's per-contact-point narrow-phase depth,
+                           the max over each pair -- the same standard
+                           quantity GJK/EPA-style contact libraries expose in
+                           robotics/contact mechanics), compared directly to
+                           the declared expected_interference_mm range. This
+                           replaced an earlier boolean-intersection VOLUME
+                           check (2026-08-19) that could not be compared
+                           precisely to a linear mm spec without knowing
+                           contact area -- confirmed as a real gap: a
+                           declared 0.0-0.5mm press fit accepted a 1114mm^3
+                           overlap between two ~R20mm cylinders with
+                           effectively no check at all before this fix, and
+                           even the volume-plausibility-bound interim fix
+                           was still only a proxy, not an exact comparison
+                           (INCIDENTS.md 2026-08-19). Volume is still
+                           reported alongside depth for context, and remains
+                           the fallback if FCL contact data is unavailable
+                           for a pair that trimesh otherwise reports as
+                           colliding. Not a whole-shape EPA minimum-
+                           translation-distance -- that needs convex
+                           decomposition of each part first, which this does
+                           not do -- so for non-convex geometry with multiple
+                           simultaneous contact regions this is the worst
+                           LOCAL penetration found, a defensible but not
+                           exact-global measure.
 
 Declare intentional contacts in a JSON file passed with --expected-contacts:
 
@@ -158,6 +172,23 @@ def overlap_volume(mesh_a, mesh_b):
         return None
 
 
+def pair_penetration_depth(contact_data, name_a, name_b):
+    """Worst (max) penetration depth in mm among FCL contact points for this
+    pair, or None if no contact data covers it.
+
+    This is FCL's per-contact-point penetration_depth (narrow-phase, from the
+    BVH triangle-pair collision), not a whole-shape EPA-style minimum-
+    translation-distance -- getting that would need convex decomposition of
+    each part first. For a declared interference spec written as a linear mm
+    value, per-contact depth is still a direct, correctly-united comparison
+    -- unlike a boolean-intersection VOLUME, which can only be compared to a
+    linear mm spec via an arbitrary proxy (see the plausibility-bound
+    fallback below, kept only for when contact data is unavailable).
+    """
+    depths = [c.depth for c in contact_data if c.names == {name_a, name_b}]
+    return max(depths) if depths else None
+
+
 def pair_distance(mesh_a, mesh_b, name_a, name_b):
     """Minimum separation between two non-overlapping meshes, or None."""
     try:
@@ -217,7 +248,8 @@ def main():
     for p, m in meshes.items():
         manager.add_object(p, m)
     colliding = set()
-    is_collision, contact_names = manager.in_collision_internal(return_names=True)
+    is_collision, contact_names, contact_data = manager.in_collision_internal(
+        return_names=True, return_data=True)
     if is_collision:
         colliding = {frozenset(pair) for pair in contact_names}
 
@@ -230,35 +262,56 @@ def main():
         label = f"{os.path.basename(a)} <-> {os.path.basename(b)}"
 
         if overlaps:
+            depth = pair_penetration_depth(contact_data, a, b)
             vol = overlap_volume(meshes[a], meshes[b])
             if decl is None:
-                vol_str = f", overlap volume {vol:.2f} mm^3" if vol else ""
-                failures.append(f"UNINTENDED INTERFERENCE: {label}{vol_str}")
+                extra = f", penetration depth {depth:.3f} mm" if depth is not None else (
+                    f", overlap volume {vol:.2f} mm^3" if vol else "")
+                failures.append(f"UNINTENDED INTERFERENCE: {label}{extra}")
                 continue
 
             lo, hi = (decl.get("expected_interference_mm") or [0.0, 0.0])[:2]
             joint = decl.get("joint_type", "declared")
+
+            if depth is not None:
+                # Penetration depth (FCL narrow-phase, max over this pair's
+                # contact points) is a linear mm quantity -- the same unit
+                # expected_interference_mm is written in, so this compares
+                # directly and exactly, unlike a boolean-intersection volume
+                # (2026-08-19: upgraded from a volume-vs-part-fraction
+                # heuristic after Perplexity deep-research confirmed
+                # penetration depth, not volume, is the standard quantity
+                # for this in contact mechanics/robotics -- GJK/EPA-style
+                # libraries expose it directly, and trimesh already wraps
+                # FCL for exactly this). Not a whole-shape EPA minimum-
+                # translation-distance (that needs convex decomposition
+                # first) -- this is the worst LOCAL penetration among
+                # detected contact points, a defensible proxy but not an
+                # exact global minimum for non-convex geometry.
+                if depth < lo or depth > hi:
+                    failures.append(
+                        f"DECLARED INTERFERENCE OUT OF RANGE: {label} is "
+                        f"declared '{joint}' ({lo}-{hi} mm), but measured "
+                        f"penetration depth is {depth:.3f} mm")
+                else:
+                    vol_str = f", overlap volume {vol:.2f} mm^3" if vol is not None else ""
+                    notes.append(
+                        f"OK (intentional {joint}): {label}, penetration "
+                        f"depth {depth:.3f} mm, declared range {lo}-{hi} mm"
+                        f"{vol_str}")
+                continue
+
+            # No contact data for this pair (shouldn't normally happen when
+            # `overlaps` is True, but defensive): fall back to the coarser
+            # volume-based plausibility bound instead of silently passing.
             if vol is None:
                 notes.append(
-                    f"UNVERIFIED {joint}: {label} overlaps as declared, but no "
-                    f"mesh boolean engine is available to measure it against the "
-                    f"{lo}-{hi} mm range (pip install manifold3d)")
+                    f"UNVERIFIED {joint}: {label} overlaps as declared, but "
+                    f"neither penetration depth nor a mesh boolean engine "
+                    f"is available to measure it against the {lo}-{hi} mm "
+                    f"range (pip install manifold3d)")
                 degraded = True
             else:
-                # Volume is a severity signal, not a linear depth -- there is
-                # no exact way to compare a boolean-intersection volume
-                # against a linear "expected_interference_mm" range without
-                # knowing the contact area, so this cannot be a precise
-                # bounds check. But a declared range with hi > 0 must not
-                # mean "any volume at all passes" either -- confirmed as a
-                # real bug: two 8mm-thick, ~R20mm cylinders forced to overlap
-                # by 10mm (clearly wrong) reported "OK" against a declared
-                # 0.0-0.5mm press-fit range purely because hi was nonzero
-                # (INCIDENTS.md, 2026-08-19). A plausibility bound catches
-                # gross overlap while still not requiring the exact
-                # geometry-dependent conversion: a genuine surface-level
-                # interference fit cannot consume a large fraction of either
-                # part's own volume.
                 plausibility_frac = 0.25
                 min_own_vol = None
                 if hi > 0.0:
@@ -267,7 +320,6 @@ def main():
                             min_own_vol = min(abs(meshes[a].volume), abs(meshes[b].volume))
                     except Exception:
                         min_own_vol = None
-
                 if hi <= 0.0 and vol > 0.0:
                     failures.append(
                         f"DECLARED CONTACT EXCEEDED: {label} is declared "
@@ -283,10 +335,9 @@ def main():
                         f"a press fit; fix the position/size at the source.")
                 else:
                     notes.append(
-                        f"OK (intentional {joint}): {label}, overlap "
-                        f"{vol:.2f} mm^3, declared range {lo}-{hi} mm"
-                        + (f" (within plausibility bound: {100*vol/min_own_vol:.1f}% "
-                           f"of smaller part's volume)" if min_own_vol else ""))
+                        f"OK (intentional {joint}, volume-only fallback): "
+                        f"{label}, overlap {vol:.2f} mm^3, declared range "
+                        f"{lo}-{hi} mm")
             continue
 
         if decl is not None:

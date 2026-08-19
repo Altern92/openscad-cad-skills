@@ -123,6 +123,47 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 
 ## Entries
 
+### 2026-08-19 -- check_collisions.py's declared-contact check upgraded from a volume heuristic to exact penetration depth
+- **Where:** `scad-modeler/scripts/check_collisions.py`, following up on the
+  same-day volume-plausibility-bound fix (below) after asking Perplexity
+  deep-research for an evidence-based critique of the whole validation
+  workflow, specifically whether a better geometric quantity than
+  boolean-intersection volume exists for verifying a declared
+  `expected_interference_mm` spec.
+- **Symptom (of the interim fix, not a bug in this fix):** the same-day
+  volume-plausibility-bound fix (25% of the smaller part's own volume) could
+  only catch GROSS overlap, not a real out-of-spec interference within
+  plausible range -- confirmed directly: two 10mm cubes forced to overlap by
+  0.1mm (correct, within a declared 0.05-0.15mm press-fit spec) and by
+  0.3mm (wrong, outside that same spec, 2x the upper bound) produced overlap
+  volumes of 10mm^3 and 30mm^3 respectively -- both comfortably under the
+  25%-of-1000mm^3 threshold, so the plausibility bound would have silently
+  passed BOTH as OK, unable to distinguish a correct fit from one 3x too
+  deep.
+- **Root cause:** a boolean-intersection volume is fundamentally the wrong
+  unit to compare against a linear mm interference spec -- confirmed by
+  research citing GJK/EPA-based penetration depth as the standard quantity
+  for exactly this in contact mechanics and robotics, available via the
+  same FCL backend `check_collisions.py` already depends on through
+  `trimesh.collision` (previously only used for boolean overlap detection
+  and minimum-distance queries, not its penetration-depth output).
+- **Fix:** `manager.in_collision_internal(return_data=True)` now also
+  returns FCL `ContactData` per contact point; the max `.depth` (mm) across
+  a pair's contact points is compared directly against the declared
+  `[lo, hi]` mm range. Not an exact whole-shape EPA minimum-translation-
+  distance (would need convex decomposition first) but a correctly-unified,
+  much more precise measure than volume. The old volume-plausibility bound
+  is kept only as a defensive fallback for the rare case FCL returns no
+  contact data for a pair trimesh otherwise reports as colliding. Tested:
+  the 0.1mm/0.15mm-spec cube case now correctly passes with depth measured
+  as exactly 0.100mm; the 0.3mm cube case now correctly fails with depth
+  measured as exactly 0.300mm (previously silently passed); the full
+  synthetic gear-assembly regression (tangent-touch pass, 10mm-forced-
+  overlap fail, full `validate_scad.sh --all` integration) still passes
+  with the new depth-based path, correctly reporting the failing case's
+  measured depth as ~9.98mm.
+- **Already promoted to a rule?** Yes -- fixed directly in the script.
+
 ### 2026-08-19 -- check_collisions.py accepted ANY overlap volume for a declared contact with a nonzero range
 - **Where:** `scad-modeler/scripts/check_collisions.py`, discovered while
   building and testing the mechanics auto-trigger (below) against a
