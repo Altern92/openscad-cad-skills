@@ -112,6 +112,21 @@ if [[ "$MODE" == "--all" ]]; then
     if [ -f assembly.scad ]; then
         validate_file "assembly.scad" "$BUILD_DIR/assembly.stl"
     fi
+
+    # Bore-reachability check: opt-in via a project-root bores.json declaring
+    # each bearing/shaft/fastener bore's axis segment (see §0.6 in SKILL.md
+    # for why -- a sealed bore passes every other check here, since a fully
+    # enclosed cavity is still one connected watertight shell). Runs once
+    # against every rendered part STL, after the parts loop above so the
+    # STLs it needs already exist.
+    if [ -f bores.json ]; then
+        shopt -s nullglob
+        built_stls=("$BUILD_DIR"/*.stl)
+        shopt -u nullglob
+        if [ ${#built_stls[@]} -gt 0 ]; then
+            python3 "$SCRIPT_DIR/check_bore_reachability.py" --bores bores.json "${built_stls[@]}"
+        fi
+    fi
 else
     scad="parts/$MODE.scad"
     if [ ! -f "$scad" ]; then

@@ -19,6 +19,16 @@ user to repeat facts that are already written down. If a needed fact is missing,
 once rather than guessing — a wrong bearing bore or shaft diameter is not something a
 render will catch; it only shows up when the part doesn't fit.
 
+Also read `../INCIDENTS.md` now, not after something breaks. A bug logged
+there and never re-read before writing similar geometry is a bug that will
+recur — confirmed: the same "margin measured to a tower's center instead
+of its edge" mistake was made on three separate towers in one project
+before it was actually generalized, and a wall-clearance formula repeated
+the identical reasoning error a session later even though an earlier
+instance of it was already logged. Logging a root cause is not the same
+as having fixed the reasoning that produced it; only actually reading the
+log before writing the next similar feature closes that gap.
+
 ## 0.5. Planning (mandatory before §1, for any assembly with 3+ parts or a genuinely uncertain architecture)
 
 Don't write a single formula in §1 until the mechanical concept is settled
@@ -37,6 +47,67 @@ options are listed with no declared exemption, if no `Decision` row is
 confirmed, or if `layout.scad` names a part the plan never mentions — that
 last one catches a part invented later, during detailing, that skipped
 planning entirely, which is the failure mode that actually happened.
+
+## 0.6. Physical assembly narrative (mandatory before geometry, per feature that interfaces with a bearing/shaft/fastener/purchased part or shares a `union()` with another feature)
+
+Planning (§0.5) settles the architecture once, up front. This is different
+and ongoing: apply it *every time* you're about to write geometry for a
+feature matching the trigger above, throughout §4 — it's a per-feature gate,
+not a one-time project step, despite living in the numbering up here for
+visibility.
+
+The checks in §7 verify that a model is *internally consistent* — the
+mesh is watertight, a hole measures its declared diameter, separate parts
+don't collide in their final position. None of that verifies the model is
+*physically realizable*: whether it can be assembled, whether a purchased
+component can actually be installed, whether two features that happen to
+share one printed part collide with each other. A design can pass every
+check in §7 and still be impossible to build — confirmed repeatedly in one
+project (`../INCIDENTS.md`, 2026-08-19, three separate entries): a
+belt-and-pulley stage that passed every geometry check but could never
+physically be tensioned onto two fixed, non-adjustable pulleys; three
+bearing bores that measured correctly but were sealed behind unbored
+material with no path to the outside; a bearing tower that overlapped a
+motor mount by 419mm³, invisible because both lived inside the same part's
+`union()`. All three shipped as "done" before a human looked at the
+physical mechanism and said, in effect, "I don't believe this will work" —
+and was right each time.
+
+Before writing the geometry for any such feature, answer in writing (a few
+sentences in `calculations.md` or the plan, not a formal document):
+
+- **Insertion path**: how does the physical bearing/shaft/fastener/belt
+  actually get into this feature after the part is printed? Trace the
+  literal path from outside the part to its final seated position, and
+  confirm the material removed along that path is enough for it to travel
+  the *whole* path, not just reach its final position — a hole that's the
+  right diameter *at the seat* proves nothing about whether anything is in
+  the way *between* the seat and the outside.
+- **Shared-part neighbors**: what other named sub-features live inside the
+  same `union()` as this one? What is the actual physical envelope (not
+  the nominal/rounded one) of each, and do their envelopes overlap given
+  the *current* position parameters — re-check this any time a position
+  parameter either one depends on changes, even for an unrelated reason.
+- **Retention**: once assembled, what actually stops this part from moving
+  in the direction it's *not* supposed to move (axially, radially, under
+  the actual load this mechanism sees — thrust from a worm gear, vibration,
+  impact)? A shoulder that stops motion in one direction is not retention;
+  it's half of retention.
+- **Purchased-part fit**: if this interfaces with something not modeled as
+  its own solid (§4.5 covers modeling it as a NopSCADlib vitamin — do that
+  where practical), what installation step does that specific real object
+  require (thread a belt around fixed pulleys, press a bearing past a
+  shoulder, engage a set-screw) that geometry alone won't reveal?
+
+This step exists because the failures above were not geometry mistakes —
+the numbers were often internally consistent — they were physical
+assembly steps nobody had described in words before writing the code that
+was supposed to enable them. Skipping this because "the geometry checks
+will catch it" is exactly the mistake that produced all three incidents
+above — and §7 now closes two of the three with a real automated check
+(`check_bore_reachability.py`, `check_subfeature_overlap.py`), not just
+this narrative step; the belt/pulley case stays a judgment call no script
+can make.
 
 ## 1. Calculation table (mandatory, before writing any geometry)
 
@@ -403,8 +474,79 @@ the refinement pass found it.
 global minimum can still be missed. Lower `--step-deg` before concluding a
 design is clear, and never widen `min_clearance_mm` to make a failure go away.
 
-Still not checked at all: whether an assembly sequence physically exists, and
-anything to do with load or strength.
+**None of the above proves a bore is actually reachable from outside the
+part.** `body_count==1`/`is_watertight==True` both report clean for a
+bearing/shaft bore that is a fully enclosed internal cavity — a sealed
+tunnel with no path to any exterior surface — because an enclosed void is
+still one connected, perfectly valid watertight shell.
+`check_features.py` also reports clean, since it correctly measures the
+bore's diameter wherever it's told to probe, regardless of whether that
+location can be reached from outside. This is a real, confirmed failure
+mode, not a hypothetical: a gearbox frame with three bearing towers built
+as a cylinder with a bore drilled perpendicular through its own center
+axis passed every check above while every one of those three bores was
+sealed behind ~8mm of solid, un-bored material — the part was completely
+unassemblable and nothing in this chain said so (`INCIDENTS.md`,
+2026-08-19, "bearing bores never reached the tower's true exterior
+surface").
+
+For any bore/pocket meant to receive a bearing, shaft, or fastener
+**from outside the part after printing**, verify the path is actually
+open — a point-containment scan along the bore's own axis, from well
+outside the part to the seat position, checking that every sampled point
+is NOT inside the solid. `scripts/check_bore_reachability.py` does this:
+declare each bore's axis segment (a far-outside start point, the real
+seat position as `end`) in a project-root `bores.json`, and
+`validate_scad.sh --all` picks it up automatically once that file
+exists, checking every rendered part STL. Manually:
+
+```bash
+python3 scripts/check_bore_reachability.py --bores bores.json build/*.stl
+```
+
+A wall centered exactly on a perpendicular tower's own axis is the
+specific geometry that hides this: reaching the tower's true (curved)
+exterior takes the tower's *full radius*, not a small fixed buffer, and a
+bore that stops short leaves an enclosed cavity that every check above
+calls clean. Do this for every bearing/shaft entry point declared in
+§4.5, not just the ones that look tight in a render.
+
+**Also not checked by anything above: overlap BETWEEN sub-features
+inside the same single part.** `check_collisions.py` only ever compares
+separately-exported STLs against each other — by the time two named
+sub-modules (a tower, a wall, a boss) are `union()`-ed together and
+exported as one part, they no longer exist as distinguishable objects, so
+an overlap between them, however large, cannot be flagged: `union()` of
+two overlapping solids is still one valid, watertight, single-body shell.
+Confirmed: a bearing tower overlapped an unrelated motor-mounting cradle
+in the same part by 419mm³, invisible through several rounds of "all
+green" validation because both were part of one part's `union()`
+(`INCIDENTS.md`, 2026-08-19).
+
+For any part assembled from more than one named sub-module (a tower next
+to a wall, a boss next to a cradle, ribs near a boss), export each
+sub-module as its own solo STL (same local coordinate system, pre-union)
+and check every pair with `scripts/check_subfeature_overlap.py`:
+
+```bash
+python3 scripts/check_subfeature_overlap.py sub_features/*.stl
+```
+
+Skip a pair only when the overlap is an intentional fusion (e.g. a boss
+meant to blend into the tower it mounts on) — declare that explicitly with
+`--exempt fusions.json`, the same way `joints.json` declares intentional
+contact between separate parts in `check_collisions.py`, rather than
+silently excluding it. This needs a mesh boolean engine (`pip install
+manifold3d`) to measure overlap volume; without one it reports degraded,
+not passed. Not wired into `validate_scad.sh` — solo sub-feature export is
+an extra step the part file's author adds deliberately, the same way
+assembly-positioned exports are a prerequisite for `check_collisions.py`,
+not something the normal per-part render produces on its own.
+
+Still not checked at all: load, strength, or manufacturability (minimum
+wall thickness for the actual material/process, printability of
+overhangs). Both need judgment, a datasheet, or a physical test — this
+chain has no way to derive them from geometry alone.
 
 This needs `trimesh`, `python-fcl` (trimesh's `CollisionManager` doesn't do
 collision detection itself — it wraps FCL), and `scipy` (trimesh's own mesh
@@ -526,6 +668,22 @@ pass, not something to analyze now; just log it accurately.
   degraded rather than passing.
 - `templates/joints.json` — starting point for declaring intentional contact
   pairs.
+- `scripts/check_bore_reachability.py` — §0.6/§7: point-containment scan along
+  a declared bore axis, catching a bore that's the right diameter at its seat
+  but sealed behind unbored material somewhere between the seat and the
+  outside — the exact failure `is_watertight`/`check_connectivity.py`/
+  `check_features.py` all report clean on, since a sealed cavity is still one
+  valid watertight shell. Opt-in via a project-root `bores.json`; auto-runs in
+  `validate_scad.sh --all` once that file exists. Needs `trimesh`, `numpy`,
+  `rtree`.
+- `scripts/check_subfeature_overlap.py` — §0.6/§7: boolean-intersection
+  overlap check between named sub-modules of the *same* part, exported solo
+  before `union()` — the gap `check_collisions.py` structurally can't close,
+  since two overlapping solids `union()`-ed into one part are still one
+  valid, watertight, single-body shell with no trace of the overlap. Declared
+  exemptions via `--exempt` for intentional fusions. Manual step, not wired
+  into `validate_scad.sh` (solo sub-feature export is an extra step the part
+  author adds). Needs `trimesh`; `manifold3d` for volume measurement.
 - `../openscad-cad/references/confidence-tiers.md` — what may be claimed at each
   tier, the gates each requires, and the default table that keeps the spec a
   contract rather than an interrogation. State the tier reached in the final

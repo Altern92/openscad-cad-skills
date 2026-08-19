@@ -123,6 +123,102 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 
 ## Entries
 
+### 2026-08-19 -- belt-and-pulley stage passed every geometry check but could never physically be tensioned
+- **Where:** `esp32_rc_modelis` (steering/reduction belt drive, exact part
+  file not captured in the source transcript) -- a different, parallel
+  Claude Code session's own work, self-diagnosed and written up in a
+  blunt post-mortem shared with this session; not fixed directly here.
+- **Symptom:** two pulleys modeled at fixed, non-adjustable centers,
+  sized against a belt pitch length -- every declared geometry check
+  (bbox, bore diameter, part-to-part collision in final position) passed.
+  The design was still physically un-buildable: a non-stretch GT2 belt
+  cannot be installed onto two pulleys whose centers are both fixed, with
+  no tensioner, no idler, and no way to shorten the effective path during
+  assembly.
+- **Root cause:** category-B blind spot -- every check in this chain
+  validates parts in their *final assembled position*; none of them
+  simulate the *process* of getting a part into that position. A belt
+  loop closing around two fixed centers with zero slack has no assembly
+  path, and nothing in geometry-only validation asks "can this actually
+  be installed," only "does it collide once installed."
+- **Fix:** Not fixed by this session (source project, another session's
+  work) -- motivated `scad-modeler/SKILL.md` §0.6 "Physical assembly
+  narrative," which requires stating the installation path for any
+  belt/bearing/fastener feature in writing before its geometry is coded.
+- **Already promoted to a rule?** Yes -- `SKILL.md` §0.6 (this session,
+  2026-08-19), though as prose/checklist only -- no automated check can
+  catch "this belt architecture has no tensioner," that's a design-review
+  judgment call, not a geometry predicate.
+
+### 2026-08-19 -- three bearing bores measured correctly but were sealed behind unbored material with no path to the outside
+- **Where:** a gearbox frame with three bearing towers, each modeled as a
+  cylinder bored perpendicular through its own center axis -- a
+  different, parallel Claude Code session's own work, self-diagnosed and
+  written up in a blunt post-mortem shared with this session.
+- **Symptom:** `check_features.py` correctly measured each bore's
+  diameter *at the declared probe point* and passed; `check_connectivity.py`
+  reported each tower as one clean, watertight body. Both were true and
+  both missed the real problem: every one of the three bores was sealed
+  behind ~8mm of solid, un-bored material, with no path connecting the
+  bore to any exterior surface. The part was completely unassemblable --
+  a bearing could never be inserted -- and nothing in the validation chain
+  said so.
+- **Root cause:** category-B/C blind spot -- a bore that measures the
+  right diameter *at its seat* proves nothing about whether material in
+  the way *between* the seat and the outside was ever actually removed. A
+  fully enclosed internal cavity is still one connected, perfectly valid
+  watertight shell; `body_count==1` and correct-diameter-at-one-point are
+  both necessary but not sufficient for "this hole goes anywhere."
+- **Fix:** The other session's §7 addition was prose + an inline code
+  example only, not a runnable check -- itself a live instance of the
+  "log is inert" mistake this whole post-mortem was about. This session
+  turned it into `scad-modeler/scripts/check_bore_reachability.py`: a
+  point-containment scan (`trimesh.contains()`, needs `rtree`) along a
+  declared bore axis from a `bores.json` entry, wired into
+  `validate_scad.sh --all` (opt-in via `bores.json`'s existence, runs
+  once against every rendered part STL). Tested against synthetic
+  fixtures matching this exact geometry -- a tower with a bore drilled
+  only halfway through correctly failed (blocked at the first
+  unreached point), the same tower with a full-depth bore correctly
+  passed -- and confirmed end-to-end through a real `validate_scad.sh
+  --all` run in both states.
+- **Already promoted to a rule?** Yes -- `scad-modeler/scripts/check_bore_reachability.py`,
+  wired into `validate_scad.sh`, referenced from SKILL.md §0.6/§7.
+
+### 2026-08-19 -- a bearing tower overlapped a motor mount by 419mm³, invisible because both lived inside one part's `union()`
+- **Where:** a gearbox frame part combining a bearing tower and a motor-
+  mounting cradle in a single `union()` -- a different, parallel Claude
+  Code session's own work, self-diagnosed and written up in a blunt
+  post-mortem shared with this session.
+- **Symptom:** the part rendered, exported as one watertight STL, and
+  passed every check in the chain -- `check_collisions.py` never saw a
+  problem because it only ever compares *separately exported* STL files
+  against each other. Once the tower and the cradle were `union()`-ed
+  together into one part, they stopped existing as distinguishable
+  objects to any tool downstream, so a real 419mm³ overlap between them
+  was structurally invisible, not just missed.
+- **Root cause:** category-C blind spot -- `union()` of two overlapping
+  solids is still one valid, single-body, watertight shell; nothing about
+  that operation records or exposes that an overlap happened. The whole
+  collision-checking approach in this skill is built on comparing
+  distinct STL files, which by construction cannot see inside one.
+- **Fix:** The other session's §7 addition was prose + an inline code
+  example only, not a runnable check -- itself a live instance of the
+  "log is inert" mistake this whole post-mortem was about. This session
+  turned it into `scad-modeler/scripts/check_subfeature_overlap.py`:
+  pairwise boolean-intersection volume between solo-exported sub-feature
+  STLs, with `--exempt` for declared intentional fusions. Tested against
+  synthetic fixtures -- two overlapping boxes correctly failed with the
+  exact expected overlap volume (300mm³ for a known 10x10x3mm overlap
+  region), two clear boxes correctly passed, and the overlapping pair
+  correctly passed once declared via `--exempt`. NOT wired into
+  `validate_scad.sh` -- unlike the bore check, this needs an extra export
+  step (each sub-module rendered solo, pre-`union()`) that the normal
+  per-part render doesn't produce, so it stays a manual command
+  documented in SKILL.md §7, the same pattern as `check_collisions.py`.
+- **Already promoted to a rule?** Yes -- `scad-modeler/scripts/check_subfeature_overlap.py`,
+  documented as a manual step in SKILL.md §0.6/§7 (not auto-run, by design).
+
 ### 2026-08-19 -- short blind pilot holes near a curved tower wall left tiny negative-volume "ghost" bodies, not a real design error
 - **Where:** `esp32_rc_modelis/mechanical/steering_reduction_gearbox/parts/
   gearbox_frame.scad` (`cap_pilot_holes_x`) and `bearing_cap.scad` -- a
