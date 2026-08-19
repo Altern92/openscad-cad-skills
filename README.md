@@ -167,12 +167,6 @@ Tier 3 and above need a calibration profile: your printer and material's
 actual measured deviation. Without one, geometry can be promised, but fit
 cannot.
 
-## `research/`
-
-Research prompts and the context behind design decisions — internal
-methodology notes, not part of the skill itself, and not installed into
-`~/.claude/skills/`.
-
 ## License
 
 MIT — see [`LICENSE`](LICENSE).
