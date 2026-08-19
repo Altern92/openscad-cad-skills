@@ -1,0 +1,27 @@
+{
+  "_comment": "gear_module=1.0, pinion=11T, spur=66T -> center_distance = 1.0*(11+66)/2 = 38.5mm. Meshing external gears turn OPPOSITE ways, so spur's ratio is negative and equal to -(pinion_teeth/spur_teeth). expected_interference_mm and multi_region_ok were both set from an ACTUAL measurement of this exact pair (check_collisions.py -- see the example's own README), not guessed: real involute teeth interpenetrate deeper than a simple press-fit backlash range (measured max penetration depth 1.383mm here, module-1 addendum-scale, not the ~0.1-0.5mm a bearing/shaft press fit would use), and a standard involute pair's contact ratio (>1 by design) means 2-3 adjacent tooth pairs are legitimately in simultaneous contact near the pitch point at any static pose -- confirmed 3 disjoint contact patches, all clustered within ~2.5mm x ~7mm near the line of centers, not scattered to unrelated geometry.",
+
+  "contacts": [
+    {
+      "pair": ["pinion", "spur"],
+      "joint_type": "gear_mesh",
+      "expected_interference_mm": [0.5, 2.0],
+      "multi_region_ok": true
+    }
+  ],
+
+  "motion": [
+    {
+      "id": "reduction_stage",
+      "drivers": [
+        {"part": "pinion", "type": "revolute",
+         "axis": [0, 0, 1], "origin": [0, 0, 0], "ratio": 1.0, "teeth": 11},
+        {"part": "spur", "type": "revolute",
+         "axis": [0, 0, 1], "origin": [38.5, 0, 0], "ratio": -0.16667, "teeth": 66}
+      ],
+      "range_deg": [0, 360],
+      "step_deg": 2.0,
+      "min_clearance_mm": 0.0
+    }
+  ]
+}

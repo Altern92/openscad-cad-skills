@@ -1,0 +1,99 @@
+name: CI
+
+# Two independent jobs, deliberately: `lint` catches syntax/schema errors in
+# seconds with no external dependencies (useful signal on every PR); `selftest`
+# is the real end-to-end proof (needs an actual OpenSCAD binary, ~1-2 min).
+# A `lint` failure means something is definitely broken; a `selftest` failure
+# on a fork/PR without network access to the OpenSCAD PPA is more likely an
+# environment problem than a code problem -- read the log before assuming
+# the worst.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  lint:
+    name: Syntax + schema check (no OpenSCAD needed)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Byte-compile every Python script
+        run: |
+          set -e
+          find . -name "*.py" -not -path "*/.git/*" -print0 \
+            | xargs -0 -n1 python3 -m py_compile
+          echo "OK: every .py file compiles"
+
+      - name: Check every shell script's syntax
+        run: |
+          set -e
+          find . -name "*.sh" -not -path "*/.git/*" -print0 \
+            | xargs -0 -n1 bash -n
+          echo "OK: every .sh file parses"
+
+      - name: Validate JSON files parse
+        run: |
+          set -e
+          find . -name "*.json" -not -path "*/.git/*" -print0 \
+            | xargs -0 -n1 python3 -c "import json,sys; json.load(open(sys.argv[1]))"
+          echo "OK: every .json file parses"
+
+      - name: Validate rules_manifest.yaml parses and loads
+        run: |
+          python3 -c "
+          import yaml
+          with open('scad-modeler/rules_manifest.yaml') as f:
+              d = yaml.safe_load(f)
+          assert isinstance(d.get('rules'), list) and len(d['rules']) > 0
+          print(f\"OK: {len(d['rules'])} rules loaded\")
+          "
+
+  selftest:
+    name: End-to-end selftest (needs OpenSCAD)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install OpenSCAD
+        # The official PPA tracks recent stable releases; Ubuntu's default
+        # apt package can be too old to have the --backend=Manifold flag
+        # this skill depends on (confirmed present via `openscad --help` on
+        # a 2026-06-12 build -- see scad-modeler/references/setup-notes.md).
+        # Not yet verified against a real GitHub Actions run -- if this step
+        # fails, check whether the PPA still exists/still ships a build new
+        # enough for --backend=Manifold before assuming the skill itself is
+        # broken.
+        run: |
+          sudo add-apt-repository -y ppa:openscad/releases
+          sudo apt-get update
+          sudo apt-get install -y openscad
+          openscad --version
+
+      - name: Report environment (doctor.py)
+        run: python3 scad-modeler/scripts/doctor.py
+        continue-on-error: true # informational -- BOSL2/NopSCADlib aren't
+        # installed in CI (selftest.py doesn't need them), so doctor.py is
+        # expected to report a lower tier here than a fully set-up dev
+        # machine; this step is diagnostic output, not a pass/fail gate.
+
+      - name: Run selftest.py
+        run: python3 scad-modeler/scripts/selftest.py

@@ -1,25 +1,59 @@
 # claude_skills
 
-„Claude Code" skills rinkinys parametriniam OpenSCAD projektavimui — nuo vienos
-detalės iki daugiadalio mechaninio mazgo, su automatiniu geometrijos
-patikrinimu prieš eksportą.
+Claude Code skills for parametric OpenSCAD design — from a single part to a
+multi-part mechanical assembly, with automated geometry verification before
+export.
+
+![Example: single-stage spur gear reduction](scad-modeler/examples/gear_reduction/preview.png)
+
+*A working example — see [`scad-modeler/examples/gear_reduction/`](scad-modeler/examples/gear_reduction/).*
+
+## Why this exists
+
+An LLM can write OpenSCAD code that renders cleanly and still be wrong in
+ways a render never shows: a bore sealed behind unbored material, two
+sub-features overlapping inside one part's `union()` (invisible, since
+`union()` of two overlapping solids is still one valid watertight shell), a
+gear pair that's fine at rest but collides 40° into its rotation. Every one
+of those is a real, logged incident in [`INCIDENTS.md`](INCIDENTS.md), not a
+hypothetical.
+
+**The differentiator: this is the only agent skill setup we know of that
+machine-verifies a *moving* assembly** — not just "does this part look
+right," but "do these gears/hinge/slider actually clear each other through
+the full range of motion," sampled and checked automatically, with the
+static-collision precondition, the declared-contact range, and the sweep
+itself all wired into one command.
 
 ## Skills
 
-| Skill | Kam |
+| Skill | For |
 |-------|-----|
-| `openscad-cad` | Viena detalė: įdėklas, laikiklis, dangtis, korpusas, Gridfinity dėžutė. Rašymas, renderis, eksportas, matmenų tikrinimas. |
-| `scad-modeler` | Daugiadaliai mazgai: krumpliaračiai, guoliai, velenai. Prideda privalomus skaičiavimus prieš geometriją, centralizuotus parametrus ir pozicijas, kolizijų bei tarpų tikrinimą. |
+| `openscad-cad` | A single part: an insert, bracket, cover, enclosure, Gridfinity bin. Writing, rendering, exporting, dimensional checks. |
+| `scad-modeler` | Multi-part assemblies: gears, bearings, shafts. Adds mandatory calculations before geometry, centralized parameters and positions, collision/clearance/motion checking. |
 
-`scad-modeler` remiasi `openscad-cad` — renderio/eksporto komandos ir tolerancijų
-duomenys gyvena ten. Vienai detalei naudok `openscad-cad` tiesiogiai; jo
-validacijos skriptai yra `scad-modeler/scripts/`, bet veikia ir su viena detale.
+`scad-modeler` builds on `openscad-cad` — render/export commands and
+tolerance data live there. For a single part, use `openscad-cad` directly;
+its validation scripts live in `scad-modeler/scripts/` but work fine
+against a single part too.
 
-## Instaliacija
-
-Claude Code:
+## Quickstart
 
 ```bash
+git clone https://github.com/Altern92/claude_skills.git
+cd claude_skills
+pip install -r requirements.txt
+python3 scad-modeler/scripts/doctor.py     # what this machine can actually do
+python3 scad-modeler/scripts/selftest.py   # does the whole chain really work
+
+cd scad-modeler/examples/gear_reduction
+bash ../../scripts/validate_scad.sh --all  # render + validate a real 2-gear assembly
+```
+
+Then, to use the skills from Claude Code (run this from the repo root):
+
+```bash
+cd claude_skills   # back to the repo root, if you're still in the example dir
 ln -s "$PWD/openscad-cad"  ~/.claude/skills/openscad-cad
 ln -s "$PWD/scad-modeler"  ~/.claude/skills/scad-modeler
 ```
@@ -34,80 +68,111 @@ ln -s "$PWD/INCIDENTS.md"  ~/.dsh/skills/INCIDENTS.md
 ln -s "$PWD/requirements.txt" ~/.dsh/skills/requirements.txt
 ```
 
-Abu verta įdiegti kartu: `openscad-cad` nurodo `scad-modeler` skriptus, o tie
-savo ruožtu naudoja `openscad-cad/references/patterns.scad`. DSH formato skirtumai
-minimalūs (vienodi `name`/`description` frontmatter); `scad-modeler` aprašyme
-negalima `: ` (dvitaškis+tarpas) — jis YAML'e reiškia raktą-reikšmę ir DSH skill'ą
-atmeta.
+Install both together: `openscad-cad` is referenced by `scad-modeler`'s
+scripts, and those in turn use `openscad-cad/references/patterns.scad`. The
+DSH frontmatter format is nearly identical (same `name`/`description`
+fields); `scad-modeler`'s description can't contain `: ` (colon+space) — DSH
+parses that as a YAML key-value pair and rejects the skill.
 
-### Priklausomybės
+### Dependencies
 
-OpenSCAD (macOS: `brew install --cask openscad@snapshot` — ne paprastas
-`openscad` cask, jis per senas), headless Linux dar `xvfb`.
+OpenSCAD (macOS: `brew install --cask openscad@snapshot` — not the plain
+`openscad` cask, which is too old to have the `--backend=Manifold` flag
+this skill depends on), plus `xvfb` on headless Linux.
 
-Python patikrinimams:
+Python, for the validation scripts:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Ne visi būtini: `trimesh` reikalingas viskam, `shapely` — gręžinių matavimui,
-`python-fcl` + `scipy` — kolizijoms, `manifold3d` — deklaruotų priveržimų
-matavimui. Ko trūksta, tas patikrinimas tiesiog nepasiekiamas, ir įrankiai tai
-pasako.
+Not all of these are required for every check: `trimesh` is needed for
+everything, `shapely` for bore measurement, `python-fcl`/`scipy` for
+collisions, `manifold3d` for measuring a declared interference exactly,
+`rtree` for bore-reachability scans, `pyyaml`/`jsonschema` for the intake
+and rules-enforcement gates. Whatever's missing, the corresponding check is
+simply unavailable, and the tools say so (`doctor.py` reports exactly which
+checks each missing package unlocks).
 
-## Patikrinimas prieš naudojant
+## Verify before trusting it
 
 ```bash
-python3 scad-modeler/scripts/doctor.py      # ką ši mašina apskritai gali
-python3 scad-modeler/scripts/selftest.py    # ar visa grandinė realiai veikia
+python3 scad-modeler/scripts/doctor.py      # what this machine can do at all
+python3 scad-modeler/scripts/selftest.py    # does the whole chain actually work
 ```
 
-`doctor.py` aptinka OpenSCAD, bibliotekas (pagal jų įėjimo failą, ne pagal
-aplanko vardą), Python paketus ir kalibracijos profilį, ir pasako aukščiausią
-pasiekiamą pasitikėjimo lygį.
+`doctor.py` detects OpenSCAD, libraries (by their real entry-point file, not
+by folder name — a folder with the right name isn't evidence of a working
+install), Python packages, and a calibration profile, and reports the
+highest confidence tier this environment can support.
 
-`selftest.py` sukuria detalę su iš anksto žinomais atsakymais, paleidžia visą
-grandinę ir tikrina, ar kiekvienas įrankis prieina teisingą verdiktą — įskaitant
-tai, kad gręžinio patikra **privalo kristi** ant nekompensuoto gręžinio.
-Patikrinimas, kuris niekada nekrenta, nieko neįrodo.
+`selftest.py` builds a part with answers known in advance, runs the whole
+chain, and checks that every tool reaches the right verdict — including that
+the bore check **must fail** on a deliberately uncompensated bore. A check
+that never fails proves nothing.
 
-## Ką šie skills tikrina
+## What these skills actually verify
 
-| Įrankis | Ką pagauna |
+`scad-modeler`'s validation chain, in the order it runs (see
+`scad-modeler/references/validation_decision_tree.md` for the full decision
+tree — which check applies to which situation):
+
+| Tool | Catches |
 |---|---|
-| `assert()` faile `params.scad` | konstrukcijos invariantus — sustabdo renderį |
-| `check_dimensions.py` | išorinį gabaritą prieš deklaruotą `EXPECTED_BBOX` |
-| `check_features.py` | gręžinio matmenį per briaunas — tai, į ką atsiremia velenas |
-| `check_collisions.py` | netyčinę interferenciją, per mažą tarpą, deklaruotus priveržimus |
-| `motion_sweep.py` | kirtimusi ir tarpus **per visą judesio ciklą**, ne vienoje pozoje |
+| `assert()` in `params.scad` | design invariants — stops the render |
+| `check_connectivity.py` | a part silently splitting into disconnected islands (mandatory, no declaration needed) |
+| `check_dimensions.py` | overall envelope vs. a declared `EXPECTED_BBOX`, tolerance derived from `$fa`/`$fs`, not a flat percentage |
+| `check_features.py` | a bore's actual flat-to-flat size — what a shaft binds on, which a bounding box can't see |
+| `check_bore_reachability.py` | a bore that measures correctly at its seat but is sealed behind unbored material somewhere between the seat and the outside |
+| `check_subfeature_overlap.py` | two sub-features overlapping inside one part's own `union()` — invisible to every other check |
+| `check_collisions.py` | unintended interference, insufficient clearance, and declared contacts checked against real penetration depth (not volume — see below) and against touching in more than one disjoint region |
+| `motion_sweep.py` | interference and clearance **through a full motion cycle**, not one static pose, with gear-tooth periodicity collapse and adaptive refinement near the tightest clearance |
+| `check_intake.py` / `check_plan.py` / `check_assumptions.py` / `check_service_envelope.py` | the requirements spec, the architecture decision, unresolved critical assumptions, and service-envelope completeness — the failure categories that don't show up in geometry at all |
+| `check_dependencies.py` | which downstream parameters/parts a given edit actually affects, so a one-parameter change doesn't require blind faith in a full re-render |
+| `check_rules.py` | runs the whole rules manifest and requires its output be cited before a final report — see `references/rules_enforcement.md` for why prompts alone don't hold up under context load |
 
-Gabaritų tolerancija išvedama iš `$fa`/`$fs`, ne fiksuota. Kodėl tai svarbu ir
-kodėl gabaritas nemato per siauro gręžinio — `openscad-cad/references/tolerances.md`.
+A declared contact (a press fit, a gear mesh) is checked by **penetration
+depth in mm** — the standard quantity for this in contact mechanics and
+robotics — not by boolean-intersection volume, which can't be compared to a
+linear mm spec without knowing contact area. A pair within its declared
+depth range is *also* required to touch in exactly one contiguous region by
+default, since a max-over-all-contact-points depth can't otherwise
+distinguish one legitimate contact zone from that zone plus a separate,
+unrelated structural collision hiding behind the same range — both were
+real, confirmed gaps, not hypothetical (`INCIDENTS.md`, 2026-08-19).
 
-## Ribos
+## Limits
 
-Pasitikėjimo lygiai aprašyti `openscad-cad/references/confidence-tiers.md`.
-Skills siekia **Tier 5** — judesiu patikrinto mazgo.
+Confidence tiers are documented in
+`openscad-cad/references/confidence-tiers.md`. These skills aim for **Tier
+5** — a motion-verified assembly.
 
-Judesio tikrinimas yra **mėginiavimas, ne įrodymas**: tarp dviejų mėginių
-niekas netikrinama. Adaptyvus tankinimas pagauna siaurus kirtimusis prie
-minimumo, bet siauras ir toli nuo minimumo esantis gali prasprūsti. Deklaruok
-žingsnį, kai remiesi rezultatu.
+Motion checking is **sampling, not proof**: nothing is checked between two
+sampled positions. Adaptive refinement catches narrow clashes near the
+tightest point, but a narrow clash far from that minimum can still slip
+through. State the tier you're relying on.
 
-Visiškai neįgyvendinta:
+Not implemented at all:
 
-- **surinkimo sekos tikrinimas** — mechanizmas gali praeiti Tier 5 ir vis tiek
-  būti nesurenkamas;
-- **apkrovos skaičiavimai** — be medžiagos duomenų tai būtų aritmetika,
-  apsimetanti inžinerija;
-- **slicer printability vartai** — nė vienas iš trijų slicerių nedokumentuoja
-  thin-wall / non-manifold įspėjimų kaip pasiekiamų per CLI.
+- **assembly-sequence verification** — a mechanism can pass every check here
+  and still be physically un-buildable (see `SKILL.md` §0.6's belt-drive
+  incident);
+- **load/strength calculations** — without material data, that would be
+  arithmetic dressed up as engineering, and printed parts are anisotropic
+  in a way generic values don't capture;
+- **slicer printability gates** — no mainstream slicer documents
+  thin-wall/non-manifold warnings as reachable through a CLI.
 
-Tier 3 ir aukščiau reikalauja kalibracijos profilio: išmatuoti tavo printerio ir
-medžiagos nuokrypiai. Be jo galima pažadėti geometriją, bet ne suderinimą.
+Tier 3 and above need a calibration profile: your printer and material's
+actual measured deviation. Without one, geometry can be promised, but fit
+cannot.
 
 ## `research/`
 
-Tyrimo promptai ir jų kontekstas — kaip prieita prie sprendimų. Ne skill'o
-dalis, į `~/.claude/skills/` nediegiama.
+Research prompts and the context behind design decisions — internal
+methodology notes, not part of the skill itself, and not installed into
+`~/.claude/skills/`.
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).
