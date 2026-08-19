@@ -10,8 +10,26 @@
 # Flags used below (--hardwarnings, --check-parameters, --check-parameter-ranges)
 # were confirmed present via `openscad --help` on 2026-08-16 -- see
 # references/setup-notes.md in this skill if that ever needs re-checking.
+#
+# FAILURE POLICY (changed 2026-08-19, see INCIDENTS.md): this script does NOT
+# stop at the first failure. An earlier version used `set -e`, so an
+# unrelated early failure (e.g. an unresolved Critical assumption in
+# calculations.md) aborted the whole run before connectivity, bore-
+# reachability or mechanics checks ever executed -- and there was no way to
+# tell "this check failed" from "this check never ran" from the exit code
+# alone. That produced a real, confirmed failure mode: a model reported
+# "R-04/R-09 show FAIL, but I manually verified the geometry separately" --
+# an unverified self-assessment standing in for a gate that never actually
+# ran, exactly what the whole rules-enforcement design exists to prevent.
+# Every independent check below now runs regardless of earlier failures,
+# and the script emits one machine-parseable `CHECK_RESULT <name>=STATUS`
+# line per independent check (STATUS is PASS, FAIL, or SKIP) so a caller
+# (check_rules.py) can determine one specific check's real verdict without
+# it being conflated with an unrelated failure elsewhere in the same run.
+# The script's own exit code is non-zero if ANYTHING failed, for a human
+# running it directly.
 
-set -euo pipefail
+set -uo pipefail
 
 OPENSCAD=${OPENSCAD:-openscad}
 BUILD_DIR=${BUILD_DIR:-build}
@@ -19,7 +37,12 @@ BACKEND=${BACKEND:-Manifold}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODE=${1:---all}
 
+OVERALL_FAIL=0
+
 check_openscad() {
+    # Fatal, unlike everything below: no check in this script can produce a
+    # meaningful result without OpenSCAD, so there is nothing to gain by
+    # continuing past this one.
     if ! command -v "$OPENSCAD" >/dev/null 2>&1; then
         echo "ERROR: OpenSCAD not found ($OPENSCAD). Install it first." >&2
         exit 1
@@ -27,19 +50,30 @@ check_openscad() {
     "$OPENSCAD" --version
 }
 
+# validate_file: renders one .scad file and runs its per-part checks.
+# Returns 0/1 (does NOT exit) so the caller can continue to the next part
+# even if this one fails -- sets PART_CONNECTIVITY_FAIL=1 on a connectivity
+# failure specifically (read by the caller to build the aggregate
+# CHECK_RESULT connectivity= line).
+PART_CONNECTIVITY_FAIL=0
+
 validate_file() {
     local scad="$1"
     local stl="$2"
+    local this_failed=0
     echo "--- Validating $scad -> $stl ---"
     mkdir -p "$(dirname "$stl")"
-    "$OPENSCAD" --backend="$BACKEND" \
+    if ! "$OPENSCAD" --backend="$BACKEND" \
         --hardwarnings \
         --check-parameters=true \
         --check-parameter-ranges=true \
-        -o "$stl" "$scad"
+        -o "$stl" "$scad"; then
+        echo "ERROR: render failed: $scad" >&2
+        return 1
+    fi
     if [ ! -s "$stl" ]; then
         echo "ERROR: STL is empty: $stl" >&2
-        exit 1
+        return 1
     fi
     echo "OK: $(du -h "$stl" | cut -f1)"
 
@@ -53,7 +87,10 @@ validate_file() {
     # nothing checked for it because no check looked for it). Declare
     # `// EXPECTED_BODIES: N` in the part file for the rare intentional case.
     if [[ "$scad" == parts/* ]]; then
-        python3 "$SCRIPT_DIR/check_connectivity.py" --stl "$stl" --scad "$scad"
+        if ! python3 "$SCRIPT_DIR/check_connectivity.py" --stl "$stl" --scad "$scad"; then
+            PART_CONNECTIVITY_FAIL=1
+            this_failed=1
+        fi
     fi
 
     # Bounding-box check: only runs if the part declares an expected size via
@@ -61,7 +98,7 @@ validate_file() {
     # *looks* right but is subtly the wrong size (wrong -D override, a units
     # slip, a parameter that didn't thread through correctly).
     if grep -q '^[[:space:]]*//[[:space:]]*EXPECTED_BBOX' "$scad"; then
-        python3 "$SCRIPT_DIR/check_dimensions.py" --stl "$stl" --scad "$scad"
+        python3 "$SCRIPT_DIR/check_dimensions.py" --stl "$stl" --scad "$scad" || this_failed=1
     fi
 
     # Feature check: a bbox is nearly blind to inscribed-polygon undersizing,
@@ -69,8 +106,10 @@ validate_file() {
     # `// EXPECTED_HOLE: [x, y, z, "Z", d]` gets its bores measured
     # flat-to-flat instead.
     if grep -q '^[[:space:]]*//[[:space:]]*EXPECTED_HOLE' "$scad"; then
-        python3 "$SCRIPT_DIR/check_features.py" --stl "$stl" --scad "$scad"
+        python3 "$SCRIPT_DIR/check_features.py" --stl "$stl" --scad "$scad" || this_failed=1
     fi
+
+    return $this_failed
 }
 
 check_openscad
@@ -85,18 +124,39 @@ check_openscad
 # real-world evidence as root causes, which nothing else in this chain
 # checks (every other check validates geometry against the calculation
 # table, not whether the calculation table's own inputs were right).
+#
+# These run and are reported, but -- per the failure policy above -- do NOT
+# prevent the geometry checks below from running too.
 if [ -f calculations.md ]; then
-    python3 "$SCRIPT_DIR/check_assumptions.py" --calc calculations.md
+    if python3 "$SCRIPT_DIR/check_assumptions.py" --calc calculations.md; then
+        echo "CHECK_RESULT assumptions=PASS"
+    else
+        echo "CHECK_RESULT assumptions=FAIL"
+        OVERALL_FAIL=1
+    fi
+else
+    echo "CHECK_RESULT assumptions=SKIP"
 fi
-python3 "$SCRIPT_DIR/check_service_envelope.py" --envelope service_envelope.md
+
+if python3 "$SCRIPT_DIR/check_service_envelope.py" --envelope service_envelope.md; then
+    echo "CHECK_RESULT service_envelope=PASS"
+else
+    echo "CHECK_RESULT service_envelope=FAIL"
+    OVERALL_FAIL=1
+fi
 
 # Enforces §0.5 Planning actually happened (>=2 architecture options or a
 # declared exemption, a confirmed decision, every layout.scad part present
 # in the plan) rather than existing only as prose a model could skip under
 # pressure -- the same gap that let the rear_axle incident happen in the
 # first place (INCIDENTS.md, 2026-08-18). Opt-in by plan.md's existence.
-python3 "$SCRIPT_DIR/check_plan.py" --plan plan.md \
-    $([ -f layout.scad ] && echo --layout layout.scad)
+if python3 "$SCRIPT_DIR/check_plan.py" --plan plan.md \
+    $([ -f layout.scad ] && echo --layout layout.scad); then
+    echo "CHECK_RESULT plan=PASS"
+else
+    echo "CHECK_RESULT plan=FAIL"
+    OVERALL_FAIL=1
+fi
 
 if [[ "$MODE" == "--all" ]]; then
     shopt -s nullglob
@@ -113,10 +173,18 @@ if [[ "$MODE" == "--all" ]]; then
     # standard cross-version-safe empty-array guard.
     for scad in ${parts[@]+"${parts[@]}"}; do
         base="$(basename "$scad" .scad)"
-        validate_file "$scad" "$BUILD_DIR/$base.stl"
+        validate_file "$scad" "$BUILD_DIR/$base.stl" || OVERALL_FAIL=1
     done
     if [ -f assembly.scad ]; then
-        validate_file "assembly.scad" "$BUILD_DIR/assembly.stl"
+        validate_file "assembly.scad" "$BUILD_DIR/assembly.stl" || OVERALL_FAIL=1
+    fi
+
+    if [ ${#parts[@]} -eq 0 ]; then
+        echo "CHECK_RESULT connectivity=SKIP"
+    elif [ "$PART_CONNECTIVITY_FAIL" -eq 0 ]; then
+        echo "CHECK_RESULT connectivity=PASS"
+    else
+        echo "CHECK_RESULT connectivity=FAIL"
     fi
 
     # Bore-reachability check: opt-in via a project-root bores.json declaring
@@ -130,7 +198,14 @@ if [[ "$MODE" == "--all" ]]; then
         built_stls=("$BUILD_DIR"/*.stl)
         shopt -u nullglob
         if [ ${#built_stls[@]} -gt 0 ]; then
-            python3 "$SCRIPT_DIR/check_bore_reachability.py" --bores bores.json ${built_stls[@]+"${built_stls[@]}"}
+            if python3 "$SCRIPT_DIR/check_bore_reachability.py" --bores bores.json ${built_stls[@]+"${built_stls[@]}"}; then
+                echo "CHECK_RESULT bore_reachability=PASS"
+            else
+                echo "CHECK_RESULT bore_reachability=FAIL"
+                OVERALL_FAIL=1
+            fi
+        else
+            echo "CHECK_RESULT bore_reachability=SKIP"
         fi
     fi
 
@@ -151,6 +226,7 @@ if [[ "$MODE" == "--all" ]]; then
     # (SKILL.md §4) -- so this renders one positioned STL per part via
     # assembly.scad's MODE="part"/PART="<name>" switch (SKILL.md §6) before
     # calling either check.
+    mechanics_ran=0
     if [ -f joints.json ] && [ -f assembly.scad ]; then
         has_motion=$(python3 -c "
 import json, sys
@@ -162,6 +238,7 @@ motion = d.get('motion') if isinstance(d, dict) else None
 sys.exit(0 if motion else 1)
 " && echo yes || echo no)
         if [ "$has_motion" = "yes" ]; then
+            mechanics_ran=1
             echo "--- Mechanics: joints.json declares motion -- rendering positioned parts for static+dynamic checks ---"
             mkdir -p "$BUILD_DIR/positioned"
             shopt -s nullglob
@@ -169,23 +246,34 @@ sys.exit(0 if motion else 1)
             for scad in ${parts[@]+"${parts[@]}"}; do
                 base="$(basename "$scad" .scad)"
                 pstl="$BUILD_DIR/positioned/$base.stl"
-                "$OPENSCAD" --backend="$BACKEND" --hardwarnings \
+                if "$OPENSCAD" --backend="$BACKEND" --hardwarnings \
                     -D 'MODE="part"' -D "PART=\"$base\"" \
-                    -o "$pstl" assembly.scad
-                if [ -s "$pstl" ]; then
+                    -o "$pstl" assembly.scad && [ -s "$pstl" ]; then
                     positioned_stls+=("$pstl")
                 fi
             done
             shopt -u nullglob
             if [ ${#positioned_stls[@]} -ge 2 ]; then
+                mech_fail=0
                 python3 "$SCRIPT_DIR/check_collisions.py" --expected-contacts joints.json \
-                    ${positioned_stls[@]+"${positioned_stls[@]}"}
+                    ${positioned_stls[@]+"${positioned_stls[@]}"} || mech_fail=1
                 python3 "$SCRIPT_DIR/motion_sweep.py" --joints joints.json \
-                    ${positioned_stls[@]+"${positioned_stls[@]}"}
+                    ${positioned_stls[@]+"${positioned_stls[@]}"} || mech_fail=1
+                if [ "$mech_fail" -eq 0 ]; then
+                    echo "CHECK_RESULT mechanics=PASS"
+                else
+                    echo "CHECK_RESULT mechanics=FAIL"
+                    OVERALL_FAIL=1
+                fi
             else
                 echo "WARNING: joints.json declares motion but fewer than 2 parts rendered via MODE=\"part\" -- skipping mechanics checks. Check that assembly.scad's MODE/PART switch matches SKILL.md §6 and that parts/*.scad basenames match layout.scad's part names." >&2
+                echo "CHECK_RESULT mechanics=FAIL"
+                OVERALL_FAIL=1
             fi
         fi
+    fi
+    if [ "$mechanics_ran" -eq 0 ]; then
+        echo "CHECK_RESULT mechanics=SKIP"
     fi
 else
     scad="parts/$MODE.scad"
@@ -193,7 +281,12 @@ else
         echo "ERROR: $scad not found" >&2
         exit 1
     fi
-    validate_file "$scad" "$BUILD_DIR/$MODE.stl"
+    validate_file "$scad" "$BUILD_DIR/$MODE.stl" || OVERALL_FAIL=1
 fi
 
-echo "All validations passed."
+if [ "$OVERALL_FAIL" -eq 0 ]; then
+    echo "All validations passed."
+else
+    echo "FAIL: at least one check above failed -- see CHECK_RESULT lines for which." >&2
+fi
+exit "$OVERALL_FAIL"

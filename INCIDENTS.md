@@ -123,6 +123,52 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 
 ## Entries
 
+### 2026-08-19 -- validate_scad.sh's fail-fast (set -e) let one unrelated failure mask whether OTHER checks ran at all
+- **Where:** `scad-modeler/scripts/validate_scad.sh`, `scad-modeler/scripts/check_rules.py`,
+  `scad-modeler/rules_manifest.yaml` -- discovered when a different, parallel
+  Claude Code session ran a full re-validation of
+  `esp32_rc_modelis/mechanical/steering_reduction_gearbox/` (prompted by
+  this session, after this skill's tooling matured well past that project's
+  last validation round) and reported its final `check_rules.py` output.
+- **Symptom:** R-04 (connectivity) and R-09 (motion sweep) were marked FAIL
+  in the cited output, immediately followed by the model's own prose
+  explaining "the gate stops early [at R-11's unresolved Critical
+  assumption], but I manually, separately confirmed the geometry itself is
+  clean." That is an unverified self-assessment standing in for a gate that
+  never actually produced a result for those two rules -- the exact failure
+  mode the whole L2-L4 rules-enforcement design exists to eliminate, now
+  demonstrated happening in practice on real output, not hypothetically.
+- **Root cause:** `validate_scad.sh` used `set -e`, so the FIRST failing
+  command (in this case `check_assumptions.py`, gating R-11, completely
+  unrelated to R-04/R-09) aborted the entire script before the parts loop,
+  bore-reachability check, or mechanics auto-trigger ever ran. Separately,
+  `rules_manifest.yaml`'s R-04 and R-09 both gated on the WHOLE script's
+  exit code (`bash validate_scad.sh --all`) as a proxy for one specific
+  check's result -- even after fixing the fail-fast issue, a shared exit
+  code still can't distinguish "this specific check failed" from "some
+  other independent check in the same run failed."
+- **Fix:** two-part. (1) `validate_scad.sh` no longer uses `set -e`; every
+  independent check runs regardless of earlier failures and prints its own
+  `CHECK_RESULT <name>=PASS|FAIL|SKIP` line; the script's own exit code is
+  still non-zero if anything failed, for a human running it directly.
+  `validate_file()` returns instead of exiting on a render failure so other
+  parts still get attempted. (2) `check_rules.py` gained an optional
+  `success_pattern` field: when a rule's gate is a multi-purpose script,
+  its verdict is decided by searching that gate's own output for the
+  rule's specific `CHECK_RESULT` marker, not by the shared process exit
+  code. R-04/R-09 now use `success_pattern: "CHECK_RESULT (connectivity|
+  mechanics)=(PASS|SKIP)"`. Gate output is cached by literal command string
+  so R-04 and R-09 sharing one `validate_scad.sh --all` invocation doesn't
+  render twice. Tested directly against the reported scenario: a project
+  with a real unresolved Critical assumption (R-11 correctly FAIL) and
+  otherwise-clean geometry (a tangent gear pair with correct motion) now
+  shows R-04=PASS, R-09=PASS, R-11=FAIL with no self-reported "I checked
+  separately" needed -- and a genuinely broken gear mesh in the same setup
+  correctly still shows R-09=FAIL. Full regression re-run (empty project,
+  bash 3.2, gross overlap, clean tangent case) confirmed unaffected.
+- **Already promoted to a rule?** Yes -- fixed directly in `validate_scad.sh`,
+  `check_rules.py`, and `rules_manifest.yaml`.
+
 ### 2026-08-19 -- check_collisions.py's declared-contact check upgraded from a volume heuristic to exact penetration depth
 - **Where:** `scad-modeler/scripts/check_collisions.py`, following up on the
   same-day volume-plausibility-bound fix (below) after asking Perplexity

@@ -60,6 +60,22 @@ reikalauja modelio aiškaus įvertinimo — nesuprantama tyla apie jas nėra
 leidžiama, bet apsimestinis "PASS" irgi ne, nes tai būtų klaidingas
 tikrumo jausmas.
 
+**Realiai atrastas ir ištaisytas spąstas (2026-08-19):** `validate_scad.sh`
+anksčiau naudojo `set -e`, tad viena NESUSIJUSI klaida (pvz. neišspręstas
+Critical assumption `calculations.md`) sustabdydavo VISĄ skriptą, prieš
+connectivity/bore/mechanics patikroms net paleidžiant. Kitas modelis tada
+pats "rankiniu būdu patvirtino atskirai" tas patikras — nepatikrinamas
+tikrumo teiginys, lygiai tas pats spąstas, dėl kurio visa ši sistema ir
+kuriama. Ištaisyta: `validate_scad.sh` nebesustoja ties pirma klaida —
+kiekvienas nepriklausomas patikrinimas paleidžiamas ir atspausdina savo
+`CHECK_RESULT <vardas>=PASS|FAIL|SKIP` eilutę; `check_rules.py` gali
+turėti `success_pattern` lauką, kuris R-04/R-09 verdiktą nustato pagal
+KONKREČIĄ `CHECK_RESULT` eilutę, ne pagal viso skripto exit code'ą (kuris
+gali būti nenulinis dėl visai kitos, nesusijusios klaidos). Testuota:
+projektas su neišspręstu Critical assumption BET švaria geometrija dabar
+teisingai rodo R-04/R-09 = PASS, R-11 = FAIL — be jokio "manualaus"
+patvirtinimo poreikio.
+
 ### L3 — Savęs patikros kilpa (modelis tikrina save)
 Prieš §8 galutinį pranešimą modelis paleidžia **taisyklių manifestą** (L4) ir
 pats įvertina kiekvieną eilutę: `padaryta / praleista / netaikoma`. Praleista

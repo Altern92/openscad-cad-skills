@@ -12,6 +12,20 @@
 #              the model MUST self-assess it explicitly in §8; it is not
 #              silently skipped just because nothing can auto-check it)
 #   gate     - shell command to run for "auto" rules (null for "manual")
+#   success_pattern - optional regex. If present, PASS/FAIL for this rule is
+#              decided by searching the gate's own stdout+stderr for this
+#              pattern, NOT by the gate's process exit code. Needed when the
+#              gate is a multi-purpose script (validate_scad.sh --all runs
+#              several independent checks in one render pass, each printing
+#              its own "CHECK_RESULT <name>=PASS|FAIL|SKIP" line) whose
+#              overall exit code can be non-zero because of a completely
+#              unrelated check failing -- using the bare exit code there
+#              would conflate "this specific check failed" with "some other
+#              check failed and this one never even ran", a real, reported
+#              ambiguity (INCIDENTS.md, 2026-08-19). Rules with a gate that
+#              calls one single-purpose script directly (R-01, R-02, R-06,
+#              R-11, R-12) don't need this -- their exit code already means
+#              exactly one thing.
 #
 # {project_dir} and {skill_dir} are substituted by check_rules.py.
 
@@ -39,6 +53,7 @@ rules:
     applies: "always"
     kind: auto
     gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
+    success_pattern: "CHECK_RESULT connectivity=(PASS|SKIP)"
 
   - id: R-05
     rule: "After ANY change, the whole validate_scad.sh --all is re-run from the top, not just the one check that failed"
@@ -69,6 +84,7 @@ rules:
     applies: "json_true:joints.json#motion"
     kind: auto
     gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
+    success_pattern: "CHECK_RESULT mechanics=(PASS|SKIP)"
 
   - id: R-10
     rule: "Change-propagation (§0/choice tree): a parameter edit's affected chain is traced with check_dependencies.py before assuming only the touched part needs re-checking"

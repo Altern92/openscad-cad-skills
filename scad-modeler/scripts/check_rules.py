@@ -49,6 +49,7 @@ Exit codes:
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -114,7 +115,18 @@ def evaluate_applies(expr, project_dir):
 
 
 def run_gate(cmd_template, project_dir, skill_dir):
+    """Run a gate command once, returning (exit_code, full_output, tail).
+
+    Multiple rules can share the exact same gate command (R-04 and R-09 both
+    run the whole `validate_scad.sh --all`, since it's a single render pass
+    that produces results for several independent checks at once -- see
+    `success_pattern` below for how a specific rule's verdict is pulled out
+    of that shared output without re-running the render). Caching by the
+    literal command string avoids paying for that render twice.
+    """
     cmd = cmd_template.format(project_dir=project_dir, skill_dir=skill_dir)
+    if cmd in run_gate._cache:
+        return run_gate._cache[cmd]
     try:
         # cwd=project_dir matters: validate_scad.sh (and the relative-path
         # globs inside it) assume the project directory is the working
@@ -124,11 +136,16 @@ def run_gate(cmd_template, project_dir, skill_dir):
         # directory's parts/*.scad).
         proc = subprocess.run(cmd, shell=True, capture_output=True, text=True,
                                timeout=600, cwd=project_dir)
+        code, output = proc.returncode, proc.stdout + proc.stderr
     except subprocess.TimeoutExpired:
-        return 124, "(gate timed out after 600s)"
-    tail_lines = (proc.stdout + proc.stderr).strip().splitlines()
-    tail = "\n".join(tail_lines[-8:])
-    return proc.returncode, tail
+        code, output = 124, "(gate timed out after 600s)"
+    tail = "\n".join(output.strip().splitlines()[-8:])
+    result = (code, output, tail)
+    run_gate._cache[cmd] = result
+    return result
+
+
+run_gate._cache = {}
 
 
 def main():
@@ -164,8 +181,23 @@ def main():
         if not r.get("gate"):
             print(f"ERROR: rule {r['id']} is kind=auto but has no gate command.", file=sys.stderr)
             return EXIT_USAGE
-        code, tail = run_gate(r["gate"], project_dir, skill_dir)
-        if code == 0:
+        code, output, tail = run_gate(r["gate"], project_dir, skill_dir)
+        success_pattern = r.get("success_pattern")
+        if success_pattern:
+            # This rule's gate may be a multi-purpose script (validate_scad.sh
+            # --all runs several independent checks in one render pass) whose
+            # OVERALL exit code can be non-zero because of a completely
+            # unrelated check failing. Determining THIS rule's verdict from
+            # that shared exit code would conflate "this specific check
+            # failed" with "some other check failed and this one never even
+            # ran" -- confirmed as a real, reported ambiguity (INCIDENTS.md,
+            # 2026-08-19). Search the gate's own output for this rule's
+            # specific marker instead, ignoring the process exit code
+            # entirely for the verdict.
+            passed = re.search(success_pattern, output) is not None
+        else:
+            passed = code == 0
+        if passed:
             results.append((r["id"], "PASS", r["rule"], tail))
         else:
             results.append((r["id"], "FAIL", r["rule"], tail))

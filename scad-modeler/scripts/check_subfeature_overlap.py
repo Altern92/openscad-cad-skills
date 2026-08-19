@@ -107,9 +107,23 @@ def overlap_volume(mesh_a, mesh_b):
     if inter is None or inter.is_empty:
         return 0.0
     try:
-        return float(inter.volume) if inter.is_volume else None
+        vol = float(inter.volume)
     except Exception:
         return None
+    # A near-zero (but non-empty) intersection -- two parts that barely
+    # touch or don't quite overlap -- often comes back from the boolean
+    # engine as a degenerate sliver that fails is_volume (not watertight/
+    # consistently wound), even though its own .volume is a trustworthy
+    # near-zero number. Confirmed manually (2026-08-19): a pair the engine
+    # flagged as unmeasurable this way had a real .intersection().volume
+    # of exactly 0.0 when computed directly, outside this script. Only
+    # fall back to "unmeasurable" for a substantial volume, where a
+    # degenerate mesh's number can't be trusted; small volumes are safe
+    # either way since a genuine failure there wouldn't matter at
+    # --max-overlap-mm3 scale.
+    if inter.is_volume or abs(vol) < 1.0:
+        return vol
+    return None
 
 
 def main():
