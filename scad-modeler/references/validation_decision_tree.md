@@ -27,57 +27,63 @@ The validated v1 core (env check, planning, narrative, `validate_scad.sh
 
 ```mermaid
 flowchart TD
-    Start([Brief: user's detailed description\n+ info from other AIs]) --> Intake[Stage 0 INTAKE\nwrite requirements.json /\ndesign_manifest.json\n→ check_intake.py gate]
-    Intake --> Analysis[Stage 0.5 ANALYSIS\n1. classify each component:\nPRINTED vs PURCHASED\n2. retrieve 2-3 SIMILAR\npast variants to adapt\n(read past READMEs + templates,\nno embedding index at this archive size)]
-    Analysis --> EnvNew{Toolchain/environment possibly\nchanged -- new machine, updated\nOpenSCAD, updated libraries,\nor never run here before?}
-    EnvNew -- yes --> Doctor[doctor.py once\nreports confidence tier]
-    Doctor --> Selftest[selftest.py once\nverifies the toolchain itself]
+    Start(["Brief: user's detailed description\n+ info from other AIs"]) --> Intake["Stage 0 INTAKE\nwrite requirements.json /\ndesign_manifest.json\n-- check_intake.py gate"]
+    Intake --> Analysis["Stage 0.5 ANALYSIS\n1. classify each component:\nPRINTED vs PURCHASED\n2. retrieve 2-3 SIMILAR\npast variants to adapt --\nread past READMEs + templates,\nno embedding index at this archive size"]
+    Analysis --> EnvNew{"Toolchain/environment possibly\nchanged -- new machine, updated\nOpenSCAD, updated libraries,\nor never run here before?"}
+    EnvNew -- yes --> Doctor["doctor.py once\nreports confidence tier"]
+    Doctor --> Selftest["selftest.py once\nverifies the toolchain itself"]
     Selftest --> Design
-    EnvNew -- no --> Design{Starting a NEW\nassembly design?}
+    EnvNew -- no --> Design{"Starting a NEW\nassembly design?"}
 
-    Design -- yes --> Arch{3+ parts, or\narchitecture genuinely\nuncertain?}
-    Arch -- yes --> Plan["Section 0.5 Planning\nwrite plan.md → check_plan.py"]
-    Arch -- no --> Calc[Section 1 calculation table]
+    Design -- yes --> Arch{"3+ parts, or\narchitecture genuinely\nuncertain?"}
+    Arch -- yes --> Plan["Section 0.5 Planning\nwrite plan.md -- check_plan.py"]
+    Arch -- no --> Calc["Section 1 calculation table"]
     Plan --> Calc
 
-    Design -- no, editing\nexisting geometry --> Feature{Does the feature you're\ntouching interface with a\nbearing/shaft/fastener/purchased\npart, OR share a union() with\nanother named feature?}
-    Feature -- yes --> Narrative["Section 0.6 narrative\nwrite the 4 answers\n(insertion path, neighbors,\nretention, purchased-part fit)"]
-    Feature -- no --> Geometry[Write/edit the geometry]
+    Design -- "no, editing existing geometry" --> Feature{"Does the feature you're touching\ninterface with a bearing/shaft/\nfastener/purchased part, OR share\na union with another named feature?"}
+    Feature -- yes --> Narrative["Section 0.6 narrative --\nwrite the 4 answers:\ninsertion path, neighbors,\nretention, purchased-part fit"]
+    Feature -- no --> Geometry["Write/edit the geometry"]
     Narrative --> Geometry
 
-    Geometry --> Validate["bash validate_scad.sh --all\n(always run after ANY change,\nnot just the thing you touched)"]
+    Geometry --> Validate["bash validate_scad.sh --all --\nalways run after ANY change,\nnot just the thing you touched"]
 
-    Validate --> Auto[Runs automatically, no\ndeclaration needed]
-    Auto --> Connectivity[check_connectivity.py\non every part]
+    Validate --> Auto["Runs automatically, no\ndeclaration needed"]
+    Auto --> Connectivity["check_connectivity.py\non every part"]
 
-    Validate --> OptIn{Opt-in gates -- run\nONLY IF the file/comment\nexists}
-    OptIn -->|calculations.md has\na decisions-log table| Assumptions[check_assumptions.py]
-    OptIn -->|service_envelope.md\nexists| Envelope[check_service_envelope.py]
-    OptIn -->|part has\n// EXPECTED_BBOX| Dimensions[check_dimensions.py]
-    OptIn -->|part has\n// EXPECTED_HOLE| Features[check_features.py]
-    OptIn -->|project has\nbores.json| BoreCheck[check_bore_reachability.py]
+    Validate --> OptIn{"Opt-in gates -- run\nONLY IF the file/comment\nexists"}
+    OptIn -->|"calculations.md has\na decisions-log table"| Assumptions["check_assumptions.py"]
+    OptIn -->|"service_envelope.md\nexists"| Envelope["check_service_envelope.py"]
+    OptIn -->|"part has\n// EXPECTED_BBOX"| Dimensions["check_dimensions.py"]
+    OptIn -->|"part has\n// EXPECTED_HOLE"| Features["check_features.py"]
+    OptIn -->|"project has\nbores.json"| BoreCheck["check_bore_reachability.py"]
 
-    Validate --> Motion{joints.json has a\nnon-empty "motion" array?\n(something moves --\nsee motion_sweep.py's own\ndocstring for the schema)}
-    Motion -- yes --> Mechanics["MECHANICS (built + tested 2026-08-19):\nrenders each part positioned via\nassembly.scad MODE=\"part\", then\ncheck_collisions.py (static precondition),\nthen motion_sweep.py (sweep)\n-- both AUTOMATIC, not situational"]
+    Validate --> Motion{"joints.json has a\nnon-empty #quot;motion#quot; array? --\nsomething moves, see\nmotion_sweep.py's own\ndocstring for the schema"}
+    Motion -- yes --> Mechanics["MECHANICS -- built + tested 2026-08-19:\nrenders each part positioned via\nassembly.scad MODE=#quot;part#quot;, then\ncheck_collisions.py (static precondition),\nthen motion_sweep.py (sweep) --\nboth AUTOMATIC, not situational"]
     Mechanics --> AllPass
     Motion -- no --> AllPass
 
-    AllPass{All of the above pass?}
-    AllPass -- no --> FixSource[Fix at the source,\nre-run validate_scad.sh --all\nfrom the top -- not just\nthe one check that failed]
+    AllPass{"All of the above pass?"}
+    AllPass -- no --> FixSource["Fix at the source,\nre-run validate_scad.sh --all\nfrom the top -- not just\nthe one check that failed"]
     FixSource --> Validate
 
-    AllPass -- yes --> Situational["Situational MANUAL checks -- validate_scad.sh\ndoes NOT run these (motion is no longer here --\nit auto-triggers above). NOT exclusive: check\nEVERY condition below independently, run ALL\nthat apply, in this order (each downstream\ncheck assumes the upstream one is already clean)"]
-    Situational -->|1. part has 2+ named\nsub-modules sharing\none union()?| Subfeature["check_subfeature_overlap.py\n(export sub-modules solo first,\ndeclare fusions with --exempt)"]
-    Situational -->|2. assembly has 3+ positioned\nparts and does NOT move\n(if it moves, already covered above)?| Collisions["check_collisions.py\n(declare press fits etc.\nin joints.json)"]
+    AllPass -- yes --> Situational["Situational MANUAL checks -- validate_scad.sh\ndoes NOT run these -- motion is no longer here,\nit auto-triggers above. NOT exclusive: check\nEVERY condition below independently, run ALL\nthat apply, in this order -- each downstream\ncheck assumes the upstream one is already clean"]
+    Situational -->|"1. part has 2+ named\nsub-modules sharing\none union?"| Subfeature["check_subfeature_overlap.py --\nexport sub-modules solo first,\ndeclare fusions with --exempt"]
+    Situational -->|"2. assembly has 3+ positioned\nparts and does NOT move --\nif it moves, already covered above"| Collisions["check_collisions.py --\ndeclare press fits etc.\nin joints.json"]
 
     Subfeature --> ChangeTree
     Collisions --> ChangeTree
-    Situational -- none apply --> ChangeTree
+    Situational -- "none apply" --> ChangeTree
 
-    ChangeTree[CHANGE-PROPAGATION:\ncheck_dependencies.py records the\nparam->part dependency DAG;\non ANY edit, dirty-root from the\nchanged variable, recompute only\nthe affected chain in topo order\n(see change_propagation.md)\n-- fallback: full --all re-run]
-    ChangeTree --> RulesGate[Rules-enforcement gate:\ncheck_rules.py -- the model MUST\nrun the rules manifest and cite\nits output before reporting\n(see rules_enforcement.md)]
-    RulesGate --> Report([Section 8 Final report:\ncheck results + confidence tier +\nwhat is still estimated])
+    ChangeTree["CHANGE-PROPAGATION:\ncheck_dependencies.py records the\nparam-to-part dependency DAG;\non ANY edit, dirty-root from the\nchanged variable, recompute only\nthe affected chain in topo order --\nsee change_propagation.md --\nfallback: full --all re-run"]
+    ChangeTree --> RulesGate["Rules-enforcement gate:\ncheck_rules.py -- the model MUST\nrun the rules manifest and cite\nits output before reporting --\nsee rules_enforcement.md"]
+    RulesGate --> Report(["Section 8 Final report:\ncheck results + confidence tier +\nwhat is still estimated"])
 ```
+
+**Why there's a loop in this diagram, not one straight line**: `AllPass -- no --> FixSource --> Validate` is a real cycle,
+not a mistake — it's the "fix at the source, re-run the whole thing from the top" policy this skill enforces
+everywhere (SKILL.md §7, `INCIDENTS.md`), not a one-shot linear pipeline. A design can fail validation, get
+fixed, and needs the *entire* chain re-run, not just the one check that failed — so the diagram loops back on
+purpose. Everything else in the graph is a DAG (no other cycles).
 
 ## Notes on the new stages
 
