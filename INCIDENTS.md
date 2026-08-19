@@ -123,6 +123,61 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 
 ## Entries
 
+### 2026-08-19 -- a BOSL2 gear positioned through layout.scad's at() failed under --hardwarnings; a plain guessed interference range was also wrong for real gear teeth
+- **Where:** `scad-modeler/examples/gear_reduction/` (new example project,
+  built for publication readiness -- see the "Publication prep" commits).
+- **Symptom (1):** `validate_scad.sh --all` failed rendering `assembly.scad`
+  with `WARNING: Ignoring unknown variable "$transform"` (from
+  `BOSL2/transforms.scad`) and, after that was fixed, a second warning
+  `"Ignoring unknown variable $parent_gear_pa"` (from `BOSL2/gears.scad`)
+  -- both promoted to hard failures by `--hardwarnings`, which this
+  skill's own `validate_scad.sh` deliberately uses.
+- **Root cause:** two distinct BOSL2 scoping gotchas, both real and neither
+  previously hit by this skill's own testing because no earlier test
+  fixture combined a BOSL2 module (`spur_gear()`) with the skill's own
+  `at()` positioning pattern.
+  1. BOSL2 redefines the built-in `translate()`/`rotate()` to also track a
+     `$transform` special variable, used internally by `spur_gear()`'s
+     attachable machinery. `layout.scad`'s `at()` module used the PLAIN
+     built-in `translate()`/`rotate()` because `layout.scad` itself never
+     included BOSL2 -- a module's `translate()`/`rotate()` binding is
+     fixed at the scope where the module is *defined*, not where it's
+     *called* from, so `parts/pinion.scad` including BOSL2 did not help.
+  2. `BOSL2/gears.scad` declares `$parent_gear_pa` (and four sibling
+     `$parent_gear_*` variables) as `undef` at its own top level, which is
+     what normally makes reading them elsewhere not trigger "unknown
+     variable". `BOSL2/std.scad` does NOT itself include `gears.scad`
+     (confirmed by reading it directly). `parts/pinion.scad`'s own
+     `include <BOSL2/gears.scad>` did not propagate to `assembly.scad`
+     either, because `assembly.scad` only `use`s the part files, and
+     `use` never propagates a file's top-level variable assignments (the
+     same `use`-vs-`include` distinction already documented in
+     `references/setup-notes.md`, hit again in a new combination).
+- **Symptom (2), a real geometry finding, not a bug:** once (1) was fixed,
+  `check_collisions.py` correctly measured the declared `pinion`/`spur`
+  gear-mesh contact at 1.383mm penetration depth, split into 2-3 disjoint
+  regions -- both far outside a guessed `expected_interference_mm: [0.0,
+  0.5]` range copied from earlier press-fit test fixtures, and enough
+  disjoint regions to fail the new multi-region check without an
+  exemption. Root cause: real involute gear teeth interpenetrate more
+  deeply than a bearing/shaft press fit (module-1-scale addendum, not
+  press-fit-scale), and a standard involute pair's contact ratio (>1 by
+  design) means more than one tooth pair is legitimately in contact at
+  once at any static pose -- this is normal, correct gear behavior, not a
+  design defect.
+- **Fix:** (1) `layout.scad` now includes `BOSL2/std.scad` then
+  `BOSL2/gears.scad` itself, even though it never calls a gear function
+  directly -- fixes both warnings, since a module's `translate`/`rotate`
+  and special-variable visibility come from its own definition scope. (2)
+  `joints.json`'s declared range widened to `[0.5, 2.0]mm` and
+  `"multi_region_ok": true` added, both set from the actual measured
+  values for this specific gear pair (documented inline in the file's
+  `_comment`), not guessed. Full chain re-run after both fixes: `exit=0`,
+  `check_rules.py` reports every applicable automated rule PASS.
+- **Already promoted to a rule?** Yes -- fixed directly in the example;
+  documented in the example's own README and inline comments so a future
+  BOSL2-gear-plus-`at()` combination doesn't rediscover this from scratch.
+
 ### 2026-08-19 -- check_collisions.py's declared-contact verdict has no spatial awareness: a legitimate contact zone and a separate, illegitimate one can hide behind the same MAX-depth number
 - **Where:** `scad-modeler/scripts/check_collisions.py` (the 2026-08-19
   penetration-depth upgrade, see the earlier entry below) --

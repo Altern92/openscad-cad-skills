@@ -280,6 +280,23 @@ of the hand-rolled `(T1+T2)*mod/2` formula once profile shift is involved (the p
 formula is fine for equal/standard gears, but stops being exact once BOSL2's
 `profile_shift="auto"` kicks in for small tooth counts).
 
+**`layout.scad` needs both BOSL2 includes too, even though it never calls a
+gear function directly.** BOSL2 redefines `translate()`/`rotate()` to track
+internal special variables (`$transform`, and `gears.scad`'s own
+`$parent_gear_*` set) that `spur_gear()` reads internally; a module's
+`translate()`/`rotate()` binding is fixed at the scope where the module is
+*defined*, not where it's called from, so `at()`'s own plain
+`translate()`/`rotate()` in `layout.scad` won't see them unless
+`layout.scad` itself has `include <BOSL2/std.scad>` and `include
+<BOSL2/gears.scad>` at its own top level — a part file's own BOSL2 include
+does not help, since `assembly.scad` only `use`s part files, and `use`
+never propagates a file's top-level variable assignments. Without this,
+`--hardwarnings` turns "Ignoring unknown variable" into a hard render
+failure, but only when going through `at()` — the part file rendered
+standalone looks fine, which is what made this easy to miss (confirmed
+directly building `scad-modeler/examples/gear_reduction/`, `INCIDENTS.md`
+2026-08-19).
+
 If BOSL2 truly isn't available, MCAD's `involute_gears.scad` is another tested
 option -- but check it's a complete install first (`doctor.py` reports it; a
 partial MCAD drop-in has been found in the wild more than once). Either way: a
