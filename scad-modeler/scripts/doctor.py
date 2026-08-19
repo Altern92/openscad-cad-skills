@@ -56,6 +56,12 @@ PY_DEPS = {
     "networkx": "trimesh graph ops",
     "manifold3d": "mesh booleans; without it a declared press fit cannot be "
                   "measured against its range",
+    "rtree": "trimesh's point-in-mesh containment test; needed by "
+             "check_bore_reachability.py",
+    "yaml": "rules_manifest.yaml parsing; needed by check_rules.py "
+            "(pip package name is pyyaml, import name is yaml)",
+    "jsonschema": "design_manifest.json/requirements.json validation; "
+                  "needed by check_intake.py",
 }
 
 
@@ -181,7 +187,14 @@ def highest_tier(scad, deps, calib):
                    "geometry")
     if deps.get("python-fcl", {}).get("status") != "ok":
         return 3, "python-fcl missing -- assemblies cannot be checked"
-    return 4, "static assembly checking available; motion sweep not implemented"
+    # Tier 5 (motion_sweep.py) needs no Python dependency beyond what Tier 4
+    # already requires (trimesh + python-fcl) -- confirmed by reading
+    # motion_sweep.py's own imports. Corrected 2026-08-19: this used to say
+    # "motion sweep not implemented", which was true when this function was
+    # first written but stayed uncorrected after motion_sweep.py actually
+    # shipped and was tested -- see openscad-cad/references/confidence-tiers.md
+    # Tier 5.
+    return 5, "static assembly checking and motion sweep both available"
 
 
 def main():

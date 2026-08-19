@@ -1,142 +1,144 @@
-# Rules-enforcement engine (kaip užtikrinti, kad skill KASKART laikytųsi taisyklių)
+# Rules-enforcement engine (how to make the skill follow its own rules EVERY time)
 
-> Tikslas: nulis „pamiršau taisyklę" atvejų. Principas — **taisyklė turi būti
-> patikrinama mašinai, ne tik įsimenama modelio**. Promptas primena; skriptas
-> įrodo. Jei skriptas negali įrodyti, kad žingsnis įvyko — darbas sustoja.
+> Goal: zero "forgot the rule" cases. Principle — **a rule must be
+> machine-checkable, not just remembered by the model**. A prompt reminds;
+> a script proves. If a script can't prove a step actually happened, work
+> stops.
 
-## 1. Kodėl agentai nukrypsta nuo taisyklių (3 pagrindinės priežastys)
+## 1. Why agents drift from stated rules (3 main reasons)
 
-1. **Konteksto perkrova** — ilgoje SKILL.md taisyklės „nuskęsta" tarp detalių;
-   modelis seka paskutinį matytą pavyzdį, o ne taisyklę.
-2. **Nėra pasekmių** — jei žingsnis praleidžiamas, niekas nesustoja; modelis
-   gauna teigiamą grįžtamąjį ryšį už „greitą" atsakymą net ir be patikros.
-3. **Taisyklė nėra patikrinama** — „privaloma atlikti X" be jokio mechanizmo
-   patvirtinti, kad X tikrai įvyko (ir įvyko teisingai).
+1. **Context overload** — in a long SKILL.md, rules "drown" among details;
+   the model follows the last example it saw, not the rule.
+2. **No consequence** — if a step is skipped, nothing stops; the model gets
+   positive feedback for a "fast" answer even without verification.
+3. **The rule isn't checkable** — "must do X" with no mechanism to confirm
+   X actually happened (and happened correctly).
 
-Patvirtinti kontrargumentai iš literatūros: iteratyvios verifikavimo-vertinimo-
-taisymo kilpos mažina LLM klaidas be teisingų atsakymų sugadinimo — DISC
+Confirmed counter-evidence from the literature: iterative verify-judge-correct
+loops reduce LLM errors without damaging already-correct answers — DISC
 (Denoising Iterative Self-Correction, Yin/Ken/Stremmel, Thomson Reuters Labs,
-[arxiv 2606.21724](https://arxiv.org/abs/2606.21724)), kuris **superina**
-Chain-of-Verification (CoVe) kaip baseline'ą (patikrinta 2026-08-19 per
-Perplexity — ankstesnė citata klaidingai vadino šį darbą "CoVe paper", nors
-CoVe jame yra tik palyginimo baseline, o siūlomas metodas yra DISC su
-binariniu judge-gate),
-„agentas pats patikrina savo darbą prieš atsakymą" ([BeFailProof](https://befailproof.ai/guides/how-to-make-ai-agents-reliable/)),
-veiksmų apribojimas ir struktūruoti rezultatai ([n8n](https://blog.n8n.io/make-ai-agents-more-reliable-and-restrict-the-actions-they-can-take/),
+[arxiv 2606.21724](https://arxiv.org/abs/2606.21724)), which **beats**
+Chain-of-Verification (CoVe) as a baseline (verified 2026-08-19 via
+Perplexity — an earlier citation incorrectly called this "the CoVe paper",
+when CoVe is only the comparison baseline in it and the proposed method is
+DISC with a binary judge-gate),
+"an agent checking its own work before answering" ([BeFailProof](https://befailproof.ai/guides/how-to-make-ai-agents-reliable/)),
+restricted actions and structured outputs ([n8n](https://blog.n8n.io/make-ai-agents-more-reliable-and-restrict-the-actions-they-can-take/),
 [Gemma 4 guardrails](https://dev.to/system_rationale/part-3-making-gemma-4-agents-production-ready-guardrails-structured-outputs-and-self-healing-575n)),
-o gamybiniams agentams neužtenka vien promptų — reikia būsenos mašinos ir
-deterministinių vartų ([Production AI agents](https://www.mygreatlearning.com/blog/production-ai-agents/)).
+and that production agents need more than prompts — they need a state
+machine and deterministic gates ([Production AI agents](https://www.mygreatlearning.com/blog/production-ai-agents/)).
 
-## 2. Sluoksniuotas vykdymo modelis (4 sluoksniai)
+## 2. Layered execution model (4 layers)
 
-### L1 — Prompt lygmuo (primena)
-- SKILL.md pradžioje — **trumpa „prieš ką nors darydamas" eilutė**, nukreipianti
-  į šį dokumentą ir į `validation_decision_tree.md` (ne kartoti visas taisykles
-  — jos yra žemiau; tik „kur žiūrėti").
-- Kiekvienas privalomas žingsnis turi **vieną** nurodymą vienoje vietoje
-  (dublikatai skiriasi — modelis pasirenka paskutinį).
+### L1 — Prompt layer (reminds)
+- At the top of SKILL.md — a **short "before doing anything" line**
+  pointing to this document and to `validation_decision_tree.md` (not
+  repeating every rule — those live below; just "where to look").
+- Every mandatory step has **one** instruction in one place (duplicates
+  diverge — the model picks whichever it saw last).
 
-### L2 — Deterministiniai vartai (įrodo)
-Egzistuojantis pavyzdys: `check_plan.py` — įrodo, kad §0.5 planavimas įvyko
-(ne tik prozoje). Kiekvienas privalomas žingsnis gauna tokį vartą:
+### L2 — Deterministic gates (proves)
+Existing example: `check_plan.py` — proves §0.5 planning actually happened
+(not just in prose). Every mandatory step gets a gate like this:
 
-| Privalomas žingsnis | Vartas (skriptas įrodo) |
+| Mandatory step | Gate (script proves it) |
 |---|---|
-| Intake atliktas | `requirements.json`/`design_manifest.json` egzistuoja ir atitinka schemą (`check_intake.py`, yra ✅, testuota 4 sintetiniais atvejais 2026-08-19) |
-| Planavimas (§0.5) | `check_plan.py` (yra) |
-| Paskyrimų lentelė (§1) | `calculations.md` su decisions-log (yra per `check_assumptions.py`) |
-| Fizinė naratyva (§0.6) | R-03 `rules_manifest.yaml` — kol kas MANUAL (nėra automatinio varto, turinio kokybė netikrinama skriptu) |
-| Geometrija | `validate_scad.sh --all` (yra) |
-| Judančios dalys | `design_manifest.json.motion` → `motion_sweep.py` (yra; auto-trigger per `rules_manifest.yaml` R-09 lieka MANUAL, nes reikia žmogaus/modelio sprendimo dėl sweep parametrų) |
-| Pokyčių perskaičiavimas | `check_dependencies.py` (yra ✅, žr. `change_propagation.md`) |
+| Intake done | `requirements.json`/`design_manifest.json` exists and matches the schema (`check_intake.py`, ✅ exists, tested against 4 synthetic cases 2026-08-19) |
+| Planning (§0.5) | `check_plan.py` (exists) |
+| Calculation table (§1) | `calculations.md` with a decisions log (exists via `check_assumptions.py`) |
+| Physical narrative (§0.6) | R-03 in `rules_manifest.yaml` — currently MANUAL (no automated gate; content quality isn't script-checkable) |
+| Geometry | `validate_scad.sh --all` (exists) |
+| Moving parts | `joints.json`'s `motion` array → `motion_sweep.py` (exists; auto-triggered via `validate_scad.sh`, gated by `rules_manifest.yaml` R-09) |
+| Change recalculation | `check_dependencies.py` (✅ exists, see `change_propagation.md`) |
 
-Pastaba (2026-08-19): ne kiekviena taisyklė TURI automatinį vartą, ir tai
-sąmoningas sprendimas, ne spraga — R-03/R-05/R-07/R-08/R-10 `rules_manifest.yaml`
-faile yra pažymėtos `kind: manual`, nes joms patikrinti reikėtų arba turinio
-kokybės vertinimo (ar naratyva iš tikrųjų atsako į klausimą, ne tik užpildo
-lauką), arba žingsnio, kurio dar nėra sistemoje (assembly-pozicionuotų STL
-eksportavimas kolizijų patikrai). `check_rules.py` jas vis tiek spausdina ir
-reikalauja modelio aiškaus įvertinimo — nesuprantama tyla apie jas nėra
-leidžiama, bet apsimestinis "PASS" irgi ne, nes tai būtų klaidingas
-tikrumo jausmas.
+Note (2026-08-19): not every rule HAS an automated gate, and that's a
+deliberate decision, not a gap — R-03/R-05/R-07/R-08/R-10 in
+`rules_manifest.yaml` are marked `kind: manual` because checking them
+would need either content-quality judgment (does the narrative actually
+answer the question, not just fill in a field) or a step the system
+doesn't have yet (exporting assembly-positioned STLs for a collision
+check). `check_rules.py` still prints them and requires an explicit
+verdict from the model — silent omission isn't allowed, but a rubber-stamp
+"PASS" isn't either, since that would be a false sense of certainty.
 
-**Realiai atrastas ir ištaisytas spąstas (2026-08-19):** `validate_scad.sh`
-anksčiau naudojo `set -e`, tad viena NESUSIJUSI klaida (pvz. neišspręstas
-Critical assumption `calculations.md`) sustabdydavo VISĄ skriptą, prieš
-connectivity/bore/mechanics patikroms net paleidžiant. Kitas modelis tada
-pats "rankiniu būdu patvirtino atskirai" tas patikras — nepatikrinamas
-tikrumo teiginys, lygiai tas pats spąstas, dėl kurio visa ši sistema ir
-kuriama. Ištaisyta: `validate_scad.sh` nebesustoja ties pirma klaida —
-kiekvienas nepriklausomas patikrinimas paleidžiamas ir atspausdina savo
-`CHECK_RESULT <vardas>=PASS|FAIL|SKIP` eilutę; `check_rules.py` gali
-turėti `success_pattern` lauką, kuris R-04/R-09 verdiktą nustato pagal
-KONKREČIĄ `CHECK_RESULT` eilutę, ne pagal viso skripto exit code'ą (kuris
-gali būti nenulinis dėl visai kitos, nesusijusios klaidos). Testuota:
-projektas su neišspręstu Critical assumption BET švaria geometrija dabar
-teisingai rodo R-04/R-09 = PASS, R-11 = FAIL — be jokio "manualaus"
-patvirtinimo poreikio.
+**A real trap found and fixed (2026-08-19):** `validate_scad.sh` used to
+use `set -e`, so ONE unrelated failure (e.g. an unresolved Critical
+assumption in `calculations.md`) aborted the WHOLE script before the
+connectivity/bore/mechanics checks ever ran. A different model then
+"manually confirmed those checks separately" — an unverifiable claim of
+certainty, exactly the same trap this whole system exists to close. Fixed:
+`validate_scad.sh` no longer stops at the first failure — every
+independent check runs and prints its own `CHECK_RESULT <name>=PASS|FAIL|
+SKIP` line; `check_rules.py` can carry a `success_pattern` field that
+determines the R-04/R-09 verdict from that SPECIFIC `CHECK_RESULT` line,
+not from the whole script's exit code (which can be non-zero because of a
+completely unrelated failure). Tested: a project with an unresolved
+Critical assumption but otherwise-clean geometry now correctly shows
+R-04/R-09 = PASS, R-11 = FAIL — with no "manual" confirmation needed.
 
-### L3 — Savęs patikros kilpa (modelis tikrina save)
-Prieš §8 galutinį pranešimą modelis paleidžia **taisyklių manifestą** (L4) ir
-pats įvertina kiekvieną eilutę: `padaryta / praleista / netaikoma`. Praleista
-→ grįžti, padaryti, paleisti iš naujo. Šis žingsnis — ne pasirenkamas „jei
-turiu laiko", o privalomas vartas prieš atsakymą vartotojui.
+### L3 — Self-check loop (the model checks itself)
+Before the §8 final report, the model runs the **rules manifest** (L4) and
+assesses each line itself: `done / skipped / not applicable`. Skipped →
+go back, do it, re-run. This step is not optional "if I have time" — it's
+a mandatory gate before answering the user.
 
-### L4 — Taisyklių manifestas (mašiniškai tikrinamas sąrašas)
-Failas `rules_manifest.yaml` (šalia SKILL.md): **vienintelis** sąrašas visų
-privalomų taisyklių, yra ✅ (12 taisyklių, 2026-08-19). `scripts/check_rules.py`
-paleidžia jį prieš §8 -- testuota tuščiu projektu, pilnai užpildytu projektu ir
-sąmoningai suluzdintu (`status: "unknown"`) atveju; realaus formato pavyzdys
-(supaprastintas nuo faktinio 12 taisyklių YAML):
+### L4 — Rules manifest (machine-checkable list)
+The file `rules_manifest.yaml` (next to SKILL.md): the **single** list of
+every mandatory rule, ✅ exists (12 rules, 2026-08-19). `scripts/check_rules.py`
+runs it before §8 — tested against an empty project, a fully populated
+project, and a deliberately broken (`status: "unknown"`) case; a
+real-format example (simplified from the actual 12-rule YAML):
 
 ```yaml
 rules:
   - id: R-01
-    rule: "Intake: requirements.json egzistuoja ir validus"
+    rule: "Intake: requirements.json exists and is valid"
     check: "file exists requirements.json && schema valid"
     gate: check_intake.py
     applies: new_design
   - id: R-02
-    rule: "Planavimas: plan.md egzistuoja 3+ dalių surinkimui"
+    rule: "Planning: plan.md exists for a 3+ part assembly"
     check: "check_plan.py passes"
     gate: check_plan.py
     applies: assembly_3plus
   - id: R-03
-    rule: "validate_scad.sh --all po KIEKVIENO pakeitimo"
+    rule: "validate_scad.sh --all after EVERY change"
     check: "last run green + mtimes newer than last .scad edit"
     gate: validate_scad.sh
     applies: any_change
-  # ... visas sąrašas
+  # ... full list
 ```
 
-Modelis privalo paleisti `check_rules.py` ir **cituoti jo išvestį** §8
-ataskaitoje. Jei skripto nėra tam žingsniui — taisyklė laikoma neįgyvendinta.
+The model must run `check_rules.py` and **cite its output** in the §8
+report. If no script exists for a given step, the rule is treated as not
+implemented.
 
-## 3. Gedimo tvarkymas (kas atsitinka, kai vartas nepraleidžia)
+## 3. Failure handling (what happens when a gate doesn't pass)
 
-1. **Stabdyk** — nesitaisyk „šalia", neperrašyk rezultato.
-2. **Taisyk šaltinyje** (parametras, skriptas, geometrija) — ne išvestyje.
-3. **Paleisk iš naujo nuo viršaus** — ne tik to vieno varto, kuris nepraėjo
-   (kaskadinis efektas: apačioje praeina tik tada, kai viršuje švaru).
-4. **Užfiksuok** — jei vartas praleido klaidą (false pass), įrašyk incidentą į
-   `INCIDENTS.md` (jau yra tokia praktika).
+1. **Stop** — don't patch "around" it, don't rewrite the output.
+2. **Fix at the source** (the parameter, the script, the geometry) — not
+   the output.
+3. **Re-run from the top** — not just the one gate that failed (cascading
+   effect: downstream only passes once upstream is clean).
+4. **Record it** — if a gate let a bug through (a false pass), log an
+   incident in `INCIDENTS.md` (already established practice).
 
-## 4. Kodėl tai veiks šiam skill'ui
+## 4. Why this will work for this skill
 
-Skill'as jau turi tinkamiausią pagrindą: skriptų rinkinį, kuris tikrina
-geometriją **nepriklausomai nuo modelio** (`check_*.py`). Šis variklis tą patį
-principą išplečia į **proceso** žingsnius (intake, planavimas, naratyva,
-pokyčių medis) ir prideda paskutinį trūkstamą elementą — **privalomą savęs
-patikrą prieš atsakymą** (L3+L4). Tada taisyklės laikymasis nebepriklauso nuo
-modelio atminties: jį įrodo skriptai, o modelio darbas — tik juos paleisti ir
-jų rezultatus cituoti.
+The skill already has the right foundation: a set of scripts that check
+geometry **independently of the model** (`check_*.py`). This engine extends
+that same principle to **process** steps (intake, planning, narrative,
+change-propagation) and adds the last missing piece — a **mandatory
+self-check before answering** (L3+L4). At that point, following the rules
+no longer depends on the model's memory: scripts prove it, and the model's
+job is just to run them and cite the results.
 
-## Šaltinių žurnalas
+## Source log
 
-| ID | Teiginys | Šaltinis (URL) | Tipas | Data | Būsena |
+| ID | Claim | Source (URL) | Type | Date | Status |
 |---|---|---|---|---|---|
-| E-001 | DISC: iteratyvios verify-judge-correct kilpos su binariniu judge-gate mažina LLM klaidas be teisingų atsakymų sugadinimo; superina CoVe ir Self-Refine kaip baseline'us (paper's actual subject -- ne "CoVe paper", kaip klaidingai buvo cituota; ištaisyta 2026-08-19 per Perplexity patikrą) | https://arxiv.org/abs/2606.21724 | pirminis | 2026-08-19 (ištaisyta) | ✅ su šaltiniu, patikrinta |
-| E-002 | Agentų patikimumas: apriboti veiksmus, struktūruoti rezultatai, savęs gydymas | https://befailproof.ai/guides/how-to-make-ai-agents-reliable/ ; https://blog.n8n.io/make-ai-agents-more-reliable-and-restrict-the-actions-they-can-take/ ; https://dev.to/system_rationale/part-3-making-gemma-4-agents-production-ready-guardrails-structured-outputs-and-self-healing-575n | pirminis | 2026-08-19 | su šaltiniu |
-| E-003 | Gamybiniams agentams neužtenka promptų — reikia būsenos mašinos ir vartų | https://www.mygreatlearning.com/blog/production-ai-agents/ | pirminis | 2026-08-19 | su šaltiniu |
-| E-004 | Formaliai verifikuotas kodo generavimas per savęs tobulinimą (AlphaVerus) | https://mlanthology.org/icml/2025/aggarwal2025icml-alphaverus/ | pirminis | 2026-08-19 | su šaltiniu |
-| E-005 | CAD generavimo verifikacijos kilpa gerina rezultatą (CADCode-Verify) | https://proceedings.iclr.cc/paper_files/paper/2025/hash/81a934cd364e18ea6fdeaf57a93c17d4-Abstract-Conference.html | pirminis | 2026-08-19 | su šaltiniu |
+| E-001 | DISC: iterative verify-judge-correct loops with a binary judge-gate reduce LLM errors without damaging correct answers; beats CoVe and Self-Refine as baselines (the paper's actual subject -- not "the CoVe paper" as incorrectly cited earlier; corrected 2026-08-19 via Perplexity verification) | https://arxiv.org/abs/2606.21724 | primary | 2026-08-19 (corrected) | ✅ sourced, verified |
+| E-002 | Agent reliability: restrict actions, structured outputs, self-healing | https://befailproof.ai/guides/how-to-make-ai-agents-reliable/ ; https://blog.n8n.io/make-ai-agents-more-reliable-and-restrict-the-actions-they-can-take/ ; https://dev.to/system_rationale/part-3-making-gemma-4-agents-production-ready-guardrails-structured-outputs-and-self-healing-575n | primary | 2026-08-19 | sourced |
+| E-003 | Production agents need more than prompts -- a state machine and gates | https://www.mygreatlearning.com/blog/production-ai-agents/ | primary | 2026-08-19 | sourced |
+| E-004 | Formally verified code generation via self-refinement (AlphaVerus) | https://mlanthology.org/icml/2025/aggarwal2025icml-alphaverus/ | primary | 2026-08-19 | sourced |
+| E-005 | A verification loop improves CAD generation results (CADCode-Verify) | https://proceedings.iclr.cc/paper_files/paper/2025/hash/81a934cd364e18ea6fdeaf57a93c17d4-Abstract-Conference.html | primary | 2026-08-19 | sourced |

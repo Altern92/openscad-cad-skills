@@ -9,3 +9,9 @@ networkx         # trimesh graph operations
 python-fcl       # the actual collision math behind trimesh.collision
 manifold3d       # mesh booleans; without it a declared press fit cannot be
                  # measured against its stated range (reported as degraded)
+rtree            # trimesh's point-in-mesh containment test; needed by
+                 # check_bore_reachability.py (raises ModuleNotFoundError,
+                 # not a silent wrong answer, if missing -- confirmed)
+pyyaml           # rules_manifest.yaml parsing; needed by check_rules.py
+jsonschema       # design_manifest.json/requirements.json validation;
+                 # needed by check_intake.py
