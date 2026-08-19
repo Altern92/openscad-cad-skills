@@ -123,6 +123,53 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 
 ## Entries
 
+### 2026-08-19 -- check_collisions.py's declared-contact verdict has no spatial awareness: a legitimate contact zone and a separate, illegitimate one can hide behind the same MAX-depth number
+- **Where:** `scad-modeler/scripts/check_collisions.py` (the 2026-08-19
+  penetration-depth upgrade, see the earlier entry below) --
+  `esp32_rc_modelis/mechanical/steering_reduction_gearbox/`
+  (`jackshaft.stl` [worm + big_gear on one printed part] vs
+  `output_gear.stl` [worm wheel]), found live during a parallel Claude Code
+  session's re-validation of that project. NOT fixed -- logged only, per
+  explicit user instruction; a different session is implementing the fix.
+- **Symptom:** the render looked visibly wrong to the user (parts appearing
+  fused where they shouldn't be) despite the other session's own
+  `check_collisions.py` initially reporting the declared `jackshaft`/
+  `output_gear` "gear_mesh" contact as fine. Pushed to verify more deeply
+  (not accept "that's just normal tooth backlash"), the other session used
+  `trimesh.intersection()` + `.split(only_watertight=False)` on the raw
+  boolean intersection between the two positioned STLs and found the total
+  157.97mm³ overlap is NOT one contact zone -- it splits into 7 disjoint
+  connected components. One of them (109.5mm³, the largest) has bounds
+  X=[23.0, 31.0], entirely outside the worm thread's own physical extent
+  (the worm section of `jackshaft` starts at X=34; X=23-31 is where
+  `big_gear`/the shaft-transition region of the same printed part sits).
+  That investigation was still in progress (not yet resolved to a definite
+  root geometric cause) when relayed to this session.
+- **Root cause:** the current declared-contact check takes the MAX
+  penetration depth across ALL FCL contact points for a pair and compares
+  that single scalar to the declared `expected_interference_mm` range.
+  Penetration depth is a per-contact-point LOCAL distance measure with no
+  awareness of contact AREA or LOCATION -- so it structurally cannot
+  distinguish "one legitimate small-depth contact zone" from "a legitimate
+  small-depth zone PLUS a completely separate, differently-located
+  small-depth zone that has nothing to do with the declared joint." A
+  genuine single-purpose joint (a gear mesh, a press fit) should physically
+  touch in ONE contiguous region; multiple spatially disjoint contact
+  patches between the same declared pair is itself a red flag that nothing
+  in the current chain checks for. This is a distinct gap from both the
+  2026-08-19 volume-heuristic bug and its penetration-depth fix (both
+  entries below) -- fixing "how much" is compared per pair does not fix
+  "whether it's actually one physical contact or several unrelated ones."
+- **Fix:** NOT YET IMPLEMENTED (explicit instruction this session: log
+  only). Proposed, not built: for a declared-contact pair, split the
+  boolean intersection into connected components (the same technique the
+  other session used manually) and either (a) require exactly one
+  component, or (b) validate depth per component independently, flagging
+  more than one disjoint region as suspicious by default unless explicitly
+  exempted (e.g. a legitimately multi-point contact like a splined shaft).
+- **Already promoted to a rule?** Not yet -- proposed fix only, intentionally
+  left for a different session to implement.
+
 ### 2026-08-19 -- validate_scad.sh's fail-fast (set -e) let one unrelated failure mask whether OTHER checks ran at all
 - **Where:** `scad-modeler/scripts/validate_scad.sh`, `scad-modeler/scripts/check_rules.py`,
   `scad-modeler/rules_manifest.yaml` -- discovered when a different, parallel
