@@ -29,6 +29,15 @@ instance of it was already logged. Logging a root cause is not the same
 as having fixed the reasoning that produced it; only actually reading the
 log before writing the next similar feature closes that gap.
 
+**New designs only** — before §0.5, run the intake/analysis stage: turn the
+user's brief (plus info gathered from other AIs) into
+`requirements.json`/`design_manifest.json` (gated by `check_intake.py`),
+classify every component **printed vs purchased** (bearings, shafts,
+fasteners are vitamins — never printed), and retrieve **2–3 similar past
+variants** to adapt instead of starting from zero. Details:
+`references/intake_and_analysis.md`; where it sits in the workflow:
+`references/validation_decision_tree.md`.
+
 ## 0.5. Planning (mandatory before §1, for any assembly with 3+ parts or a genuinely uncertain architecture)
 
 Don't write a single formula in §1 until the mechanical concept is settled
@@ -601,6 +610,20 @@ pass, not something to analyze now; just log it accurately.
   applies to my situation right now", across ~10 scripts with different
   triggers (mandatory/opt-in/manual). Navigation aid only, not authoritative
   — the prose below (with incident citations) wins if this ever drifts.
+- `references/intake_and_analysis.md` — Stage 0/0.5: requirements JSON
+  schema (confirmed/estimated/unknown status discipline), printed-vs-purchased
+  decision criteria (NopSCADlib vitamins), embedding-based similar-variant
+  retrieval over past designs.
+- `references/mechanics_and_motion_planning.md` — motion taxonomy
+  (rotation/translation/rolling/flexure), FDM fit-clearance tables,
+  `design_manifest.json` motion block that auto-triggers the mechanics checks.
+- `references/change_propagation.md` + `scripts/check_dependencies.py` — the
+  "choice tree": param→part dependency DAG; on any edit, dirty-root from the
+  changed variable and recompute only the affected chain in topological order,
+  escalating to the full `--all` re-run on any parse uncertainty.
+- `references/rules_enforcement.md` — why agents drift from written rules and
+  the layered countermeasure (prompt reminders → deterministic gates →
+  self-verification loop → machine-checkable rules manifest).
 - `../INCIDENTS.md` — append-only log of real bugs found and fixed (§8). Not
   reviewed automatically; a later pass reads it for patterns worth promoting
   into a permanent rule here.
