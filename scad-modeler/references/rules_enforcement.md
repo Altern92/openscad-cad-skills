@@ -13,8 +13,14 @@
 3. **Taisyklė nėra patikrinama** — „privaloma atlikti X" be jokio mechanizmo
    patvirtinti, kad X tikrai įvyko (ir įvyko teisingai).
 
-Patvirtinti kontrargumentai iš literatūros: verifikacijos kilpos (CoVe,
-structured verification loops — [arxiv 2606.21724](https://arxiv-org.ezproxy.obspm.fr/html/2606.21724v1)),
+Patvirtinti kontrargumentai iš literatūros: iteratyvios verifikavimo-vertinimo-
+taisymo kilpos mažina LLM klaidas be teisingų atsakymų sugadinimo — DISC
+(Denoising Iterative Self-Correction, Yin/Ken/Stremmel, Thomson Reuters Labs,
+[arxiv 2606.21724](https://arxiv.org/abs/2606.21724)), kuris **superina**
+Chain-of-Verification (CoVe) kaip baseline'ą (patikrinta 2026-08-19 per
+Perplexity — ankstesnė citata klaidingai vadino šį darbą "CoVe paper", nors
+CoVe jame yra tik palyginimo baseline, o siūlomas metodas yra DISC su
+binariniu judge-gate),
 „agentas pats patikrina savo darbą prieš atsakymą" ([BeFailProof](https://befailproof.ai/guides/how-to-make-ai-agents-reliable/)),
 veiksmų apribojimas ir struktūruoti rezultatai ([n8n](https://blog.n8n.io/make-ai-agents-more-reliable-and-restrict-the-actions-they-can-take/),
 [Gemma 4 guardrails](https://dev.to/system_rationale/part-3-making-gemma-4-agents-production-ready-guardrails-structured-outputs-and-self-healing-575n)),
@@ -36,13 +42,23 @@ Egzistuojantis pavyzdys: `check_plan.py` — įrodo, kad §0.5 planavimas įvyko
 
 | Privalomas žingsnis | Vartas (skriptas įrodo) |
 |---|---|
-| Intake atliktas | `requirements.json`/`design_manifest.json` egzistuoja ir atitinka schemą (naujas `check_intake.py`) |
+| Intake atliktas | `requirements.json`/`design_manifest.json` egzistuoja ir atitinka schemą (`check_intake.py`, yra ✅, testuota 4 sintetiniais atvejais 2026-08-19) |
 | Planavimas (§0.5) | `check_plan.py` (yra) |
 | Paskyrimų lentelė (§1) | `calculations.md` su decisions-log (yra per `check_assumptions.py`) |
-| Fizinė naratyva (§0.6) | 4 atsakymai failo pavidalu (naujas lengvas vartas) |
+| Fizinė naratyva (§0.6) | R-03 `rules_manifest.yaml` — kol kas MANUAL (nėra automatinio varto, turinio kokybė netikrinama skriptu) |
 | Geometrija | `validate_scad.sh --all` (yra) |
-| Judančios dalys | `design_manifest.json.motion` → `motion_sweep.py` (yra, trigger naujas) |
-| Pokyčių perskaičiavimas | `check_dependencies.py` (naujas — žr. `change_propagation.md`) |
+| Judančios dalys | `design_manifest.json.motion` → `motion_sweep.py` (yra; auto-trigger per `rules_manifest.yaml` R-09 lieka MANUAL, nes reikia žmogaus/modelio sprendimo dėl sweep parametrų) |
+| Pokyčių perskaičiavimas | `check_dependencies.py` (yra ✅, žr. `change_propagation.md`) |
+
+Pastaba (2026-08-19): ne kiekviena taisyklė TURI automatinį vartą, ir tai
+sąmoningas sprendimas, ne spraga — R-03/R-05/R-07/R-08/R-10 `rules_manifest.yaml`
+faile yra pažymėtos `kind: manual`, nes joms patikrinti reikėtų arba turinio
+kokybės vertinimo (ar naratyva iš tikrųjų atsako į klausimą, ne tik užpildo
+lauką), arba žingsnio, kurio dar nėra sistemoje (assembly-pozicionuotų STL
+eksportavimas kolizijų patikrai). `check_rules.py` jas vis tiek spausdina ir
+reikalauja modelio aiškaus įvertinimo — nesuprantama tyla apie jas nėra
+leidžiama, bet apsimestinis "PASS" irgi ne, nes tai būtų klaidingas
+tikrumo jausmas.
 
 ### L3 — Savęs patikros kilpa (modelis tikrina save)
 Prieš §8 galutinį pranešimą modelis paleidžia **taisyklių manifestą** (L4) ir
@@ -52,7 +68,10 @@ turiu laiko", o privalomas vartas prieš atsakymą vartotojui.
 
 ### L4 — Taisyklių manifestas (mašiniškai tikrinamas sąrašas)
 Failas `rules_manifest.yaml` (šalia SKILL.md): **vienintelis** sąrašas visų
-privalomų taisyklių. Naujas skriptas `check_rules.py` paleidžia jį prieš §8:
+privalomų taisyklių, yra ✅ (12 taisyklių, 2026-08-19). `scripts/check_rules.py`
+paleidžia jį prieš §8 -- testuota tuščiu projektu, pilnai užpildytu projektu ir
+sąmoningai suluzdintu (`status: "unknown"`) atveju; realaus formato pavyzdys
+(supaprastintas nuo faktinio 12 taisyklių YAML):
 
 ```yaml
 rules:
@@ -100,7 +119,7 @@ jų rezultatus cituoti.
 
 | ID | Teiginys | Šaltinis (URL) | Tipas | Data | Būsena |
 |---|---|---|---|---|---|
-| E-001 | Verifikacijos kilpos mažina haliucinacijas (CoVe; structured verification loops) | https://arxiv-org.ezproxy.obspm.fr/html/2606.21724v1 ; https://aclanthology.org/2025.bionlp-share.34/ | pirminis | 2026-08-19 | su šaltiniu |
+| E-001 | DISC: iteratyvios verify-judge-correct kilpos su binariniu judge-gate mažina LLM klaidas be teisingų atsakymų sugadinimo; superina CoVe ir Self-Refine kaip baseline'us (paper's actual subject -- ne "CoVe paper", kaip klaidingai buvo cituota; ištaisyta 2026-08-19 per Perplexity patikrą) | https://arxiv.org/abs/2606.21724 | pirminis | 2026-08-19 (ištaisyta) | ✅ su šaltiniu, patikrinta |
 | E-002 | Agentų patikimumas: apriboti veiksmus, struktūruoti rezultatai, savęs gydymas | https://befailproof.ai/guides/how-to-make-ai-agents-reliable/ ; https://blog.n8n.io/make-ai-agents-more-reliable-and-restrict-the-actions-they-can-take/ ; https://dev.to/system_rationale/part-3-making-gemma-4-agents-production-ready-guardrails-structured-outputs-and-self-healing-575n | pirminis | 2026-08-19 | su šaltiniu |
 | E-003 | Gamybiniams agentams neužtenka promptų — reikia būsenos mašinos ir vartų | https://www.mygreatlearning.com/blog/production-ai-agents/ | pirminis | 2026-08-19 | su šaltiniu |
 | E-004 | Formaliai verifikuotas kodo generavimas per savęs tobulinimą (AlphaVerus) | https://mlanthology.org/icml/2025/aggarwal2025icml-alphaverus/ | pirminis | 2026-08-19 | su šaltiniu |

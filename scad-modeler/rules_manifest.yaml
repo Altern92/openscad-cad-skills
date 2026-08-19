@@ -1,0 +1,89 @@
+# Single source of truth for every mandatory/opt-in rule in scad-modeler.
+# Read by scripts/check_rules.py (references/rules_enforcement.md, L4).
+#
+# Each rule:
+#   id       - stable identifier, cited in the §8 report
+#   rule     - human-readable statement of the requirement
+#   applies  - a detector check_rules.py knows how to evaluate on its own:
+#              "always" | "file_exists:<path>" | "json_true:<path>#<dot.key>"
+#   kind     - "auto" (check_rules.py runs `gate` itself and records the exit
+#              code) or "manual" (no script can verify this one -- content
+#              quality, not a file's existence. check_rules.py prints it and
+#              the model MUST self-assess it explicitly in §8; it is not
+#              silently skipped just because nothing can auto-check it)
+#   gate     - shell command to run for "auto" rules (null for "manual")
+#
+# {project_dir} and {skill_dir} are substituted by check_rules.py.
+
+rules:
+  - id: R-01
+    rule: "Intake (§0): design_manifest.json/requirements.json exists and is schema-valid, no unresolved 'unknown' parameters"
+    applies: "file_exists:design_manifest.json,requirements.json"
+    kind: auto
+    gate: "python3 {skill_dir}/scripts/check_intake.py"
+
+  - id: R-02
+    rule: "Planning (§0.5): plan.md exists, 2+ architecture options, a confirmed Decision, every layout.scad part present"
+    applies: "file_exists:plan.md"
+    kind: auto
+    gate: "python3 {skill_dir}/scripts/check_plan.py --plan {project_dir}/plan.md"
+
+  - id: R-03
+    rule: "Physical assembly narrative (§0.6): insertion path, shared-part neighbors, retention, purchased-part fit answered in writing for every feature touching a bearing/shaft/fastener/purchased part or sharing a union() with another feature"
+    applies: "always"
+    kind: manual
+    gate: null
+
+  - id: R-04
+    rule: "Connectivity (§7): every printed part renders as one connected body (or declares EXPECTED_BODIES)"
+    applies: "always"
+    kind: auto
+    gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
+
+  - id: R-05
+    rule: "After ANY change, the whole validate_scad.sh --all is re-run from the top, not just the one check that failed"
+    applies: "always"
+    kind: manual
+    gate: null
+
+  - id: R-06
+    rule: "Bore reachability (§0.6/§7): every declared bore in bores.json is open along its full path, not sealed behind material"
+    applies: "file_exists:bores.json"
+    kind: auto
+    gate: "python3 {skill_dir}/scripts/check_bore_reachability.py --bores {project_dir}/bores.json {project_dir}/build/*.stl"
+
+  - id: R-07
+    rule: "Sub-feature overlap (§0.6/§7): named sub-modules sharing one part's union() don't overlap invisibly, unless declared as an intentional fusion"
+    applies: "always"
+    kind: manual
+    gate: null
+
+  - id: R-08
+    rule: "Collision/clearance (§7): 3+ positioned parts checked for unintended interference and insufficient clearance"
+    applies: "always"
+    kind: manual
+    gate: null
+
+  - id: R-09
+    rule: "Motion sweep (§7): if design_manifest.json.motion.has_kinematics is true, static collisions are checked first, then a full motion sweep"
+    applies: "json_true:design_manifest.json#motion.has_kinematics"
+    kind: manual
+    gate: null
+
+  - id: R-10
+    rule: "Change-propagation (§0/choice tree): a parameter edit's affected chain is traced with check_dependencies.py before assuming only the touched part needs re-checking"
+    applies: "always"
+    kind: manual
+    gate: null
+
+  - id: R-11
+    rule: "Unresolved critical assumptions (§7): no Criticality:Critical row in calculations.md's decisions log left unresolved"
+    applies: "file_exists:calculations.md"
+    kind: auto
+    gate: "python3 {skill_dir}/scripts/check_assumptions.py --calc {project_dir}/calculations.md"
+
+  - id: R-12
+    rule: "Service envelope (§7): service_envelope.md has no blank field"
+    applies: "file_exists:service_envelope.md"
+    kind: auto
+    gate: "python3 {skill_dir}/scripts/check_service_envelope.py --envelope {project_dir}/service_envelope.md"

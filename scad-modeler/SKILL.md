@@ -586,6 +586,16 @@ you were looking at is not the same as the part being right.
 
 ## 8. Final report
 
+**Before writing it, run `python3 scripts/check_rules.py --project-dir .`
+and cite its FULL output** (not a paraphrase) in the report, including its
+list of MANUAL rules and your own explicit done/skipped/not-applicable
+self-assessment for each one. This is the L3/L4 self-check loop from
+`references/rules_enforcement.md`: rule-following that depends on being
+remembered mid-conversation drifts under context load; a gate that has to
+be run and quoted does not. A report that says "all checks passed" without
+this citation is not distinguishable from one where a step was silently
+skipped, which is the exact failure mode this exists to close.
+
 After every check passes, report:
 - Files created/changed.
 - BOM: split **Printed** (material, print orientation, quantity) from
@@ -624,6 +634,21 @@ pass, not something to analyze now; just log it accurately.
 - `references/rules_enforcement.md` — why agents drift from written rules and
   the layered countermeasure (prompt reminders → deterministic gates →
   self-verification loop → machine-checkable rules manifest).
+- `rules_manifest.yaml` + `scripts/check_rules.py` — L4: the single list of
+  every rule in this skill, with a detector for whether it applies to the
+  current project and, for rules with an automated gate, the exact command
+  that proves it (not a description a model could paraphrase incorrectly).
+  Rules with no automated gate (whether the §0.6 narrative was actually
+  written, for example) print as MANUAL rather than being silently skipped —
+  §8 requires citing this script's full output, including a stated verdict
+  for every MANUAL rule. Needs `pyyaml`.
+- `scripts/check_intake.py` — Stage 0 gate: validates
+  `design_manifest.json`/`requirements.json` against the OpenSCADDesignSpec
+  schema in `intake_and_analysis.md`, and fails on any parameter still
+  `status: "unknown"` (an `estimated` value is fine and only reported —
+  `unknown` means a question intake asked was never answered, which the
+  same reference file calls the single biggest source of wrong designs).
+  Needs `jsonschema`.
 - `../INCIDENTS.md` — append-only log of real bugs found and fixed (§8). Not
   reviewed automatically; a later pass reads it for patterns worth promoting
   into a permanent rule here.

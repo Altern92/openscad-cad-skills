@@ -105,7 +105,13 @@ if [[ "$MODE" == "--all" ]]; then
     if [ ${#parts[@]} -eq 0 ]; then
         echo "WARNING: no files found under parts/*.scad" >&2
     fi
-    for scad in "${parts[@]}"; do
+    # ${parts[@]+"${parts[@]}"} not "${parts[@]}": bash 3.2 (macOS's default
+    # /bin/bash, frozen at GPLv2, no bash 4.4+) treats a plain "${array[@]}"
+    # expansion of a declared-but-empty array as an unbound variable under
+    # `set -u`, even though ${#parts[@]} correctly reports 0 -- confirmed by
+    # hitting this directly (INCIDENTS.md, 2026-08-19). This idiom is the
+    # standard cross-version-safe empty-array guard.
+    for scad in ${parts[@]+"${parts[@]}"}; do
         base="$(basename "$scad" .scad)"
         validate_file "$scad" "$BUILD_DIR/$base.stl"
     done
@@ -124,7 +130,7 @@ if [[ "$MODE" == "--all" ]]; then
         built_stls=("$BUILD_DIR"/*.stl)
         shopt -u nullglob
         if [ ${#built_stls[@]} -gt 0 ]; then
-            python3 "$SCRIPT_DIR/check_bore_reachability.py" --bores bores.json "${built_stls[@]}"
+            python3 "$SCRIPT_DIR/check_bore_reachability.py" --bores bores.json ${built_stls[@]+"${built_stls[@]}"}
         fi
     fi
 else

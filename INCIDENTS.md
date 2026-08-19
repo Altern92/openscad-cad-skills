@@ -123,6 +123,41 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 
 ## Entries
 
+### 2026-08-19 -- validate_scad.sh crashed on an empty parts/ directory under macOS's default bash
+- **Where:** `scad-modeler/scripts/validate_scad.sh`, and (root-caused from
+  the same bug) `scad-modeler/scripts/check_rules.py`'s first version.
+- **Symptom:** running the new `check_rules.py` (built this session to close
+  the L4 rules-enforcement gap) against a bare project directory with no
+  `parts/*.scad` files yet crashed with `parts[@]: unbound variable` instead
+  of printing the intended `WARNING: no files found under parts/*.scad`.
+  Never seen before this session because every prior test run this whole
+  session happened to have at least one part file present, so the empty-array
+  code path was never actually exercised.
+- **Root cause:** two independent problems that happened to surface
+  together. (1) macOS ships bash 3.2.57 as `/bin/bash` (frozen at the GPLv2
+  license boundary, no 4.4+); bash <4.4 treats `"${array[@]}"` on a
+  declared-but-empty array as an unbound variable under `set -u`, even
+  though `${#array[@]}` correctly reports 0 -- confirmed directly: `arr=()`
+  under `set -u` fails on `for x in "${arr[@]}"` but not on
+  `${#arr[@]}`. `validate_scad.sh`'s `for scad in "${parts[@]}"; do` hit
+  this exactly. (2) Separately, `check_rules.py`'s first version ran each
+  gate command via `subprocess.run(cmd, shell=True, ...)` without passing
+  `cwd=project_dir` -- `validate_scad.sh` and its relative-path globs assume
+  the project directory IS the working directory, not an argument, so the
+  gate was silently checking whatever directory `check_rules.py` itself was
+  invoked from.
+- **Fix:** `validate_scad.sh` now uses the `${parts[@]+"${parts[@]}"}` /
+  `${built_stls[@]+"${built_stls[@]}"}` idiom (a standard bash
+  version-portable empty-array guard) instead of bare `"${array[@]}"`.
+  `check_rules.py` now passes `cwd=project_dir` to every gate subprocess.
+  Both re-tested: an empty project directory now correctly prints the
+  warning and passes; a populated one still passes; the fixes were verified
+  against real bash 3.2 directly (`/bin/bash -c '...'`), not just assumed
+  from documentation.
+- **Already promoted to a rule?** Yes -- fixed directly in both scripts;
+  no separate prose rule needed since this is a portability bug, not a
+  process gap.
+
 ### 2026-08-19 -- belt-and-pulley stage passed every geometry check but could never physically be tensioned
 - **Where:** `esp32_rc_modelis` (steering/reduction belt drive, exact part
   file not captured in the source transcript) -- a different, parallel
