@@ -1,4 +1,4 @@
-# claude_skills
+# openscad-cad-skills
 
 Claude Code skills for parametric OpenSCAD design — from a single part to a
 multi-part mechanical assembly, with automated geometry verification before
@@ -40,8 +40,8 @@ against a single part too.
 ## Quickstart
 
 ```bash
-git clone https://github.com/Altern92/claude_skills.git
-cd claude_skills
+git clone https://github.com/Altern92/openscad-cad-skills.git
+cd openscad-cad-skills
 pip install -r requirements.txt
 python3 scad-modeler/scripts/doctor.py     # what this machine can actually do
 python3 scad-modeler/scripts/selftest.py   # does the whole chain really work
@@ -53,7 +53,7 @@ bash ../../scripts/validate_scad.sh --all  # render + validate a real 2-gear ass
 Then, to use the skills from Claude Code (run this from the repo root):
 
 ```bash
-cd claude_skills   # back to the repo root, if you're still in the example dir
+cd openscad-cad-skills   # back to the repo root, if you're still in the example dir
 ln -s "$PWD/openscad-cad"  ~/.claude/skills/openscad-cad
 ln -s "$PWD/scad-modeler"  ~/.claude/skills/scad-modeler
 ```
