@@ -597,6 +597,10 @@ pass, not something to analyze now; just log it accurately.
 
 ## Reference files
 
+- `references/validation_decision_tree.md` — Mermaid flowchart: "which check
+  applies to my situation right now", across ~10 scripts with different
+  triggers (mandatory/opt-in/manual). Navigation aid only, not authoritative
+  — the prose below (with incident citations) wins if this ever drifts.
 - `../INCIDENTS.md` — append-only log of real bugs found and fixed (§8). Not
   reviewed automatically; a later pass reads it for patterns worth promoting
   into a permanent rule here.
