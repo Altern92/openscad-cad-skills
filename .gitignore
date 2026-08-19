@@ -1,3 +1,9 @@
 __pycache__/
 *.pyc
 scad-modeler/examples/*/build/
+
+# Internal research/methodology notes -- raw working notes, not maintained
+# documentation. What matters from them is already distilled into
+# INCIDENTS.md and references/*.md. Files stay on disk locally, just
+# untracked (see the "Exclude research/ from publication" commit).
+research/
