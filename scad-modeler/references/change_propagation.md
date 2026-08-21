@@ -1,5 +1,21 @@
 # Change-propagation choice tree
 
+**Status note (2026-08-21):** most of this file describes the aspirational
+full design (the JSON schema in §2, the boxed tree output in §4) -- what's
+actually built and tested is simpler: `scripts/check_dependencies.py`'s
+regex-based `name→names` parameter DAG (§1's recommended approach, real),
+plus, as of 2026-08-21, a **requirement-influence cross-reference**: given
+`--change VAR` and (optionally) `--joints joints.json`/`--bores bores.json`,
+it reports which *declared* contacts, motion drivers, and bores are affected
+-- not just which part *files* are (a file being affected doesn't say
+whether a declared requirement on it needs re-checking, which is exactly
+the gap that let a real `worm_wheel_teeth` parameter change go unnoticed
+across multiple validation rounds, INCIDENTS.md 2026-08-19/21). This is
+advisory scoping the model reads and acts on -- there is no automated
+"skip everything else" execution mode, and the fallback-to-full-`--all`
+policy in §3.4 below is still the load-bearing safety net, not this file's
+JSON schema or boxed-tree output format, neither of which is implemented.
+
 When a variable in `params.scad` (or a module/include) changes, this is the
 "what must I recompute, and in what order?" contract. It converts the current
 "re-run `validate_scad.sh --all` always" blanket approach (`validation_decision_tree.md`) into a lazy, dependency-ordered re-run — without losing the safety net

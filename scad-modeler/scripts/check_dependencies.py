@@ -119,12 +119,73 @@ def find_part_usages(parts_dir, var_names):
     return hits
 
 
+def load_json_maybe(path):
+    if not path or not os.path.isfile(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+def find_requirement_usages(joints_data, bores_data, affected_basenames):
+    """Which declared contacts/motion drivers/bores name a part whose file
+    is in affected_basenames (case-insensitive substring, same convention
+    check_collisions.py/check_bore_reachability.py use for STL matching).
+
+    This is the "requirement influence" layer check_dependencies.py's plain
+    parameter DAG doesn't have on its own: knowing that params.scad's
+    `worm_wheel_teeth` change reaches `output_gear.scad` (a FILE-level fact)
+    doesn't say WHICH declared checks now need re-verifying -- the declared
+    gear_mesh contact between output_gear and jackshaft, or the motion sweep
+    driver on output_gear, or a bore declared on it in bores.json. Confirmed
+    directly as a real gap: the actual esp32_rc_modelis incident this was
+    built for was exactly a parameter change (worm_wheel_teeth 20->40) whose
+    downstream effect on a DECLARED CONTACT's validity went unnoticed for
+    multiple validation rounds (INCIDENTS.md, 2026-08-19/21).
+    """
+    affected = {b.lower() for b in affected_basenames}
+
+    def name_hits(name):
+        n = str(name).lower()
+        return any(n in b or b in n for b in affected)
+
+    contacts, motion, bores = [], [], []
+    if isinstance(joints_data, dict):
+        for c in joints_data.get("contacts", []) or []:
+            pair = c.get("pair", [])
+            if len(pair) == 2 and any(name_hits(p) for p in pair):
+                contacts.append(pair)
+        for m in joints_data.get("motion", []) or []:
+            for d in m.get("drivers", []) or []:
+                if name_hits(d.get("part", "")):
+                    motion.append(m.get("id", "?"))
+                    break
+    elif isinstance(joints_data, list):
+        for c in joints_data:
+            pair = c.get("pair", [])
+            if len(pair) == 2 and any(name_hits(p) for p in pair):
+                contacts.append(pair)
+    if isinstance(bores_data, list):
+        for b in bores_data:
+            if name_hits(b.get("part", "")):
+                bores.append(b.get("name", "?"))
+    return contacts, motion, bores
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--scad", required=True, help="source .scad file (e.g. params.scad)")
     ap.add_argument("--all", action="store_true", help="dump the full dependency graph as JSON")
     ap.add_argument("--change", metavar="VAR", help="print the affected chain for this variable")
     ap.add_argument("--parts-dir", metavar="DIR", help="directory of part .scad files to scan for usages")
+    ap.add_argument("--joints", metavar="PATH", default="joints.json",
+                     help="joints.json to cross-reference for affected declared contacts/motion "
+                          "(default: joints.json in the current directory, skipped if absent)")
+    ap.add_argument("--bores", metavar="PATH", default="bores.json",
+                     help="bores.json to cross-reference for affected declared bores "
+                          "(default: bores.json in the current directory, skipped if absent)")
     args = ap.parse_args()
 
     assignments = parse_assignments(args.scad)
@@ -146,17 +207,37 @@ def main():
     ordered = sorted(dirty, key=lambda v: (v in {args.change}, v))
     direct_edges = [e for e in edges if e["to"] in dirty]
     usages = find_part_usages(args.parts_dir, dirty)
+    affected_basenames = [os.path.splitext(fn)[0] for fn in usages]
+
+    joints_data = load_json_maybe(args.joints)
+    bores_data = load_json_maybe(args.bores)
+    contacts, motion, bores = find_requirement_usages(joints_data, bores_data, affected_basenames)
 
     downstream = ", ".join(v for v in ordered if v != args.change) or "(none)"
     parts_line = ", ".join(f"{fn} ({', '.join(v)})" for fn, v in usages.items()) or "(none)"
     edges_line = ", ".join(f"{e['from']}->{e['to']}" for e in direct_edges) or "none"
+    contacts_line = ", ".join(f"{p[0]}<->{p[1]}" for p in contacts) or "(none)"
+    motion_line = ", ".join(motion) or "(none)"
+    bores_line = ", ".join(bores) or "(none)"
 
     print(f"Change: {args.change} (line {assignments[args.change][1]} in {args.scad})")
     print(f"  expr  - {downstream}")
     print(f"  parts - {parts_line}")
     print(f"  edges - {len(direct_edges)} dependency edge(s): {edges_line}")
+    if joints_data is not None or bores_data is not None:
+        print(f"  requirement influence (from {args.joints}/{args.bores}, if present):")
+        print(f"    contacts affected - {contacts_line}")
+        print(f"    motion affected   - {motion_line}")
+        print(f"    bores affected    - {bores_line}")
+        if contacts or motion or bores:
+            print("    -> re-run check_collisions.py / motion_sweep.py / "
+                  "check_bore_reachability.py for these specifically, not just "
+                  "the file-level parts above -- a part being 'affected' doesn't "
+                  "by itself say a DECLARED requirement on it needs re-checking.")
     print("  NOTE  - per change_propagation.md: if any construct was unparsed,"
-          " re-run validate_scad.sh --all instead of trusting this subset.")
+          " re-run validate_scad.sh --all instead of trusting this subset. This "
+          "is advisory scoping, not an automated skip mechanism -- when in doubt,"
+          " the full validate_scad.sh --all remains the safe default (SKILL.md §7).")
     return 0
 
 

@@ -123,6 +123,39 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 
 ## Entries
 
+### 2026-08-21 -- check_dependencies.py gained requirement-influence cross-referencing (P1 decision-tree optimization)
+- **Where:** `scad-modeler/scripts/check_dependencies.py`,
+  `scad-modeler/references/change_propagation.md`, `SKILL.md`.
+- **Motivation:** follow-up P1 item from the same 2026-08-21 Perplexity
+  research pass -- the same-day P0 fixes (analytic pre-flight, provenance,
+  contact witness) close the *validation* side of the 12-round defect
+  class; this closes the *change-propagation* side: `check_dependencies.py`
+  already told an agent which part FILES a parameter change reaches, but
+  not which DECLARED requirements (a joints.json contact, a motion driver,
+  a bores.json bore) on those parts might now be invalid -- exactly the gap
+  that let a real `worm_wheel_teeth` parameter change (20->40 teeth) go
+  unnoticed across multiple validation rounds before a declared contact
+  quietly stopped meaning what it used to.
+- **Fix:** `--change VAR` now accepts `--joints joints.json` and `--bores
+  bores.json` (both default to those filenames in the current directory,
+  silently skipped if absent) and cross-references the affected part
+  basenames against every declared contact pair, motion driver, and bore
+  declaration, printing which ones are affected using the same
+  case-insensitive substring matching convention `check_collisions.py`/
+  `check_bore_reachability.py` already use. Explicitly advisory, not an
+  automated skip mechanism -- the existing fallback-to-full-`--all` policy
+  is unchanged and remains the safety net. Tested: a synthetic reproduction
+  of the real incident shape (a teeth-count parameter feeding a gear radius
+  that's also named in a declared contact, a motion driver, and a bore)
+  correctly flags all three; an unrelated parameter change correctly flags
+  none; a project with neither joints.json nor bores.json degrades cleanly
+  with no error; `--all` JSON-dump mode is unaffected.
+- **Already promoted to a rule?** Yes -- fixed directly in the script;
+  `change_propagation.md` also corrected to distinguish what's actually
+  implemented (the tokenizer DAG + this cross-reference) from the file's
+  own aspirational full design (a JSON schema and boxed-tree output format
+  that were never built).
+
 ### 2026-08-21 -- added an analytic pre-flight gate, a provenance requirement, and a spatial "contact witness" to close the 12-round investigation class of defect
 - **Where:** `scad-modeler/scripts/validate_scad.sh`, `scad-modeler/scripts/check_collisions.py`,
   `scad-modeler/rules_manifest.yaml`, `scad-modeler/templates/joints.json`,

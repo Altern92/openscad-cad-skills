@@ -688,7 +688,12 @@ pass, not something to analyze now; just log it accurately.
 - `references/change_propagation.md` + `scripts/check_dependencies.py` — the
   "choice tree": param→part dependency DAG; on any edit, dirty-root from the
   changed variable and recompute only the affected chain in topological order,
-  escalating to the full `--all` re-run on any parse uncertainty.
+  escalating to the full `--all` re-run on any parse uncertainty. Since
+  2026-08-21, `--change VAR --joints joints.json --bores bores.json` also
+  reports which *declared* contacts/motion/bores are affected, not just
+  which part files — a file being affected doesn't by itself say a declared
+  requirement on it needs re-checking (real gap, INCIDENTS.md 2026-08-21).
+  Advisory only — no automated skip mechanism.
 - `references/rules_enforcement.md` — why agents drift from written rules and
   the layered countermeasure (prompt reminders → deterministic gates →
   self-verification loop → machine-checkable rules manifest).
