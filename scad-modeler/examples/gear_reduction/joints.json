@@ -6,7 +6,9 @@
       "pair": ["pinion", "spur"],
       "joint_type": "gear_mesh",
       "expected_interference_mm": [0.5, 2.0],
-      "multi_region_ok": true
+      "multi_region_ok": true,
+      "derivation": "measured, not guessed: actual max penetration depth 1.383mm for this module=1, 11T/66T pair at center_distance=38.5mm (gear_module*(pinion_teeth+spur_teeth)/2) -- see this file's top-level _comment for the full measurement",
+      "expected_bounds": [[3.0, -7.0, -4.0], [9.0, 7.0, 4.0]]
     }
   ],
 

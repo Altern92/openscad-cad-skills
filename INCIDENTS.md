@@ -123,6 +123,64 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 
 ## Entries
 
+### 2026-08-21 -- added an analytic pre-flight gate, a provenance requirement, and a spatial "contact witness" to close the 12-round investigation class of defect
+- **Where:** `scad-modeler/scripts/validate_scad.sh`, `scad-modeler/scripts/check_collisions.py`,
+  `scad-modeler/rules_manifest.yaml`, `scad-modeler/templates/joints.json`,
+  `scad-modeler/examples/gear_reduction/joints.json`.
+- **Motivation:** a Perplexity deep-research pass (grounded in NASA/INCOSE
+  V&V taxonomy, sequential-fault-diagnosis literature, and FreeCAD's
+  dependency-DAG recompute model) was asked to optimize this skill's
+  decision tree for fewer, cheaper validation rounds without sacrificing
+  correctness. Its highest-priority finding: the single most expensive
+  defect class found across every real project this skill has been used on
+  (a 12-round investigation into a hidden collision, ending with a real
+  `esp32_rc_modelis` incident where `big_gear`/`output_gear` radii summed to
+  more than their actual center distance) was **purely algebraic** --
+  discoverable from confirmed `params.scad` values alone, with zero need to
+  ever render geometry.
+- **Fix, three parts (all P0, "low cost / very high benefit" per the
+  research's own priority ranking):**
+  1. **Analytic pre-flight gate** in `validate_scad.sh`, running FIRST,
+     before any part is rendered: every `assert()` in `params.scad` is
+     evaluated via a trivial placeholder-solid wrapper (needed because a
+     bare definitions-only file trips OpenSCAD's "empty top level object"
+     hard-warning under `--hardwarnings` regardless of whether its asserts
+     pass -- confirmed directly, and also confirmed that `assert()` failure
+     alone does NOT change OpenSCAD's process exit code without
+     `--hardwarnings` converting the resulting empty-object warning into a
+     hard failure, a previously-unverified assumption this whole skill had
+     relied on). Tested: a failing `r1+r2+clearance > center_distance`
+     assert correctly fails with the real error message surfaced; a
+     passing one correctly passes; no `params.scad` correctly skips; the
+     existing `gear_reduction` example (real asserts, all passing) is
+     unaffected.
+  2. **Provenance requirement** in `check_collisions.py`: any contact
+     declaring `expected_interference_mm` must also declare a non-empty
+     `"derivation"` string. Doesn't machine-verify the derivation is
+     arithmetically correct (deferred, larger "influence graph" work) --
+     makes a hand-typed guess with no stated origin impossible to declare
+     silently. Confirmed as a real gap in this skill's OWN example project:
+     the `pinion`/`spur` contact's range was initially copied from an
+     unrelated press-fit fixture, not derived, and only corrected after
+     measuring the real depth post-hoc.
+  3. **Contact witness (`expected_bounds`)** in `check_collisions.py`: an
+     assembly-space bounding box every detected contact region must fall
+     inside, checked independently of `multi_region_ok` (which only bounds
+     the *count* of regions, not *where* they are -- a real remaining gap
+     the research specifically called out). Tested against a direct
+     reproduction of the real defect shape (two bars overlapping at both
+     a declared-legitimate edge and an undeclared, unrelated edge): the
+     unauthorized region is correctly caught and reported with its exact
+     location, even with `multi_region_ok: true` set; declaring bounds
+     that cover both zones correctly passes.
+  Applying (2) and (3) to `templates/joints.json` and the real
+  `gear_reduction` example required actually re-measuring the real contact
+  region bounds rather than guessing them -- a first guessed
+  `expected_bounds` was itself wrong and correctly caught by the new check,
+  confirming the mechanism works against a real, not synthetic, case.
+- **Already promoted to a rule?** Yes -- fixed directly in all listed
+  files; `rules_manifest.yaml` R-13 added for the pre-flight gate.
+
 ### 2026-08-19 -- a BOSL2 gear positioned through layout.scad's at() failed under --hardwarnings; a plain guessed interference range was also wrong for real gear teeth
 - **Where:** `scad-modeler/examples/gear_reduction/` (new example project,
   built for publication readiness -- see the "Publication prep" commits).

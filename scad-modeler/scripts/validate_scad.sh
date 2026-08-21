@@ -114,6 +114,49 @@ validate_file() {
 
 check_openscad
 
+# Analytic pre-flight gate (added 2026-08-21, see INCIDENTS.md): runs FIRST,
+# before any part is rendered. Evaluates every assert() in params.scad --
+# where declared clearances/interferences should be checked algebraically
+# against confirmed parameters (e.g. r1+r2+clearance <= center_distance) --
+# at near-zero cost, since no real geometry is rendered. This exists because
+# the single most expensive class of defect found this project (a 12-round
+# investigation into a hidden collision) was PURELY algebraic: two circular
+# features' outer radii summed to more than their actual center distance, a
+# one-line assert() away from being caught for free instead of requiring a
+# full mesh export + Python collision analysis + human interpretation.
+#
+# Mechanism: OpenSCAD's assert() failure does NOT change the process exit
+# code on its own (confirmed directly) -- only combined with --hardwarnings
+# turning the resulting "Current top level object is empty" into a hard
+# failure does it become detectable via exit code. But a bare params.scad
+# with no geometry ALSO trips that same "empty object" warning even when
+# every assert() passes, which would make this gate always fail regardless
+# of correctness. Fixed by wrapping params.scad with a trivial placeholder
+# solid (cube(1)) that only renders if every assert() above it passed --
+# confirmed directly: a passing wrapper renders the cube (exit 0), a failing
+# assert halts evaluation before the cube statement is ever reached (exit 1,
+# no output file), both verified against real assert-pass/assert-fail cases.
+if [ -f params.scad ]; then
+    mkdir -p "$BUILD_DIR"
+    tmp_wrapper=$(mktemp -t analytic_preflight_XXXXXX.scad)
+    trap 'rm -f "$tmp_wrapper"' EXIT
+    printf 'include <%s/params.scad>\ncube(1);\n' "$PWD" > "$tmp_wrapper"
+    preflight_log=$(mktemp -t analytic_preflight_log_XXXXXX)
+    if "$OPENSCAD" --backend="$BACKEND" --hardwarnings \
+        -o "$BUILD_DIR/.analytic_preflight.stl" "$tmp_wrapper" > "$preflight_log" 2>&1; then
+        echo "CHECK_RESULT analytic_bounds=PASS"
+    else
+        echo "CHECK_RESULT analytic_bounds=FAIL"
+        echo "FAIL: an assert() in params.scad failed -- fix the source parameters" >&2
+        echo "before any part is rendered, not after:" >&2
+        grep -E "^ERROR: Assertion" "$preflight_log" >&2 || cat "$preflight_log" >&2
+        OVERALL_FAIL=1
+    fi
+    rm -f "$tmp_wrapper" "$preflight_log" "$BUILD_DIR/.analytic_preflight.stl"
+else
+    echo "CHECK_RESULT analytic_bounds=SKIP"
+fi
+
 # Project-level checks (run once, not per part) -- both opt-in by existence,
 # so a project that hasn't adopted these conventions yet isn't broken by
 # them. See references/planning.md for the decisions-log Criticality

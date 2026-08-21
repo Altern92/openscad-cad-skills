@@ -45,16 +45,25 @@ Declare intentional contacts in a JSON file passed with --expected-contacts:
     [
       {"pair": ["housing_bore", "bearing_608"],
        "joint_type": "press_fit",
-       "expected_interference_mm": [0.05, 0.15]},
-      {"pair": ["lid", "body"],
-       "joint_type": "touching",
-       "expected_interference_mm": [0.0, 0.0]}
+       "expected_interference_mm": [0.05, 0.15],
+       "derivation": "bearing_608 OD 22.0mm nominal, housing bore 21.9mm per
+                       shaft-fit table row 3 -- see calculations.md section 2"}
     ]
 
 Names are matched case-insensitively against each STL's basename (substring
 match), so "bearing_608" matches "build/bearing_608.stl". A declared pair that
 overlaps outside its stated range still fails -- the declaration licenses a
 specific interference, not any interference.
+
+"derivation" is REQUIRED whenever expected_interference_mm is declared
+(added 2026-08-21) -- a non-empty, human-written trace back to the source
+parameters/formula this range came from. Confirmed as a real failure mode
+in this skill's own example project: a range was initially copied from an
+unrelated earlier test fixture rather than derived from the actual
+geometry (INCIDENTS.md, 2026-08-21). This doesn't machine-verify the
+derivation is arithmetically correct (that's a larger, deferred
+influence-graph mechanism) -- it makes a hand-typed guess with no stated
+origin impossible to declare silently.
 
 A declared pair passing its depth range is ALSO checked for whether it
 touches in exactly one contiguous region. A max-over-all-contact-points
@@ -69,7 +78,22 @@ MULTIPLE DISJOINT CONTACT REGIONS by default. For a joint that genuinely
 touches in several places on purpose (a splined shaft, say), opt out with:
 
     {"pair": ["shaft", "spline_hub"], "joint_type": "spline",
-     "expected_interference_mm": [0.0, 0.05], "multi_region_ok": true}
+     "expected_interference_mm": [0.0, 0.05], "multi_region_ok": true,
+     "derivation": "spline: 6 teeth, each an independent contact patch by design"}
+
+multi_region_ok only bounds the COUNT of regions, not WHERE they are --
+declaring it true would still silently accept an extra, unrelated region
+anywhere on the pair. For a stronger "contact witness" that authorizes
+only the specific derived location, declare expected_bounds (added
+2026-08-21) -- the assembly-space bounding box (same frame as the
+positioned STLs) every detected region must fall inside, regardless of
+multi_region_ok or how many regions there are:
+
+    {"pair": ["worm", "wormwheel"], "joint_type": "worm_mesh",
+     "expected_interference_mm": [0.5, 2.0], "multi_region_ok": true,
+     "expected_bounds": [[54.0, -10.0, -5.0], [69.0, 10.0, 5.0]],
+     "derivation": "worm thread region only, X=[54,69] per calculations.md
+                     section 3 -- excludes the unrelated big_gear hub at X=[23,31]"}
 
 SCOPE -- what this does NOT check
 ---------------------------------
@@ -159,6 +183,33 @@ def load_contacts(path):
             print(f"ERROR: contact entry missing a 2-element 'pair': {entry}",
                   file=sys.stderr)
             sys.exit(EXIT_USAGE)
+        # Provenance requirement (added 2026-08-21, see INCIDENTS.md): a
+        # declared expected_interference_mm range must not be a hand-typed
+        # guess. Confirmed as a real failure mode in this skill's own
+        # example project: an initial [0.0, 0.5]mm range was copied from an
+        # earlier, unrelated press-fit test fixture rather than derived from
+        # the actual gear geometry, and only corrected after measuring the
+        # real penetration depth post-hoc. "derivation" doesn't have to be a
+        # machine-evaluated expression (that's a larger, deferred piece of
+        # work -- an influence graph, not a P0 change) -- it must be a
+        # non-empty, human-written trace back to the source parameters this
+        # range came from, so writing a plausible-looking number without
+        # justification is at least visible in the declaration itself, not
+        # silently indistinguishable from a properly derived one.
+        if "expected_interference_mm" in entry:
+            deriv = entry.get("derivation")
+            if not isinstance(deriv, str) or not deriv.strip():
+                print(
+                    f"ERROR: contact {entry['pair']} declares "
+                    f"expected_interference_mm but has no non-empty "
+                    f"'derivation' field. State which source parameters "
+                    f"and formula this range came from (e.g. "
+                    f"\"gear addendum overlap at module=1, see calculations.md "
+                    f"section 3\") -- a hand-typed range with no traceable "
+                    f"origin is exactly how a wrong declaration goes "
+                    f"unnoticed (INCIDENTS.md, 2026-08-21).",
+                    file=sys.stderr)
+                sys.exit(EXIT_USAGE)
     return data
 
 
@@ -379,6 +430,45 @@ def main():
                 # splined shaft).
                 regions = intersection_regions(meshes[a], meshes[b])
                 multi_region_ok = bool(decl.get("multi_region_ok"))
+
+                # Contact witness (added 2026-08-21, see INCIDENTS.md): a
+                # declared contact should authorize only the SPECIFIC region
+                # its own derivation describes, not "however many regions,
+                # wherever they are" -- multi_region_ok alone only bounds the
+                # COUNT, not the LOCATION, so a single unauthorized region
+                # sitting exactly where a legitimate one is expected would
+                # still pass unnoticed, and multi_region_ok:true would
+                # silently accept an extra region ANYWHERE. Declaring
+                # "expected_bounds": [[xmin,ymin,zmin],[xmax,ymax,zmax]] (in
+                # the same assembly coordinate frame as the positioned STLs)
+                # requires every detected region's bounds to fall inside
+                # that box (with a small tessellation-noise margin); a
+                # region outside it fails regardless of multi_region_ok or
+                # how many regions there are in total.
+                expected_bounds = decl.get("expected_bounds")
+                if regions is not None and expected_bounds:
+                    margin = 0.5  # mm, tessellation-noise allowance
+                    (ex0, ey0, ez0), (ex1, ey1, ez1) = expected_bounds
+                    unauthorized = []
+                    for r in regions:
+                        (rx0, ry0, rz0), (rx1, ry1, rz1) = r["bounds"]
+                        if (rx0 < ex0 - margin or ry0 < ey0 - margin or rz0 < ez0 - margin or
+                                rx1 > ex1 + margin or ry1 > ey1 + margin or rz1 > ez1 + margin):
+                            unauthorized.append(r)
+                    if unauthorized:
+                        region_list = "; ".join(
+                            f"{r['volume']:.1f}mm^3 at {[[round(c, 1) for c in pt] for pt in r['bounds']]}"
+                            for r in unauthorized)
+                        failures.append(
+                            f"UNAUTHORIZED CONTACT REGION: {label} is declared "
+                            f"'{joint}' with expected_bounds {expected_bounds}, "
+                            f"but {len(unauthorized)} region(s) fall outside "
+                            f"it: {region_list}. A declaration authorizes "
+                            f"contact only where its own derivation says it "
+                            f"should occur -- this looks like a real, "
+                            f"unrelated collision, not the declared joint.")
+                        continue
+
                 if regions is not None and len(regions) > 1 and not multi_region_ok:
                     region_list = "; ".join(
                         f"{r['volume']:.1f}mm^3 at {[[round(c, 1) for c in pt] for pt in r['bounds']]}"

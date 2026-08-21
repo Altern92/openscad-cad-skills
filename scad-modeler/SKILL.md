@@ -378,6 +378,23 @@ exact flags (`--hardwarnings`, `--check-parameters=true`,
 `--check-parameter-ranges=true` are all confirmed-real flags on the installed
 OpenSCAD build, verified via `--help`).
 
+**Before any part is rendered, it runs an analytic pre-flight gate** (added
+2026-08-21): every `assert()` in `params.scad` gets evaluated at near-zero
+cost (no real geometry, just a trivial placeholder solid so OpenSCAD doesn't
+treat a definitions-only file as an empty-object failure). This exists
+because the single most expensive class of defect found across every
+project this skill has been used on was **purely algebraic** — two circular
+features' outer radii summing to more than their actual center distance
+(`r1 + r2 > center_distance`) — something one `assert()` line catches for
+free, instead of requiring a full render, mesh export, collision analysis,
+and human interpretation to discover after the fact (a real case took 12
+validation rounds). **Write an `assert()` in `params.scad` for every
+geometric relationship you can bound in closed form** (two circles: sum of
+radii vs. center distance; two boxes: interval separation on at least one
+axis; coaxial parts: axial clearance) **before writing the geometry that
+depends on it** — this is not optional bookkeeping, it is the cheapest check
+in the entire chain and it runs first.
+
 Before any of that, it also runs two **project-level** gates (once, not per
 part), both opt-in by file existence: `check_assumptions.py` fails if
 `calculations.md` has any `Criticality: Critical` row in its decisions log
@@ -475,7 +492,20 @@ overlap?" is the wrong question for a printed assembly:
   entirely outside the meshing feature's own extent (`INCIDENTS.md`,
   2026-08-19). Add `"multi_region_ok": true` on the contact entry only for a
   joint that genuinely touches in several places on purpose (a splined
-  shaft, say).
+  shaft, say) — but that only bounds the *count* of regions, not *where*
+  they are. For a stronger "contact witness" authorizing only the specific
+  location the declaration's own derivation describes, add
+  `"expected_bounds"` (added 2026-08-21): an assembly-space bounding box
+  every detected region must fall inside, regardless of `multi_region_ok`
+  or how many regions there are — a region outside it fails as
+  `UNAUTHORIZED CONTACT REGION` even for an otherwise-in-range pair. Also
+  since 2026-08-21: **`"derivation"` is required whenever
+  `expected_interference_mm` is declared** — a non-empty, human-written
+  trace back to the source parameters/formula the range came from. A
+  hand-typed range with no stated origin is exactly how a wrong declaration
+  goes unnoticed (confirmed in this skill's own example project: an initial
+  range was copied from an unrelated test fixture rather than derived from
+  the actual gear geometry).
 
 Exit codes: `0` pass, `2` degraded (a mesh wasn't watertight, or a declared
 interference couldn't be measured — treat as *not checked*, not as pass), `3`

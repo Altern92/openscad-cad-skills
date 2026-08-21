@@ -55,6 +55,13 @@ rules:
     gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
     success_pattern: "CHECK_RESULT connectivity=(PASS|SKIP)"
 
+  - id: R-13
+    rule: "Analytic pre-flight (§7): every assert() in params.scad passes, evaluated before any part is rendered -- catches purely algebraic defects (e.g. r1+r2 > center_distance) for near-zero cost instead of discovering them via a full mesh-based validation round"
+    applies: "file_exists:params.scad"
+    kind: auto
+    gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
+    success_pattern: "CHECK_RESULT analytic_bounds=(PASS|SKIP)"
+
   - id: R-05
     rule: "After ANY change, the whole validate_scad.sh --all is re-run from the top, not just the one check that failed"
     applies: "always"
