@@ -288,4 +288,10 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    _exit = main()
+    try:
+        from validation_log import log_run
+        log_run("dependencies", _exit, "check_dependencies.py " + " ".join(sys.argv[1:]), f"exit={_exit}")
+    except Exception:
+        pass
+    sys.exit(_exit)

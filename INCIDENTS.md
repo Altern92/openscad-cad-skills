@@ -262,6 +262,48 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
   "unnecessary initially," requiring 20-50 accumulated real validation
   rounds of telemetry before they'd be justified, which doesn't exist yet.
 
+### 2026-08-21 -- added a validation-run log (scripts/validation_log.py) after a real reconstruction attempt lost almost all exit codes/commands/timestamps
+- **Where:** `scad-modeler/scripts/validation_log.py` (new),
+  `scad-modeler/scripts/validate_scad.sh`, `check_collisions.py`,
+  `motion_sweep.py`, `check_bore_reachability.py`,
+  `check_subfeature_overlap.py`, `check_dependencies.py`, `check_rules.py`,
+  `SKILL.md`, and (outside this repo) `~/.zshrc`
+  (`SCAD_MODELER_LOG_DIR`).
+- **Motivation:** asked to reconstruct the steering_reduction_gearbox
+  project's ~26-round validation history from `calculations.md` prose and
+  this file alone (no live logging existed), the result had 24 of 26
+  entries with an unknown exit code, unknown exact command, and unknown
+  timestamp -- only the qualitative outcome (OK/FAIL + a described defect)
+  survived. This is a real, demonstrated gap: `INCIDENTS.md`'s own stated
+  purpose is "raw data for a later pattern-review pass," but the raw data
+  was never actually being captured, only written up from memory
+  afterward, lossily.
+- **Fix:** `validation_log.py` is a small shared module (`log_run()` +
+  CLI) that appends one JSON line -- timestamp, project dir, checker name,
+  exit code, full command, short summary -- to
+  `$SCAD_MODELER_LOG_DIR/validation_log.jsonl` (defaults to
+  `~/.claude/scad_modeler/validation_log/` if that env var is unset;
+  deliberately not a hardcoded personal path, since this script ships in a
+  public repo). Wired into every `validate_scad.sh` `CHECK_RESULT` line
+  and into the standalone entry point of every checker SKILL.md documents
+  as commonly run directly (not just through `validate_scad.sh`).
+  Best-effort: any logging failure is silently swallowed and never affects
+  a check's own exit code. On this machine, `SCAD_MODELER_LOG_DIR` is set
+  in `~/.zshrc` to `04_Kita/SCAD_Validacijos_Zurnalas/` (user's explicit
+  request -- accumulate outside any one project folder, in its own
+  folder). Tested end-to-end against the real `gear_reduction` example: a
+  full `validate_scad.sh --all` run produced 9 correctly-populated log
+  lines (including the aggregate `validate_scad_all` rollup); a standalone
+  `check_collisions.py` call against deliberately unpositioned STLs
+  correctly logged `exit_code: 3` / `FAIL`; a standalone
+  `check_dependencies.py --change` call correctly logged `exit_code: 0`.
+- **Explicit scope note:** this does not make any tool "learn" by itself
+  -- there is no training loop or automated process reading this file.
+  It is raw material for a human/agent to review later, same purpose as
+  `INCIDENTS.md`, just captured live instead of reconstructed afterward.
+- **Already promoted to a rule?** Yes -- fixed directly in all listed
+  files.
+
 ### 2026-08-19 -- a BOSL2 gear positioned through layout.scad's at() failed under --hardwarnings; a plain guessed interference range was also wrong for real gear teeth
 - **Where:** `scad-modeler/examples/gear_reduction/` (new example project,
   built for publication readiness -- see the "Publication prep" commits).

@@ -196,4 +196,10 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    _exit = main()
+    try:
+        from validation_log import log_run, label_for_exit
+        log_run("bore_reachability", _exit, "check_bore_reachability.py " + " ".join(sys.argv[1:]), label_for_exit(_exit))
+    except Exception:
+        pass
+    sys.exit(_exit)

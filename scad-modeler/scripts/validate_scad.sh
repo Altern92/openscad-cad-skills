@@ -39,6 +39,15 @@ MODE=${1:---all}
 
 OVERALL_FAIL=0
 
+# Best-effort validation-run logging (added 2026-08-21, see INCIDENTS.md):
+# appends one JSON line per CHECK_RESULT to a machine-local log (see
+# scripts/validation_log.py for why and where). Never blocks or fails the
+# actual validation run -- stderr/exit are swallowed.
+log_check() {
+    python3 "$SCRIPT_DIR/validation_log.py" --checker "$1" --exit "$2" \
+        --command "$3" --summary "$4" --project "$PWD" >/dev/null 2>&1 || true
+}
+
 check_openscad() {
     # Fatal, unlike everything below: no check in this script can produce a
     # meaningful result without OpenSCAD, so there is nothing to gain by
@@ -145,16 +154,20 @@ if [ -f params.scad ]; then
     if "$OPENSCAD" --backend="$BACKEND" --hardwarnings \
         -o "$BUILD_DIR/.analytic_preflight.stl" "$tmp_wrapper" > "$preflight_log" 2>&1; then
         echo "CHECK_RESULT analytic_bounds=PASS"
+        log_check "analytic_bounds" 0 "openscad --hardwarnings params.scad preflight" "PASS"
     else
         echo "CHECK_RESULT analytic_bounds=FAIL"
         echo "FAIL: an assert() in params.scad failed -- fix the source parameters" >&2
         echo "before any part is rendered, not after:" >&2
         grep -E "^ERROR: Assertion" "$preflight_log" >&2 || cat "$preflight_log" >&2
         OVERALL_FAIL=1
+        log_check "analytic_bounds" 1 "openscad --hardwarnings params.scad preflight" \
+            "FAIL: assert() failed in params.scad ($(grep -m1 -E "^ERROR: Assertion" "$preflight_log" || echo 'see stderr'))"
     fi
     rm -f "$tmp_wrapper" "$preflight_log" "$BUILD_DIR/.analytic_preflight.stl"
 else
     echo "CHECK_RESULT analytic_bounds=SKIP"
+    log_check "analytic_bounds" 0 "n/a" "SKIP: no params.scad"
 fi
 
 # Project-level checks (run once, not per part) -- both opt-in by existence,
@@ -173,19 +186,24 @@ fi
 if [ -f calculations.md ]; then
     if python3 "$SCRIPT_DIR/check_assumptions.py" --calc calculations.md; then
         echo "CHECK_RESULT assumptions=PASS"
+        log_check "assumptions" 0 "check_assumptions.py --calc calculations.md" "PASS"
     else
         echo "CHECK_RESULT assumptions=FAIL"
         OVERALL_FAIL=1
+        log_check "assumptions" 1 "check_assumptions.py --calc calculations.md" "FAIL"
     fi
 else
     echo "CHECK_RESULT assumptions=SKIP"
+    log_check "assumptions" 0 "n/a" "SKIP: no calculations.md"
 fi
 
 if python3 "$SCRIPT_DIR/check_service_envelope.py" --envelope service_envelope.md; then
     echo "CHECK_RESULT service_envelope=PASS"
+    log_check "service_envelope" 0 "check_service_envelope.py --envelope service_envelope.md" "PASS"
 else
     echo "CHECK_RESULT service_envelope=FAIL"
     OVERALL_FAIL=1
+    log_check "service_envelope" 1 "check_service_envelope.py --envelope service_envelope.md" "FAIL"
 fi
 
 # Enforces §0.5 Planning actually happened (>=2 architecture options or a
@@ -196,9 +214,11 @@ fi
 if python3 "$SCRIPT_DIR/check_plan.py" --plan plan.md \
     $([ -f layout.scad ] && echo --layout layout.scad); then
     echo "CHECK_RESULT plan=PASS"
+    log_check "plan" 0 "check_plan.py --plan plan.md" "PASS"
 else
     echo "CHECK_RESULT plan=FAIL"
     OVERALL_FAIL=1
+    log_check "plan" 1 "check_plan.py --plan plan.md" "FAIL"
 fi
 
 if [[ "$MODE" == "--all" ]]; then
@@ -224,10 +244,13 @@ if [[ "$MODE" == "--all" ]]; then
 
     if [ ${#parts[@]} -eq 0 ]; then
         echo "CHECK_RESULT connectivity=SKIP"
+        log_check "connectivity" 0 "validate_scad.sh --all" "SKIP: no parts/*.scad"
     elif [ "$PART_CONNECTIVITY_FAIL" -eq 0 ]; then
         echo "CHECK_RESULT connectivity=PASS"
+        log_check "connectivity" 0 "validate_scad.sh --all" "PASS (${#parts[@]} part(s))"
     else
         echo "CHECK_RESULT connectivity=FAIL"
+        log_check "connectivity" 1 "validate_scad.sh --all" "FAIL: see part-level check_connectivity.py output above"
     fi
 
     # Bore-reachability check: opt-in via a project-root bores.json declaring
@@ -243,12 +266,15 @@ if [[ "$MODE" == "--all" ]]; then
         if [ ${#built_stls[@]} -gt 0 ]; then
             if python3 "$SCRIPT_DIR/check_bore_reachability.py" --bores bores.json ${built_stls[@]+"${built_stls[@]}"}; then
                 echo "CHECK_RESULT bore_reachability=PASS"
+                log_check "bore_reachability" 0 "check_bore_reachability.py --bores bores.json (via validate_scad.sh)" "PASS"
             else
                 echo "CHECK_RESULT bore_reachability=FAIL"
                 OVERALL_FAIL=1
+                log_check "bore_reachability" 1 "check_bore_reachability.py --bores bores.json (via validate_scad.sh)" "FAIL"
             fi
         else
             echo "CHECK_RESULT bore_reachability=SKIP"
+            log_check "bore_reachability" 0 "n/a" "SKIP: bores.json present but no built STLs"
         fi
     fi
 
@@ -304,19 +330,23 @@ sys.exit(0 if motion else 1)
                     ${positioned_stls[@]+"${positioned_stls[@]}"} || mech_fail=1
                 if [ "$mech_fail" -eq 0 ]; then
                     echo "CHECK_RESULT mechanics=PASS"
+                    log_check "mechanics" 0 "check_collisions.py + motion_sweep.py (via validate_scad.sh)" "PASS"
                 else
                     echo "CHECK_RESULT mechanics=FAIL"
                     OVERALL_FAIL=1
+                    log_check "mechanics" 1 "check_collisions.py + motion_sweep.py (via validate_scad.sh)" "FAIL"
                 fi
             else
                 echo "WARNING: joints.json declares motion but fewer than 2 parts rendered via MODE=\"part\" -- skipping mechanics checks. Check that assembly.scad's MODE/PART switch matches SKILL.md §6 and that parts/*.scad basenames match layout.scad's part names." >&2
                 echo "CHECK_RESULT mechanics=FAIL"
                 OVERALL_FAIL=1
+                log_check "mechanics" 1 "validate_scad.sh --all" "FAIL: fewer than 2 positioned parts rendered"
             fi
         fi
     fi
     if [ "$mechanics_ran" -eq 0 ]; then
         echo "CHECK_RESULT mechanics=SKIP"
+        log_check "mechanics" 0 "n/a" "SKIP: no joints.json motion declared"
     fi
 else
     scad="parts/$MODE.scad"
@@ -329,7 +359,9 @@ fi
 
 if [ "$OVERALL_FAIL" -eq 0 ]; then
     echo "All validations passed."
+    log_check "validate_scad_all" 0 "validate_scad.sh $MODE" "all checks passed"
 else
     echo "FAIL: at least one check above failed -- see CHECK_RESULT lines for which." >&2
+    log_check "validate_scad_all" 1 "validate_scad.sh $MODE" "at least one CHECK_RESULT above is FAIL"
 fi
 exit "$OVERALL_FAIL"

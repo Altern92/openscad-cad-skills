@@ -209,4 +209,10 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    _exit = main()
+    try:
+        from validation_log import log_run, label_for_exit
+        log_run("subfeature_overlap", _exit, "check_subfeature_overlap.py " + " ".join(sys.argv[1:]), label_for_exit(_exit))
+    except Exception:
+        pass
+    sys.exit(_exit)

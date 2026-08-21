@@ -710,6 +710,21 @@ pass, not something to analyze now; just log it accurately.
   cross-reference above — no automated skip mechanism, and the full
   `--all` re-run remains the safe default whenever the classification
   itself might be incomplete (e.g. an unparsed construct).
+- `scripts/validation_log.py` — added 2026-08-21: every `validate_scad.sh`
+  CHECK_RESULT and every standalone run of `check_collisions.py`,
+  `motion_sweep.py`, `check_bore_reachability.py`,
+  `check_subfeature_overlap.py`, `check_dependencies.py`, `check_rules.py`
+  appends one JSON line (timestamp, project, checker, exit code, command,
+  short summary) to `$SCAD_MODELER_LOG_DIR/validation_log.jsonl` (default
+  `~/.claude/scad_modeler/validation_log/` if that env var is unset).
+  Best-effort and silent on failure — never affects a check's own exit
+  code. Motivation: reconstructing a real project's validation history
+  after the fact (from `calculations.md` prose alone) lost almost every
+  exact command, exit code, and timestamp when tried directly — confirmed
+  against a ~26-round real history, 2026-08-21. This is raw material for a
+  later pattern-review pass, same purpose as `INCIDENTS.md`, just captured
+  live instead of written up afterward — it does not make anything
+  "learn" automatically; nothing currently reads this file back in.
 - `references/rules_enforcement.md` — why agents drift from written rules and
   the layered countermeasure (prompt reminders → deterministic gates →
   self-verification loop → machine-checkable rules manifest).
