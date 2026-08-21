@@ -498,14 +498,20 @@ overlap?" is the wrong question for a printed assembly:
   `"expected_bounds"` (added 2026-08-21): an assembly-space bounding box
   every detected region must fall inside, regardless of `multi_region_ok`
   or how many regions there are — a region outside it fails as
-  `UNAUTHORIZED CONTACT REGION` even for an otherwise-in-range pair. Also
-  since 2026-08-21: **`"derivation"` is required whenever
-  `expected_interference_mm` is declared** — a non-empty, human-written
-  trace back to the source parameters/formula the range came from. A
-  hand-typed range with no stated origin is exactly how a wrong declaration
-  goes unnoticed (confirmed in this skill's own example project: an initial
-  range was copied from an unrelated test fixture rather than derived from
-  the actual gear geometry).
+  `UNAUTHORIZED CONTACT REGION` even for an otherwise-in-range pair. The
+  negative complement is `"forbidden_regions"` (also added 2026-08-21): a
+  list of assembly-space boxes a contact must *never* touch, for when the
+  legitimate zone is awkward to bound tightly but a specific nearby feature
+  must stay untouched regardless of the legitimate zone's shape — checked
+  first, failing as `CONTACT IN FORBIDDEN REGION`. `expected_bounds` and
+  `forbidden_regions` are independent and combinable. Also since 2026-08-21:
+  **`"derivation"` is required whenever `expected_interference_mm` is
+  declared** — a non-empty, human-written trace back to the source
+  parameters/formula the range came from. A hand-typed range with no stated
+  origin is exactly how a wrong declaration goes unnoticed (confirmed in
+  this skill's own example project: an initial range was copied from an
+  unrelated test fixture rather than derived from the actual gear
+  geometry).
 
 Exit codes: `0` pass, `2` degraded (a mesh wasn't watertight, or a declared
 interference couldn't be measured — treat as *not checked*, not as pass), `3`
@@ -693,7 +699,17 @@ pass, not something to analyze now; just log it accurately.
   reports which *declared* contacts/motion/bores are affected, not just
   which part files — a file being affected doesn't by itself say a declared
   requirement on it needs re-checking (real gap, INCIDENTS.md 2026-08-21).
-  Advisory only — no automated skip mechanism.
+  Also since 2026-08-21: every `--change` prints an **edit class** (C1-C5,
+  weakest to strongest downstream reach — C1 nothing tracked reached, C2 a
+  part file only, C3 a declared bore, C4 a declared cross-part contact, C5 a
+  declared motion driver) naming the *minimum* re-validation the edit
+  actually needs, e.g. C2 → just that part's local geometry checks, C5 →
+  full `validate_scad.sh --all` since a motion/ratio change invalidates both
+  the static collision precondition and the sweep. Advisory scoping the
+  model reads and acts on, same fallback discipline as the requirement
+  cross-reference above — no automated skip mechanism, and the full
+  `--all` re-run remains the safe default whenever the classification
+  itself might be incomplete (e.g. an unparsed construct).
 - `references/rules_enforcement.md` — why agents drift from written rules and
   the layered countermeasure (prompt reminders → deterministic gates →
   self-verification loop → machine-checkable rules manifest).

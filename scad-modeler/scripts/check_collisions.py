@@ -95,6 +95,23 @@ multi_region_ok or how many regions there are:
      "derivation": "worm thread region only, X=[54,69] per calculations.md
                      section 3 -- excludes the unrelated big_gear hub at X=[23,31]"}
 
+expected_bounds is a positive allow-list (one box the contact must stay
+inside); its negative complement is forbidden_regions (added 2026-08-21) --
+a list of boxes a contact must NEVER touch, for when the legitimate contact
+zone is awkward to bound tightly but a specific nearby feature must stay
+untouched no matter what shape the legitimate zone takes:
+
+    {"pair": ["bracket", "housing"], "joint_type": "press_fit",
+     "expected_interference_mm": [0.05, 0.15],
+     "forbidden_regions": [[[55.0, 0.0, 0.0], [61.0, 10.0, 10.0]]],
+     "derivation": "press-fit boss only -- forbidden_regions excludes the
+                     adjacent mounting-tab zone at X=[55,61], which must
+                     never bear contact load per calculations.md section 5"}
+
+expected_bounds and forbidden_regions are independent and combinable;
+forbidden_regions is checked first, so a region caught by both is reported
+as CONTACT IN FORBIDDEN REGION.
+
 SCOPE -- what this does NOT check
 ---------------------------------
 One static pose only. A gearbox, hinge, latch, cam or slider can be clear at 0
@@ -445,6 +462,43 @@ def main():
                 # that box (with a small tessellation-noise margin); a
                 # region outside it fails regardless of multi_region_ok or
                 # how many regions there are in total.
+                # forbidden_regions (P2, added 2026-08-21): the negative
+                # complement of expected_bounds. expected_bounds requires
+                # knowing the ONE tight allowed zone, which isn't always
+                # practical to bound precisely (e.g. a large, irregular
+                # legitimate contact area) -- forbidden_regions instead
+                # names specific OTHER nearby features that must never be
+                # part of this contact (e.g. a neighboring hub, a bearing
+                # tower), without needing to bound the allowed zone tightly.
+                # The two are independent and can be combined; either alone
+                # is enough to catch a region in the wrong place.
+                forbidden_regions = decl.get("forbidden_regions") or []
+                if regions is not None and forbidden_regions:
+                    hits = []
+                    for r in regions:
+                        (rx0, ry0, rz0), (rx1, ry1, rz1) = r["bounds"]
+                        for fb in forbidden_regions:
+                            (fx0, fy0, fz0), (fx1, fy1, fz1) = fb
+                            # AABB overlap test: forbidden if the region's
+                            # box intersects the forbidden box at all.
+                            if (rx0 <= fx1 and rx1 >= fx0 and
+                                    ry0 <= fy1 and ry1 >= fy0 and
+                                    rz0 <= fz1 and rz1 >= fz0):
+                                hits.append((r, fb))
+                                break
+                    if hits:
+                        hit_list = "; ".join(
+                            f"{r['volume']:.1f}mm^3 at {[[round(c, 1) for c in pt] for pt in r['bounds']]} "
+                            f"overlaps forbidden {fb}"
+                            for r, fb in hits)
+                        failures.append(
+                            f"CONTACT IN FORBIDDEN REGION: {label} is declared "
+                            f"'{joint}', but touches inside a declared "
+                            f"forbidden_regions box: {hit_list}. This zone was "
+                            f"explicitly named as NOT part of this joint -- "
+                            f"fix the position/size at the source.")
+                        continue
+
                 expected_bounds = decl.get("expected_bounds")
                 if regions is not None and expected_bounds:
                     margin = 0.5  # mm, tessellation-noise allowance

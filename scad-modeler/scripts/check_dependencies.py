@@ -174,6 +174,47 @@ def find_requirement_usages(joints_data, bores_data, affected_basenames):
     return contacts, motion, bores
 
 
+EDIT_CLASSES = {
+    "C1": ("no downstream part or declared requirement",
+           "recalculate affected formulas/asserts only -- no render needed"),
+    "C2": ("reaches a part file, but no declared cross-part contact, motion, or bore",
+           "part-local geometry (connectivity/bbox/features) for the affected part(s)"),
+    "C3": ("reaches a declared bore",
+           "the affected part(s) plus check_bore_reachability.py for the affected bore(s)"),
+    "C4": ("reaches a declared cross-part contact",
+           "the affected part(s) plus check_collisions.py for the affected contact(s)"),
+    "C5": ("reaches a declared motion driver",
+           "full validate_scad.sh --all -- a motion/ratio change invalidates the static "
+           "collision precondition AND the sweep, not just one local check"),
+}
+
+
+def classify_edit(affected_basenames, contacts, motion, bores):
+    """Map a change to the cheapest class of re-validation it actually needs,
+    from strongest to weakest downstream reach (C5 > C4 > C3 > C2 > C1) --
+    derived from signals this script actually has (which parts/contacts/
+    motion/bores a change reaches), not guessed. There is no C0 here: this
+    tool tracks variable assignments, not comments/labels, so "no textual
+    effect at all" isn't something it can observe -- C1 (reaches nothing
+    tracked) is the weakest class it can actually distinguish.
+
+    This is advisory classification, not an execution mode: it names what
+    the MINIMUM validation should be, but per SKILL.md §7 and
+    change_propagation.md's own fallback policy, the full chain remains the
+    safe default whenever there's any doubt about whether the classification
+    itself is complete (e.g. this tokenizer missed a construct).
+    """
+    if motion:
+        return "C5"
+    if contacts:
+        return "C4"
+    if bores:
+        return "C3"
+    if affected_basenames:
+        return "C2"
+    return "C1"
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--scad", required=True, help="source .scad file (e.g. params.scad)")
@@ -220,10 +261,15 @@ def main():
     motion_line = ", ".join(motion) or "(none)"
     bores_line = ", ".join(bores) or "(none)"
 
+    edit_class = classify_edit(affected_basenames, contacts, motion, bores)
+    class_desc, class_min_validation = EDIT_CLASSES[edit_class]
+
     print(f"Change: {args.change} (line {assignments[args.change][1]} in {args.scad})")
     print(f"  expr  - {downstream}")
     print(f"  parts - {parts_line}")
     print(f"  edges - {len(direct_edges)} dependency edge(s): {edges_line}")
+    print(f"  edit class - {edit_class} ({class_desc})")
+    print(f"    minimum validation - {class_min_validation}")
     if joints_data is not None or bores_data is not None:
         print(f"  requirement influence (from {args.joints}/{args.bores}, if present):")
         print(f"    contacts affected - {contacts_line}")

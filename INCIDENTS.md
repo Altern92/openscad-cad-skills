@@ -214,6 +214,54 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 - **Already promoted to a rule?** Yes -- fixed directly in all listed
   files; `rules_manifest.yaml` R-13 added for the pre-flight gate.
 
+### 2026-08-21 -- edit classification (C1-C5) and forbidden_regions added (P2 decision-tree optimization)
+- **Where:** `scad-modeler/scripts/check_dependencies.py`,
+  `scad-modeler/scripts/check_collisions.py`, `scad-modeler/templates/joints.json`,
+  `SKILL.md`.
+- **Motivation:** third-tier (P2) follow-up from the same 2026-08-21
+  Perplexity research pass. P0 closed the validation side and P1 the
+  change-propagation side of the 12-round defect class; P2 targets two
+  smaller, still-justified gaps the research flagged as "moderate benefit,
+  low-to-moderate cost": (a) `check_dependencies.py --change` told an agent
+  WHICH declared requirements a change reaches (P1) but not HOW MUCH
+  re-validation that minimally requires -- an agent still had to guess
+  whether a part-local change needs the full `validate_scad.sh --all`; (b)
+  `expected_bounds` (P0) is a positive allow-list (the contact must stay
+  INSIDE one box) with no way to instead name a specific nearby feature
+  that must NEVER be touched when the legitimate contact zone itself is
+  awkward to bound tightly.
+- **Fix, two parts:**
+  1. **Edit classification (C1-C5)** in `check_dependencies.py`: a
+     `classify_edit()` function maps the signals `--change` already computes
+     (affected part basenames, affected declared contacts/motion/bores from
+     the P1 cross-reference) to the cheapest class of re-validation actually
+     needed -- C1 (nothing tracked reached) through C5 (reaches a declared
+     motion driver -> full `validate_scad.sh --all`, since a motion/ratio
+     change invalidates both the static collision precondition and the
+     sweep). Advisory only, same fallback-to-full-`--all` discipline as
+     every other advisory mechanism this skill has. Tested against all 5
+     classes via synthetic fixtures, including one case where a variable fed
+     a part that was ALSO a declared-contact member -- correctly returned
+     C4 (contact) not C3 (bore), confirming the priority ordering
+     (C5>C4>C3>C2>C1) matches the actual wiring rather than naive intent.
+  2. **`forbidden_regions`** in `check_collisions.py`: the negative
+     complement of `expected_bounds` -- a list of assembly-space boxes a
+     declared contact must never touch, checked via AABB overlap against
+     every detected contact region, failing as `CONTACT IN FORBIDDEN
+     REGION` before the `expected_bounds` check runs. Tested with a
+     synthetic two-bar fixture (one legitimate edge-clip contact, one
+     illegitimate edge-clip contact inside a declared forbidden box): the
+     illegitimate region is correctly caught and reported with its exact
+     overlap location and volume; a second run with the illegitimate
+     geometry removed (only the legitimate contact present) correctly
+     passes with no false positive.
+- **Already promoted to a rule?** Yes -- fixed directly in all listed files.
+  P3-tier items from the same research pass (Bayesian/POMDP adaptive
+  sequencing, a general symbolic geometry solver) were deliberately NOT
+  built -- the research itself flagged them "uncertain until data exists" /
+  "unnecessary initially," requiring 20-50 accumulated real validation
+  rounds of telemetry before they'd be justified, which doesn't exist yet.
+
 ### 2026-08-19 -- a BOSL2 gear positioned through layout.scad's at() failed under --hardwarnings; a plain guessed interference range was also wrong for real gear teeth
 - **Where:** `scad-modeler/examples/gear_reduction/` (new example project,
   built for publication readiness -- see the "Publication prep" commits).

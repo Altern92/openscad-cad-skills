@@ -3,7 +3,7 @@
 
   "contacts": [
     {
-      "_comment": "Declaring a pair licenses the interference you state -- not any interference. An overlap outside the range fails, and so does a declared press fit whose parts do not touch. Declared pairs are also exempt from the motion sweep, since they are meant to stay in contact. A pair within range is ALSO required to touch in exactly one contiguous region by default -- a legitimate contact plus an unrelated structural collision can otherwise hide behind the same declared range (INCIDENTS.md, 2026-08-19). Add \"multi_region_ok\": true only for a joint that genuinely touches in several places on purpose (e.g. a splined shaft) -- but that only bounds the COUNT of regions, not WHERE they are; for a stronger authorization, also declare \"expected_bounds\" (assembly-space bounding box every detected region must fall inside, added 2026-08-21). \"derivation\" is REQUIRED whenever expected_interference_mm is declared -- a non-empty trace back to the source parameters/formula this range came from, not a hand-typed guess (INCIDENTS.md, 2026-08-21).",
+      "_comment": "Declaring a pair licenses the interference you state -- not any interference. An overlap outside the range fails, and so does a declared press fit whose parts do not touch. Declared pairs are also exempt from the motion sweep, since they are meant to stay in contact. A pair within range is ALSO required to touch in exactly one contiguous region by default -- a legitimate contact plus an unrelated structural collision can otherwise hide behind the same declared range (INCIDENTS.md, 2026-08-19). Add \"multi_region_ok\": true only for a joint that genuinely touches in several places on purpose (e.g. a splined shaft) -- but that only bounds the COUNT of regions, not WHERE they are; for a stronger authorization, also declare \"expected_bounds\" (assembly-space bounding box every detected region must fall inside, added 2026-08-21) and/or \"forbidden_regions\" (list of boxes a contact must NEVER touch, added 2026-08-21 -- the negative complement of expected_bounds, useful when the legitimate zone is awkward to bound tightly but a specific nearby feature must stay untouched). \"derivation\" is REQUIRED whenever expected_interference_mm is declared -- a non-empty trace back to the source parameters/formula this range came from, not a hand-typed guess (INCIDENTS.md, 2026-08-21).",
       "pair": ["housing_bore", "bearing_608"],
       "joint_type": "press_fit",
       "expected_interference_mm": [0.05, 0.15],
@@ -14,6 +14,13 @@
       "joint_type": "touching",
       "expected_interference_mm": [0.0, 0.0],
       "derivation": "lid and body share a nominal mating face at the same Z in layout.scad -- zero interference by construction, not measured"
+    },
+    {
+      "pair": ["bracket", "housing"],
+      "joint_type": "press_fit",
+      "expected_interference_mm": [0.05, 0.15],
+      "forbidden_regions": [[[55.0, 0.0, 0.0], [61.0, 10.0, 10.0]]],
+      "derivation": "press-fit boss only -- forbidden_regions excludes the adjacent mounting-tab zone at X=[55,61], which must never bear contact load per calculations.md section 5"
     }
   ],
 
