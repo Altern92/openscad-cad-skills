@@ -140,6 +140,40 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 
 ## Entries
 
+### 2026-08-22 -- persisted a regression suite for this skill's own checker scripts (tests/run_all.sh)
+- **Where:** `scad-modeler/tests/` (new: `run_all.sh`, `README.md`, 8
+  fixtures), `SKILL.md`.
+- **Motivation:** the same deep-research pass that produced R-17 (see
+  entry above) was also asked to critique this skill's own architecture
+  independently. It named, among a few redundant/already-satisfied
+  suggestions, one concrete and correct gap: every new checker this
+  session (`check_margin_provenance.py`, `check_param_context.py`,
+  `check_printability.py`, the `check_collisions.py` clash classifier)
+  had been tested exactly once against a synthetic fixture built in a
+  scratch directory, then deleted right after the commit -- real
+  verification at the time, but nothing to catch a future regression.
+- **Fix:** `tests/run_all.sh` iterates `fixtures/*/run_test.sh`, each a
+  self-contained reproduction (mostly of REAL incidents already in this
+  log) that renders whatever it needs and asserts a specific checker's
+  exit code (and, where useful, a specific string in its output). Seeded
+  with 8 fixtures covering everything built today: `margin_provenance_
+  fail`/`_pass` (the real `jackshaft_bearing_wall_at_diff` incident,
+  2026-08-18, both broken and fixed), `param_context_fail`/`_pass` (the
+  real `axle_d` incident, 2026-08-18, both broken and fixed),
+  `printability_overhang_fail`, `printability_wall_fail`,
+  `collisions_candidate_touch`, `collisions_near_miss`. Deliberately not
+  backfilled for every pre-existing checker at once (`check_connectivity.py`,
+  `check_bore_reachability.py`, `expected_bounds`/`forbidden_regions`,
+  etc.) -- documented in `tests/README.md` as "add one the next time you
+  touch that script," the same anti-speculative-build discipline already
+  applied elsewhere in this project.
+- **Tested:** the suite itself -- all 8 fixtures pass (`8 passed, 0
+  failed`), confirming both directions of each `_fail`/`_pass` pair
+  actually distinguish "the check works" from "the check always
+  fails"/"always passes."
+- **Already promoted to a rule?** Yes -- fixed directly; `tests/` is now
+  the standing convention for any future checker change.
+
 ### 2026-08-22 -- added FDM printability checks (check_printability.py, R-17), grounded in an independent deep-research pass rather than a caught incident
 - **Where:** `scad-modeler/scripts/check_printability.py` (new),
   `scad-modeler/rules_manifest.yaml` (R-17), `scad-modeler/SKILL.md` §7,

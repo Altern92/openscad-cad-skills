@@ -794,6 +794,12 @@ pass, not something to analyze now; just log it accurately.
   formula omits a clearance term the real geometry applies to one of the
   assert's own dependencies. Heuristic (textual adjacency, not real
   data-flow analysis) — escalate to a human/agent read when it fires.
+- `tests/` — added 2026-08-22: a persisted regression suite for this
+  skill's OWN checker scripts (`bash tests/run_all.sh`), not for a user's
+  project. Each `fixtures/<name>/` is usually a direct reproduction of a
+  real `INCIDENTS.md` incident, committed instead of built-and-discarded
+  in a scratch directory each time. See `tests/README.md` for the
+  convention when adding a new one.
 - `scripts/check_printability.py` — added 2026-08-22 (§7, R-17): FDM
   overhang (face-normal vs. build axis) and wall-thickness (ray-cast)
   checks, grounded in independently-researched precedent, not this
