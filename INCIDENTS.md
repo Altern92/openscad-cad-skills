@@ -58,6 +58,12 @@ static analysis.
 split line) never gets formalized into the declaration file meant to check
 for exactly it
 
+**Status (2026-08-22): implemented**, except the stability sub-check
+(re-render with a jittered parameter to see if a verdict flips) --
+explicitly out of scope, needs a real re-render per candidate pair. See
+the 2026-08-22 entry in Entries (`check_collisions.py`
+CANDIDATE INTENTIONAL TOUCH / NEAR MISS).
+
 Instance: `check_collisions.py` failing on `gearbox_case_bottom`/`top`
 (below) despite the touch being correctly identified as benign during the
 original design session.
@@ -127,6 +133,50 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 ```
 
 ## Entries
+
+### 2026-08-22 -- check_collisions.py gained clash classification and auto-suggested joints.json stubs (Phase-2 Pattern 2)
+- **Where:** `scad-modeler/scripts/check_collisions.py`, `SKILL.md`.
+- **Motivation:** second of the three patterns from the 2026-08-19
+  pattern-analysis pass, implemented after the user asked for a "better
+  skill" built from the accumulated cases. Real precedent this targets:
+  `gearbox_case_bottom`/`top`'s clamshell split-line touch (INCIDENTS.md,
+  2026-08-18) was correctly reasoned about as benign during the original
+  design session, but was never formalized into `joints.json` -- so the
+  validation pipeline as documented couldn't actually be run to a clean
+  pass, and the "fix" would have meant a human hand-writing a declaration
+  from scratch after already having done the reasoning once.
+- **Fix:** for an UNDECLARED pair, a gap or penetration depth at or below
+  `--touch-tolerance` (default 0.05mm) is now classified CANDIDATE
+  INTENTIONAL TOUCH -- still a FAIL (nothing auto-authorized), but printed
+  with a ready-to-paste `joints.json` contact stub (pair names,
+  `joint_type: "touching"`, a deliberately obvious placeholder derivation
+  requiring a human to replace it) instead of a bare "UNINTENDED
+  INTERFERENCE". A gap just past that, up to `--near-miss-tolerance`
+  (default 0.2mm), is reported as a non-fatal NEAR MISS note instead --
+  the pattern write-up's own reasoning that this band is more often a
+  real design sensitivity than a benign touch, so it is surfaced but NOT
+  auto-suggested as intentional. Both checks now run unconditionally for
+  every undeclared, non-overlapping pair, not only when `--min-clearance`
+  is passed (previously the whole distance-query path was skipped
+  without it). NOT implemented: the pattern write-up's own "stability
+  check" (re-render with a jittered parameter to see if a touch/overlap
+  verdict flips near a boundary) -- that needs an actual re-render per
+  candidate pair, explicitly out of scope for a static post-hoc
+  classifier built from already-rendered STLs.
+- **Tested:** four synthetic two-box fixtures -- genuinely touching
+  (0.000mm gap, undeclared) correctly classified CANDIDATE INTENTIONAL
+  TOUCH with a valid stub printed; a real 5mm overlap correctly still
+  reports UNINTENDED INTERFERENCE unchanged; a 0.15mm gap correctly
+  reported as a non-fatal NEAR MISS note with exit 0; parts 5mm apart
+  correctly produce a clean OK with no notes. A fifth case (0.15mm gap
+  with `--min-clearance 0.3` passed) correctly prioritizes INSUFFICIENT
+  CLEARANCE over the near-miss note, confirming the two mechanisms don't
+  conflict. Full `validate_scad.sh --all` re-run against the real
+  `gear_reduction` example (a genuine declared gear-mesh contact) stays a
+  clean pass, confirming the new unconditional distance query didn't
+  regress the existing declared-contact path.
+- **Already promoted to a rule?** Yes -- fixed directly in
+  `check_collisions.py`, documented in `SKILL.md` §7.
 
 ### 2026-08-21 -- check_dependencies.py gained requirement-influence cross-referencing (P1 decision-tree optimization)
 - **Where:** `scad-modeler/scripts/check_dependencies.py`,

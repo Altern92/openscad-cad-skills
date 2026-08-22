@@ -40,6 +40,26 @@ wrong primitive for a printed assembly:
                            LOCAL penetration found, a defensible but not
                            exact-global measure.
 
+An UNDECLARED pair this shallow gets a fourth, more actionable verdict
+instead of a bare UNINTENDED INTERFERENCE (2026-08-19 Phase-2 Pattern 2,
+implemented 2026-08-22): a gap or penetration depth at or below
+--touch-tolerance (default 0.05mm) is classified CANDIDATE INTENTIONAL
+TOUCH, printed with a ready-to-paste joints.json stub for a human/agent
+to confirm -- targeting the real gap where a benign design touch (a
+clamshell split line, say) was correctly reasoned about during design but
+never formalized as a declaration (INCIDENTS.md, 2026-08-18,
+gearbox_case_bottom/top). Still a FAIL either way -- nothing is
+auto-authorized. A slightly larger gap, in (touch-tolerance,
+--near-miss-tolerance] (default up to 0.2mm), is reported as a non-fatal
+NEAR MISS note instead: that band is more often a genuine design
+sensitivity than a benign touch, so it is surfaced but not auto-suggested
+as intentional. Both are checked unconditionally for every undeclared,
+non-overlapping pair now, not only when --min-clearance is passed. NOT
+implemented: a stability check that re-renders with a jittered parameter
+to see whether the touch/overlap verdict flips near a boundary (the
+pattern write-up's own suggestion) -- that needs an actual re-render per
+candidate pair, out of scope for a static post-hoc classifier.
+
 Declare intentional contacts in a JSON file passed with --expected-contacts:
 
     [
@@ -150,6 +170,7 @@ Exit codes:
 """
 import argparse
 import itertools
+import json
 import os
 import sys
 
@@ -337,6 +358,25 @@ def pair_distance(mesh_a, mesh_b, name_a, name_b):
         return None
 
 
+def suggest_touch_stub(name_a, name_b):
+    """Ready-to-paste joints.json contact entry for a candidate intentional
+    touch (2026-08-19 Phase-2 Pattern 2, implemented 2026-08-22, see
+    INCIDENTS.md) -- printed alongside the FAIL, not auto-written to
+    joints.json, since only a human/agent can confirm the touch is
+    actually intentional rather than a real defect that happens to be
+    shallow. The placeholder derivation is deliberately obvious so it
+    can't be pasted in and mistaken for a real one."""
+    stub = {
+        "pair": [os.path.splitext(os.path.basename(name_a))[0],
+                 os.path.splitext(os.path.basename(name_b))[0]],
+        "joint_type": "touching",
+        "expected_interference_mm": [0.0, 0.0],
+        "derivation": "AUTO-SUGGESTED by check_collisions.py -- REPLACE with the "
+                       "real reason this touch is intentional before trusting it.",
+    }
+    return json.dumps(stub, indent=2)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("stls", nargs="*", help="positioned part STLs")
@@ -348,6 +388,18 @@ def main():
     parser.add_argument("--strict", action="store_true",
                         help="treat a non-watertight mesh as a failure, not as "
                              "degraded")
+    parser.add_argument("--touch-tolerance", type=float, default=0.05,
+                        help="mm: an undeclared pair touching/overlapping within "
+                             "this separation is classified as a CANDIDATE "
+                             "INTENTIONAL TOUCH (gets a suggested joints.json stub) "
+                             "instead of a plain interference report (default 0.05mm, "
+                             "2026-08-19 Phase-2 Pattern 2)")
+    parser.add_argument("--near-miss-tolerance", type=float, default=0.2,
+                        help="mm: an undeclared, non-touching pair with a gap in "
+                             "(touch-tolerance, this value] is flagged as a NEAR "
+                             "MISS note -- NOT auto-suggested as intentional, since "
+                             "this band is more often a real design sensitivity "
+                             "than a benign touch (default 0.2mm)")
     args = parser.parse_args()
 
     paths = args.stls
@@ -404,7 +456,30 @@ def main():
             if decl is None:
                 extra = f", penetration depth {depth:.3f} mm" if depth is not None else (
                     f", overlap volume {vol:.2f} mm^3" if vol else "")
-                failures.append(f"UNINTENDED INTERFERENCE: {label}{extra}")
+                # Clash classification (2026-08-19 Phase-2 Pattern 2,
+                # implemented 2026-08-22): an undeclared overlap this
+                # shallow is exactly the shape of a benign "kissing"
+                # contact (e.g. a clamshell split line) that was correctly
+                # reasoned about during design but never formalized as a
+                # joints.json declaration (INCIDENTS.md, 2026-08-18,
+                # gearbox_case_bottom/top) -- so rather than a bare FAIL,
+                # print a ready-to-paste stub for a human/agent to confirm
+                # or reject. Still a FAIL either way: nothing here is
+                # auto-authorized. NOT implemented: a stability check that
+                # re-renders with a jittered parameter to see if the
+                # touch/overlap verdict flips (the Pattern 2 write-up's
+                # own suggestion) -- that needs a real re-render per pair,
+                # out of scope for a static post-hoc classifier.
+                if depth is not None and depth <= args.touch_tolerance:
+                    failures.append(
+                        f"CANDIDATE INTENTIONAL TOUCH: {label}{extra} -- shallow "
+                        f"enough (<= {args.touch_tolerance} mm) to plausibly be an "
+                        f"intentional design touch (e.g. a split line) that was "
+                        f"never declared. NOT auto-authorized -- confirm it's "
+                        f"actually intentional, then add this to joints.json's "
+                        f"\"contacts\":\n{suggest_touch_stub(a, b)}")
+                else:
+                    failures.append(f"UNINTENDED INTERFERENCE: {label}{extra}")
                 continue
 
             lo, hi = (decl.get("expected_interference_mm") or [0.0, 0.0])[:2]
@@ -597,15 +672,34 @@ def main():
                     f"{lo} mm interference, but the parts do not touch")
             continue
 
-        if args.min_clearance > 0.0:
-            dist = pair_distance(meshes[a], meshes[b], a, b)
-            if dist is None:
-                notes.append(f"UNVERIFIED clearance: {label} (distance query failed)")
-                degraded = True
-            elif dist < args.min_clearance:
-                failures.append(
-                    f"INSUFFICIENT CLEARANCE: {label} gap {dist:.3f} mm "
-                    f"< required {args.min_clearance:.3f} mm")
+        # Always query distance for an undeclared, non-overlapping pair now
+        # (2026-08-19 Phase-2 Pattern 2, implemented 2026-08-22): touch/
+        # near-miss classification needs it regardless of whether
+        # --min-clearance was passed -- previously this whole block, and
+        # any visibility into a near-zero gap, was skipped entirely unless
+        # the caller opted in with --min-clearance > 0.
+        dist = pair_distance(meshes[a], meshes[b], a, b)
+        if dist is None:
+            notes.append(f"UNVERIFIED clearance: {label} (distance query failed)")
+            degraded = True
+        elif dist <= args.touch_tolerance:
+            failures.append(
+                f"CANDIDATE INTENTIONAL TOUCH: {label} gap {dist:.3f} mm -- close "
+                f"enough (<= {args.touch_tolerance} mm) to plausibly be an "
+                f"intentional design touch that was never declared. NOT "
+                f"auto-authorized -- confirm it's actually intentional, then add "
+                f"this to joints.json's \"contacts\":\n{suggest_touch_stub(a, b)}")
+        elif args.min_clearance > 0.0 and dist < args.min_clearance:
+            failures.append(
+                f"INSUFFICIENT CLEARANCE: {label} gap {dist:.3f} mm "
+                f"< required {args.min_clearance:.3f} mm")
+        elif dist <= args.near_miss_tolerance:
+            notes.append(
+                f"NEAR MISS: {label} gap {dist:.3f} mm (<= "
+                f"{args.near_miss_tolerance} mm) -- not failed, but this band is "
+                f"more often a real design sensitivity than a benign touch, so "
+                f"it's flagged rather than auto-suggested as intentional. Worth "
+                f"a second look.")
 
     for n in notes:
         print(f"  {n}")

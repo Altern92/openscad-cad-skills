@@ -495,7 +495,17 @@ python3 scripts/check_collisions.py --min-clearance 0.3 \
 It distinguishes three verdicts rather than one boolean, because "do they
 overlap?" is the wrong question for a printed assembly:
 
-- **Unintended interference** — overlap with nothing declaring it. Fail.
+- **Unintended interference** — overlap with nothing declaring it. Fail. If
+  the overlap/gap is very shallow (within `--touch-tolerance`, default
+  0.05mm) it's reported instead as **candidate intentional touch** — still
+  a fail, but with a ready-to-paste `joints.json` stub, since this shape
+  is often a benign design touch (a clamshell split line) that was
+  correctly reasoned about but never formalized as a declaration
+  (`INCIDENTS.md`, 2026-08-18/2026-08-22). A gap just past that, up to
+  `--near-miss-tolerance` (default 0.2mm), is a non-fatal **near miss**
+  note instead — that band is more often a real design sensitivity than a
+  benign touch, so it's surfaced, not auto-suggested. Both are checked
+  unconditionally, not only when `--min-clearance` is passed.
 - **Insufficient clearance** — no overlap, but a gap below `--min-clearance`.
   Two parts 0.02mm apart pass a pure overlap test and fuse in the print, so
   without a threshold the check is close to meaningless. Default is 0 (overlap
