@@ -189,6 +189,19 @@ else
     log_check "margin_provenance" 0 "n/a" "SKIP: no params.scad"
 fi
 
+# Parameter-context manifest guard (added 2026-08-22, see INCIDENTS.md,
+# Phase-2 Pattern 3): opt-in via use_param() declarations anywhere in the
+# project; a no-op if none are present, so a project that hasn't adopted
+# this convention isn't affected.
+if python3 "$SCRIPT_DIR/check_param_context.py" --project-dir .; then
+    echo "CHECK_RESULT param_context=PASS"
+    log_check "param_context" 0 "check_param_context.py --project-dir ." "PASS"
+else
+    echo "CHECK_RESULT param_context=FAIL"
+    OVERALL_FAIL=1
+    log_check "param_context" 1 "check_param_context.py --project-dir ." "FAIL"
+fi
+
 # Project-level checks (run once, not per part) -- both opt-in by existence,
 # so a project that hasn't adopted these conventions yet isn't broken by
 # them. See references/planning.md for the decisions-log Criticality

@@ -123,3 +123,10 @@ rules:
     kind: auto
     gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
     success_pattern: "CHECK_RESULT margin_provenance=(PASS|SKIP)"
+
+  - id: R-16
+    rule: "Parameter context manifest (2026-08-19 Phase-2 Pattern 3, opt-in via use_param() declarations): a params.scad value consumed for a hardware-fit purpose in 2+ contexts has each context's own assert() verifying it in the file that declared that context -- catches one context being verified while a different, incompatible context on the same shared value goes unchecked (e.g. one shaft diameter feeding two different bearing bores)"
+    applies: "always"
+    kind: auto
+    gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
+    success_pattern: "CHECK_RESULT param_context=PASS"

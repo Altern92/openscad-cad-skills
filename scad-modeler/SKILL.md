@@ -185,6 +185,36 @@ assert whose formula omits a `_clearance`/`_fit`/`_bias`/`_offset`/
 the assert's own dependencies. If a specific clearance term genuinely
 doesn't apply to a given assert, say so explicitly with `// MARGIN_EXCLUDES_OK: <clearance_var>` rather than leaving the gap silent.
 
+**When one `params.scad` value is consumed for a hardware-fit purpose in
+more than one place, declare each context explicitly instead of assuming
+one checked context covers the rest.** Confirmed real failure mode
+(INCIDENTS.md, 2026-08-18): a single `axle_d` fed both a diff-side output
+stub (photo-measured, fine at 6mm) and a wheel-hub bearing bore (a fixed
+5mm-ID bearing, incompatible with 6mm) — only the diff-side context was
+ever verified, and the incompatibility went unnoticed until someone
+traced both ends of the shaft by hand. Opt in with `use_param()` (defined
+once, as a no-op, in `params.scad` itself):
+
+```openscad
+// params.scad
+module use_param(name, context, constraint) {} // no-op; a marker for
+                                                 // check_param_context.py
+
+axle_d = 5;
+```
+
+```openscad
+// parts/wheel_hub.scad
+use_param("axle_d", "wheel_hub_bearing_end", "press_fit_MR105_bore5mm");
+assert(axle_d <= 5, "axle_d must fit through the MR105 bearing's 5mm ID");
+```
+
+`check_param_context.py` (auto-run via `validate_scad.sh --all`, R-16)
+finds every parameter name declared via `use_param()` in two or more
+distinct contexts and fails any context whose own file has no matching
+`assert()` — one verified context proves nothing about the others.
+No-op if the project never declares `use_param()` at all.
+
 ## 3. `layout.scad` — where each *part* sits in the assembly
 
 This is for positioning separate, independently-printed parts relative to a shared
@@ -746,6 +776,10 @@ pass, not something to analyze now; just log it accurately.
   formula omits a clearance term the real geometry applies to one of the
   assert's own dependencies. Heuristic (textual adjacency, not real
   data-flow analysis) — escalate to a human/agent read when it fires.
+- `scripts/check_param_context.py` — added 2026-08-22 (§2, R-16,
+  INCIDENTS.md Phase-2 Pattern 3): opt-in via `use_param()` declarations;
+  finds a params.scad value shared across ≥2 hardware-fit contexts where
+  one context's constraint was never verified by its own file's assert().
 - `scripts/validation_log.py` — added 2026-08-21: every `validate_scad.sh`
   CHECK_RESULT and every standalone run of `check_collisions.py`,
   `motion_sweep.py`, `check_bore_reachability.py`,

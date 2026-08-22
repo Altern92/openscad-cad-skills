@@ -89,6 +89,12 @@ relying on someone remembering to write one by hand:
 parts that each have a DIFFERENT real hard constraint, and only one
 context's constraint gets checked
 
+**Status (2026-08-22): implemented**, matching the proposed mechanism
+closely (`use_param()` + a checker scanning for a matching assert() per
+declared context). See the 2026-08-22 entry in Entries
+(`scripts/check_param_context.py`, R-16). All three patterns from this
+2026-08-19 pass are now implemented as of the same day.
+
 Instance: `axle_d=6mm` shared across the diff-side stub (photo-measured,
 ~6mm) and the wheel_hub end (MR105 bearing, fixed 5mm ID) (below) -- only
 the diff-side context was ever actually verified against.
@@ -133,6 +139,52 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 ```
 
 ## Entries
+
+### 2026-08-22 -- added a parameter context manifest (use_param() + check_param_context.py, Phase-2 Pattern 3)
+- **Where:** `scad-modeler/scripts/check_param_context.py` (new),
+  `scad-modeler/scripts/validate_scad.sh`, `scad-modeler/rules_manifest.yaml`
+  (R-16), `SKILL.md` §2.
+- **Motivation:** third and final pattern from the 2026-08-19 pattern-
+  analysis pass, implemented after the user asked for a "better skill"
+  built from the accumulated cases. Real precedent: a single `axle_d`
+  value fed both a diff-side output stub (photo-measured, fine at 6mm)
+  and a wheel-hub bearing bore (fixed 5mm-ID MR105 bearing, incompatible
+  with 6mm) -- only the diff-side context was ever actually verified
+  against; nothing checked the wheel-hub context, and the incompatibility
+  went unnoticed until someone traced both ends of the half-shaft by hand
+  (INCIDENTS.md, 2026-08-18). This is the most novel of the three
+  mechanisms (closest analogy: PostgreSQL refusing to drop an object with
+  unresolved dependents), built last per the pattern write-up's own
+  suggested order.
+- **Fix:** `use_param(name, context, constraint)` is a no-op OpenSCAD
+  module (defined once in params.scad, confirmed to compile and render
+  cleanly as a statement with no children) that marks, at the point a
+  shared parameter is consumed for a hardware-fit purpose, which context
+  and which constraint it's satisfying. `check_param_context.py` scans
+  every `.scad` file in the project for these declarations; for any
+  parameter name declared in ≥2 distinct (file, context) pairs -- the
+  only case with cross-context risk -- it requires the SAME FILE to also
+  contain an `assert()` textually referencing that parameter name. A
+  context with no matching assert() in its own file fails, naming exactly
+  which context was never verified. Opt-in and a no-op when a project
+  never declares `use_param()` at all. Wired into `validate_scad.sh`
+  (auto, unconditional -- the script itself handles the nothing-to-check
+  case) and `rules_manifest.yaml` as R-16.
+- **Tested:** a direct synthetic reproduction of the axle_d incident
+  shape (diff_stub.scad has its own assert, wheel_hub.scad declares the
+  context but has none) correctly fails, naming the exact missing
+  context; adding the missing assert to wheel_hub.scad correctly flips it
+  to PASS; a single-context use_param() (no cross-context risk) correctly
+  passes without requiring anything; a project with no use_param() calls
+  at all (the real gear_reduction example) correctly passes as opt-in-skip.
+  `use_param()` itself was rendered through real OpenSCAD twice --
+  once inside a failing assert (confirmed the no-op module itself caused
+  no parse/render error, only the assert on the following line failed, as
+  intended) and once end-to-end with a passing assert (clean render,
+  correct geometry, non-empty STL).
+- **Already promoted to a rule?** Yes -- fixed directly in all listed
+  files. All three 2026-08-19 Phase-2 patterns are now implemented as of
+  this same day.
 
 ### 2026-08-22 -- check_collisions.py gained clash classification and auto-suggested joints.json stubs (Phase-2 Pattern 2)
 - **Where:** `scad-modeler/scripts/check_collisions.py`, `SKILL.md`.
