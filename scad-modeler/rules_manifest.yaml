@@ -130,3 +130,9 @@ rules:
     kind: auto
     gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
     success_pattern: "CHECK_RESULT param_context=PASS"
+
+  - id: R-17
+    rule: "FDM printability (§7): each printed part was checked with check_printability.py for unsupported overhang and thin walls -- manual because it is new, not yet wired into validate_scad.sh --all, and its wall-thickness reading has a confirmed edge-case limitation (a solid, sharply-tapered feature's edge can produce a spuriously short reading) that needs a human/agent read of the result, not a bare pass/fail"
+    applies: "always"
+    kind: manual
+    gate: null

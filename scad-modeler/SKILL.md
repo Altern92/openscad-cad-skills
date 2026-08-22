@@ -676,10 +676,28 @@ an extra step the part file's author adds deliberately, the same way
 assembly-positioned exports are a prerequisite for `check_collisions.py`,
 not something the normal per-part render produces on its own.
 
-Still not checked at all: load, strength, or manufacturability (minimum
-wall thickness for the actual material/process, printability of
-overhangs). Both need judgment, a datasheet, or a physical test — this
-chain has no way to derive them from geometry alone.
+Still not checked at all: load or strength (needs a datasheet and
+material properties this chain has no way to derive from geometry
+alone). FDM printability specifically — minimum wall thickness,
+unsupported overhang — now has a standalone check (added 2026-08-22,
+after independent research confirmed real precedent for both as
+pre-slicing, mesh-based checks: face-normal-vs-build-axis for overhang,
+ray-cast local thickness for walls):
+
+```bash
+python3 scripts/check_printability.py --stl build/part.stl
+```
+
+Not wired into `validate_scad.sh --all` — new and not yet battle-tested
+at scale, and its wall-thickness measurement has a confirmed, documented
+edge case (a thin-wall reading near a sharp edge on a solid, tapered
+feature — e.g. a flat cap's rim meeting a steeply sloped side — can be a
+measurement artifact of that specific edge geometry rather than a real
+thin wall; confirmed reliable on genuine shell/enclosure geometry, where
+it measured a real 2mm wall exactly). Minimum FEATURE size (as opposed to
+wall thickness) is deliberately NOT checked — the same research found no
+real precedent for a pre-slicing algorithm for that specific case; most
+real tools defer it to the slicer itself.
 
 This needs `trimesh`, `python-fcl` (trimesh's `CollisionManager` doesn't do
 collision detection itself — it wraps FCL), and `scipy` (trimesh's own mesh
@@ -776,6 +794,11 @@ pass, not something to analyze now; just log it accurately.
   formula omits a clearance term the real geometry applies to one of the
   assert's own dependencies. Heuristic (textual adjacency, not real
   data-flow analysis) — escalate to a human/agent read when it fires.
+- `scripts/check_printability.py` — added 2026-08-22 (§7, R-17): FDM
+  overhang (face-normal vs. build axis) and wall-thickness (ray-cast)
+  checks, grounded in independently-researched precedent, not this
+  project's own design. Standalone, not auto-wired — see its docstring
+  for a confirmed wall-thickness edge-case limitation near sharp features.
 - `scripts/check_param_context.py` — added 2026-08-22 (§2, R-16,
   INCIDENTS.md Phase-2 Pattern 3): opt-in via `use_param()` declarations;
   finds a params.scad value shared across ≥2 hardware-fit contexts where

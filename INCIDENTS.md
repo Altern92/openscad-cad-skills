@@ -140,6 +140,75 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 
 ## Entries
 
+### 2026-08-22 -- added FDM printability checks (check_printability.py, R-17), grounded in an independent deep-research pass rather than a caught incident
+- **Where:** `scad-modeler/scripts/check_printability.py` (new),
+  `scad-modeler/rules_manifest.yaml` (R-17), `scad-modeler/SKILL.md` §7,
+  `openscad-cad/SKILL.md` §4.5.
+- **Motivation:** unlike every other entry in this log, not a caught bug
+  -- a genuinely new capability, added after a deep-research pass was
+  explicitly asked to find real, citable precedent (not just restate this
+  project's own design) for pre-slicing FDM printability checks. The
+  research graded its own findings honestly: overhang-angle and
+  wall-thickness both "Strongest Precedent" (direct geometric techniques
+  used in real tools -- face-normal-vs-build-axis for overhang, as
+  Autodesk Meshmixer's "Overhangs" tool does; ray-casting for local wall
+  thickness, a simpler alternative to full medial-axis-transform
+  skeletonization); minimum feature size explicitly "No Strong Precedent
+  Found" for a pre-slicing algorithm and NOT implemented as a result --
+  most real tools defer that specific check to the slicer itself.
+- **Fix:** `check_printability.py`, using only `trimesh` (already a
+  dependency, via its ray-triangle intersector -- confirmed working
+  without `pyembree` installed, using the pure-Python fallback). Two
+  checks: (1) overhang -- flags downward-facing triangle area steeper
+  than `--overhang-deg` (default 45) from vertical, EXCLUDING faces
+  resting on the build plate itself (see bug below); (2) wall thickness
+  -- samples up to `--wall-samples` face centroids, casts a ray inward
+  along each face's own normal, flags any measured thickness below
+  `--min-wall` (default 2x `--nozzle-d`, 0.8mm at the 0.4mm default).
+  Standalone, not wired into `validate_scad.sh --all` -- new, not yet
+  battle-tested at scale, and R-17 (manual) requires a human/agent read
+  of the result rather than a bare pass/fail given the limitation below.
+- **Bug found and fixed during testing (before this ever shipped):** the
+  first version flagged a plain 20mm cube's own flat BOTTOM face as an
+  "unsupported overhang" -- its normal points straight down, which the
+  naive check correctly measured as "facing down" but wrongly treated as
+  floating, when it's actually resting directly on the build plate and
+  needs no support by definition. Fixed by excluding any downward face
+  whose height along the build axis is within `--baseplate-eps` (default
+  0.05mm) of the mesh's own minimum height. Re-tested: the same cube now
+  correctly reports zero overhang area.
+- **Confirmed limitation (not fixed, documented instead):** wall-thickness
+  ray-casting can report a spuriously short distance near an EDGE where
+  two non-parallel surfaces meet -- confirmed directly on a solid,
+  non-hollow cone: its flat top cap measured a 0.13mm "thickness" near
+  its rim, purely because the ray (cast along the cap's own straight-up/
+  down normal) grazed the adjacent steeply-sloped side surface a short
+  distance below, not because the part is actually thin there. Confirmed
+  the technique IS reliable on genuine shell/enclosure geometry: a real
+  2mm-wall box measured exactly 2.000mm with no artifacts at its own
+  corners. Documented in the script's own docstring and both SKILL.md
+  cross-references rather than engineering around it (would need a more
+  sophisticated technique -- dual-direction ray averaging or true
+  medial-axis analysis -- explicitly out of scope for this pass).
+- **Tested:** a plain cube (clean pass after the baseplate-exclusion
+  fix); a uniform 0.3mm-wall shell (correctly fails, measuring exactly
+  0.300mm); a uniform 2mm-wall shell (correctly passes, measuring
+  exactly 2.000mm, confirming no false positives at box corners); a
+  gently-tapered cone at 33° from vertical (correctly does NOT flag
+  overhang -- within the printable range, confirming the angle math
+  isn't just "any downward slope fails"); a steeply-tapered cone at 77°
+  from vertical (correctly DOES flag overhang, with the reported angle
+  matching a hand calculation from the cone's actual dimensions exactly).
+  Also run against the real `gear_reduction` example's `pinion.stl` and
+  `spur.stl`: `spur.stl` passes clean; `pinion.stl` reports a borderline
+  0.796mm minimum wall (just under the 0.8mm default threshold) at the
+  small pinion's tooth root -- plausible, not obviously wrong, for an
+  11-tooth module-1 gear, a known-marginal case for FDM in practice; not
+  treated as a defect in the example, since this is a new, non-mandatory
+  check and the example was never scoped against it.
+- **Already promoted to a rule?** Yes -- fixed directly in all listed
+  files.
+
 ### 2026-08-22 -- named a recurring gap shape found across the day's fixes: passive correctness without an active connecting step (rules_enforcement.md §5)
 - **Where:** `scad-modeler/references/rules_enforcement.md` (new §5),
   `SKILL.md` (reference-files entry cross-linked).

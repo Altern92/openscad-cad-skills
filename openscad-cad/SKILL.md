@@ -302,6 +302,7 @@ installed, find them in the `scad-modeler` skill's `scripts/` directory (the sib
 python3 .../scripts/doctor.py            # what this machine can actually do
 python3 .../scripts/check_dimensions.py --stl build/part.stl --scad part.scad
 python3 .../scripts/check_features.py   --stl build/part.stl --scad part.scad
+python3 .../scripts/check_printability.py --stl build/part.stl  # FDM overhang + thin-wall (added 2026-08-22)
 ```
 
 Declare what they should verify, in the `.scad` file itself:
@@ -316,6 +317,18 @@ tolerance derived from `$fa`/`$fs` rather than a flat guess.
 `check_features.py` slices the mesh and measures a bore flat-to-flat — the
 dimension a shaft actually binds on, which a bounding box cannot see. Both skip
 silently when nothing is declared, so adding a declaration is the whole cost.
+
+`check_printability.py` (added 2026-08-22) checks something neither of the
+above does: whether the resulting geometry can actually be printed on FDM,
+independent of whether it's dimensionally correct — unsupported overhang
+(face-normal vs. build axis, default flags past 45° from vertical) and
+thin walls (ray-cast wall-thickness estimate, default minimum 2× nozzle
+diameter). No declaration needed to run it; it's a standalone step, not
+yet wired into `validate_scad.sh --all` (new, not yet battle-tested at
+scale — see its own docstring for confirmed edge-case limitations, in
+particular that a thin-wall reading near a sharp edge/tip on a solid,
+tapered feature can be a measurement artifact rather than a real problem,
+distinct from a genuine flat panel reading).
 
 **Before finalizing any fit-critical hole (press fit, bearing bore, threaded
 insert, snap fit — anything where the actual printed size, not the CAD
