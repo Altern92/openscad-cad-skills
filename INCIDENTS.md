@@ -140,6 +140,34 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 
 ## Entries
 
+### 2026-08-22 -- named a recurring gap shape found across the day's fixes: passive correctness without an active connecting step (rules_enforcement.md §5)
+- **Where:** `scad-modeler/references/rules_enforcement.md` (new §5),
+  `SKILL.md` (reference-files entry cross-linked).
+- **Motivation:** asked to analyze the 2026-08-21/22 INCIDENTS.md entries
+  for patterns (not a checker finding -- a cross-reading of several
+  already-logged entries side by side). Three separately-built fixes that
+  day turned out to share one shape: `doctor.py`'s `find_calibration()` +
+  `confidence-tiers.md` were both already correct, but nothing connected
+  "no calibration profile" to "propose printing a coupon" until the user
+  reported having to ask every time; `INCIDENTS.md`'s own header correctly
+  states its purpose but nothing captured the raw data live, losing 24 of
+  26 exact values in a real reconstruction attempt; `check_dependencies.py`
+  correctly named affected FILES but not affected DECLARED requirements
+  until the P1 fix. Not a bug in any one of these -- a pattern only
+  visible across all three at once.
+- **Fix:** not a script (the underlying gap in each instance was already
+  fixed separately, see the R-14/telemetry/P1 entries). `rules_enforcement.md`
+  §5 names the pattern explicitly as a design question to apply going
+  forward: when adding a check or reference fact, does it only
+  REPORT/GATE, or does it also PROPOSE the specific next action its own
+  finding implies? Cross-linked from `SKILL.md`'s reference-files list so
+  it surfaces when writing the next check, not just during a future
+  audit.
+- **Already promoted to a rule?** Yes, as prose guidance -- not a
+  `rules_manifest.yaml` entry, since "did the model propose the action"
+  is about a specific response's content, not a file's state, so no
+  script can gate it the way R-01..R-16 do.
+
 ### 2026-08-22 -- added a parameter context manifest (use_param() + check_param_context.py, Phase-2 Pattern 3)
 - **Where:** `scad-modeler/scripts/check_param_context.py` (new),
   `scad-modeler/scripts/validate_scad.sh`, `scad-modeler/rules_manifest.yaml`

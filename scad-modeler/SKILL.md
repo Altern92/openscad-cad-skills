@@ -797,7 +797,11 @@ pass, not something to analyze now; just log it accurately.
   "learn" automatically; nothing currently reads this file back in.
 - `references/rules_enforcement.md` — why agents drift from written rules and
   the layered countermeasure (prompt reminders → deterministic gates →
-  self-verification loop → machine-checkable rules manifest).
+  self-verification loop → machine-checkable rules manifest). §5 (added
+  2026-08-22) names a recurring gap shape found across several same-day
+  fixes: a check/reference that correctly REPORTS a fact but never
+  PROPOSES the action that fact implies — apply this lens when designing
+  any new check, not just when auditing past ones.
 - `rules_manifest.yaml` + `scripts/check_rules.py` — L4: the single list of
   every rule in this skill, with a detector for whether it applies to the
   current project and, for rules with an automated gate, the exact command

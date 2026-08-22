@@ -133,6 +133,48 @@ self-check before answering** (L3+L4). At that point, following the rules
 no longer depends on the model's memory: scripts prove it, and the model's
 job is just to run them and cite the results.
 
+## 5. A recurring shape of gap: passive correctness without an active connecting step (2026-08-22)
+
+Found by re-reading a cluster of 2026-08-21/22 `INCIDENTS.md` entries side
+by side, not from any single incident: three separate fixes that day
+shared the exact same shape, even though they were built independently
+(`doctor.py`+`calibration_coupon()`/R-14, `validation_log.py`,
+`check_dependencies.py`'s requirement-influence cross-reference/P1). In
+each case, **two pieces of the skill were already individually correct**
+— a script that correctly detects/reports some fact, and a reference
+doc that correctly states what that fact implies — **but nothing
+connected the fact to a proposed action**, so the correct information sat
+unused until a human asked for the action by name, every time:
+
+- `doctor.py`'s `find_calibration()` correctly detected a missing
+  calibration profile; `confidence-tiers.md` correctly said what that
+  caps a part at — but nothing told the model to actually PROPOSE
+  printing a coupon. Fixed only after the user reported having to ask,
+  personally, every single time.
+- `INCIDENTS.md`'s own header correctly states its purpose ("raw data
+  for a later pattern-review pass") — but nothing captured that raw data
+  live; only qualitative write-ups survived, and a real reconstruction
+  attempt lost 24 of 26 exact commands/exit codes/timestamps.
+- `check_dependencies.py` correctly told an agent which part FILES a
+  parameter change reaches — but not which DECLARED requirements
+  (a contact, a motion driver, a bore) on those parts might now be
+  invalid, which is the question that actually matters for deciding what
+  to re-check.
+
+**When adding a new check or reference fact to this skill, ask explicitly:
+does this only REPORT/GATE, or does it also PROPOSE the next action a
+correct report implies?** A check that can only ever say "PASS" or "FAIL"
+on an already-taken action is a different, weaker thing than one that also
+names the specific next step when the precondition for that step is met
+(a coupon to print, a declaration to paste, a specific other check to
+re-run) — the latter is what actually closes the loop instead of leaving
+it for a human to notice and ask for by name. This is not itself a new
+gate `check_rules.py` can verify (the "did I propose the action" question
+is about MODEL BEHAVIOR in a specific response, not a file's state) — it's
+a design question to apply when writing the next check, and a lens for a
+future Phase-2-style INCIDENTS.md review to re-apply across the existing
+ones.
+
 ## Source log
 
 | ID | Claim | Source (URL) | Type | Date | Status |
