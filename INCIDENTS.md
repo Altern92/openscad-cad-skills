@@ -23,6 +23,11 @@ without a separate go-ahead.
 ### Pattern 1 -- a declared/documented value drifts from what the live code
 actually computes, after the live computation is upgraded
 
+**Status (2026-08-22): implemented**, though as the "solo-scale guard"
+variant described below, not the full shared-helper-function convention
+-- see the 2026-08-22 entry in Entries for what was actually built and
+tested (`scripts/check_margin_provenance.py`, R-15).
+
 Instances: CD1/CD2 vs `gear_dist()` (below), `EXPECTED_BBOX` Z rounding
 (below), `jackshaft_bearing_wall_at_diff` assert omitting real clearance
 terms (below). Three of nine entries -- the strongest cluster in the log.

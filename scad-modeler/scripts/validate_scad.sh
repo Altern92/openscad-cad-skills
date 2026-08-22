@@ -170,6 +170,25 @@ else
     log_check "analytic_bounds" 0 "n/a" "SKIP: no params.scad"
 fi
 
+# Margin-provenance guard (added 2026-08-22, see INCIDENTS.md, Phase-2
+# Pattern 1): catches a params.scad assert() whose "safe" verdict omits a
+# clearance term the real geometry applies separately -- runs right after
+# the analytic pre-flight gate, since it's the same near-zero-cost,
+# no-rendering-needed class of check.
+if [ -f params.scad ]; then
+    if python3 "$SCRIPT_DIR/check_margin_provenance.py" --scad params.scad --parts-dir parts; then
+        echo "CHECK_RESULT margin_provenance=PASS"
+        log_check "margin_provenance" 0 "check_margin_provenance.py --scad params.scad" "PASS"
+    else
+        echo "CHECK_RESULT margin_provenance=FAIL"
+        OVERALL_FAIL=1
+        log_check "margin_provenance" 1 "check_margin_provenance.py --scad params.scad" "FAIL"
+    fi
+else
+    echo "CHECK_RESULT margin_provenance=SKIP"
+    log_check "margin_provenance" 0 "n/a" "SKIP: no params.scad"
+fi
+
 # Project-level checks (run once, not per part) -- both opt-in by existence,
 # so a project that hasn't adopted these conventions yet isn't broken by
 # them. See references/planning.md for the decisions-log Criticality

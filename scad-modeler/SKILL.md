@@ -172,6 +172,19 @@ center_distance_1 = (pinion_teeth + spur_teeth) * gear_module / 2;
 assert(ratio_1 > 5.5 && ratio_1 < 6.5, "Stage 1 ratio drifted from target ~6:1");
 ```
 
+**A margin/wall-thickness assert must account for every clearance term the
+geometry actually applies, not just nominal dimensions.** Confirmed real
+failure mode (INCIDENTS.md, 2026-08-18): an assert computed a wall
+thickness from nominal pitch/OD alone and reported a "safe" ~1.6mm margin,
+while the geometry-cutting code separately added two clearance terms
+(spin clearance, press-fit allowance) the assert never saw — the real,
+clearance-inflated wall was ~1.2mm. `check_margin_provenance.py`
+(auto-run via `validate_scad.sh --all`, R-15) catches this: it flags an
+assert whose formula omits a `_clearance`/`_fit`/`_bias`/`_offset`/
+`_backlash`-suffixed variable that a part file applies directly to one of
+the assert's own dependencies. If a specific clearance term genuinely
+doesn't apply to a given assert, say so explicitly with `// MARGIN_EXCLUDES_OK: <clearance_var>` rather than leaving the gap silent.
+
 ## 3. `layout.scad` — where each *part* sits in the assembly
 
 This is for positioning separate, independently-printed parts relative to a shared
@@ -718,6 +731,11 @@ pass, not something to analyze now; just log it accurately.
   cross-reference above — no automated skip mechanism, and the full
   `--all` re-run remains the safe default whenever the classification
   itself might be incomplete (e.g. an unparsed construct).
+- `scripts/check_margin_provenance.py` — added 2026-08-22 (§2, R-15,
+  INCIDENTS.md Phase-2 Pattern 1): flags a params.scad assert() whose
+  formula omits a clearance term the real geometry applies to one of the
+  assert's own dependencies. Heuristic (textual adjacency, not real
+  data-flow analysis) — escalate to a human/agent read when it fires.
 - `scripts/validation_log.py` — added 2026-08-21: every `validate_scad.sh`
   CHECK_RESULT and every standalone run of `check_collisions.py`,
   `motion_sweep.py`, `check_bore_reachability.py`,

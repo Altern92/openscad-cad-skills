@@ -116,3 +116,10 @@ rules:
     applies: "file_exists:bores.json,joints.json"
     kind: manual
     gate: null
+
+  - id: R-15
+    rule: "Margin provenance (2026-08-19 Phase-2 Pattern 1): no assert() in params.scad omits a clearance term (_clearance/_fit/_bias/_offset/_backlash-suffixed variable) that parts/*.scad geometry applies directly to a value the assert's own formula depends on -- catches a 'safe' margin verdict computed from nominal dimensions while the real, clearance-inflated geometry is tighter"
+    applies: "file_exists:params.scad"
+    kind: auto
+    gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
+    success_pattern: "CHECK_RESULT margin_provenance=(PASS|SKIP)"
