@@ -304,6 +304,49 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 - **Already promoted to a rule?** Yes -- fixed directly in all listed
   files.
 
+### 2026-08-21 -- added calibration_coupon() and a proactive-proposal rule (R-14) after the model only offered a fit-test print when explicitly asked, every time
+- **Where:** `openscad-cad/references/patterns.scad` (Pattern 5, new
+  `calibration_coupon()` module), `openscad-cad/SKILL.md` §4.5,
+  `scad-modeler/rules_manifest.yaml` (R-14), `scad-modeler/SKILL.md` §0.6.
+- **Symptom (user-reported, not a checker finding):** in a separate
+  real-project conversation (`20260821_serverrack`), the user had to
+  personally ask, each time, for a part to be printed and checked for
+  hole fit, and to be offered an incremental-diameter test rather than a
+  single guessed dimension. `references/confidence-tiers.md` already
+  names a calibration profile as a Tier 3 hard gate and
+  `references/tolerances.md` already says "print a coupon ... and
+  measure it" -- but nothing made the model actually PROPOSE that step
+  on its own before finalizing a fit-critical dimension; the existing
+  behavior was to silently note "uncalibrated, capped at Tier 2" rather
+  than surface the concrete next action.
+- **Root cause:** the gap was between two already-correct pieces --
+  `doctor.py`'s `find_calibration()` correctly detects a missing
+  calibration profile, and `confidence-tiers.md` correctly says what
+  that caps -- but no rule connected "profile missing" to "propose
+  printing one," and no reusable coupon-generator existed, so proposing
+  it meant hand-deriving hole-comb geometry from scratch each time (or,
+  in practice, not proposing it at all until asked).
+- **Fix:** `calibration_coupon(target_d, step, n_below, n_above, ...)` in
+  `patterns.scad` generates a single labelled plate with through-holes at
+  incremental diameters straddling a target size (using `true_hole_d()`,
+  Pattern 0, so the coupon is built the same way a real part's holes
+  are). `openscad-cad/SKILL.md` §4.5 now instructs proactively proposing
+  a coupon print before finalizing a load-bearing/precision-sensitive fit
+  with no calibration profile found -- not for every hole, only where
+  being off actually matters. `scad-modeler/rules_manifest.yaml` R-14
+  (kind: manual, since no script can verify a physical print happened)
+  makes this an explicit self-assessment item in every §8 report for a
+  project declaring `bores.json`/`joints.json`, cross-referenced from
+  `scad-modeler/SKILL.md` §0.6's existing purchased-part-fit bullet.
+  Tested: `calibration_coupon(target_d=5.0, step=0.1, n_below=2,
+  n_above=3)` rendered clean (manifold, non-empty, `--hardwarnings`
+  clean) and visually confirmed via PNG render -- six holes, correctly
+  incrementing 4.8/4.9/5.0/5.1/5.2/5.3mm, each legibly labelled;
+  `check_rules.py` against the real `gear_reduction` example correctly
+  lists R-14 among the manual rules requiring self-assessment.
+- **Already promoted to a rule?** Yes -- fixed directly in all listed
+  files.
+
 ### 2026-08-19 -- a BOSL2 gear positioned through layout.scad's at() failed under --hardwarnings; a plain guessed interference range was also wrong for real gear teeth
 - **Where:** `scad-modeler/examples/gear_reduction/` (new example project,
   built for publication readiness -- see the "Publication prep" commits).

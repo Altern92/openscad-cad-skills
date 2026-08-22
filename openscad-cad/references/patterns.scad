@@ -216,3 +216,57 @@ module bent_duct(start, radius, bend_angle, d, segments) {
         }
     }
 }
+
+// ------------------------------------------------------------
+// PATTERN 5: hole calibration coupon
+// Source: prompted by a real steering_reduction_gearbox-style incident
+// (2026-08-21) where the model only proposed printing a fit-test piece
+// after the user explicitly asked for one, each time -- see
+// INCIDENTS.md 2026-08-21. Not a per-project ad-hoc script; a reusable
+// pattern so it's one `use` away instead of hand-rolled from scratch.
+//
+// One flat plate with a row of through-holes at incremental diameters
+// straddling a target nominal size, each labelled with its own diameter
+// so a caliper/pin-gauge reading maps back to a hole without guessing.
+// Print it once per printer+material+nominal-size-range combination,
+// try a pin/shaft/insert in each hole from smallest to largest, and
+// record which one was the first to fit as intended (see
+// references/confidence-tiers.md Tier 3 and references/tolerances.md --
+// this coupon is how you GET a calibration profile, not a substitute for
+// having one). Holes use true_hole_d() (Pattern 0) so the coupon is
+// built the same way a real part's holes are -- printing it with raw
+// cylinder() diameters would calibrate the wrong thing.
+//
+// This does not replace `check_features.py`'s bore measurement (that
+// verifies a CAD model against its own declared size); it answers a
+// different question -- "what CAD diameter, on THIS printer and
+// material, produces the hole I actually need" -- which nothing in this
+// skill set measures automatically, because it requires a physical
+// print and a physical gauge.
+//
+// Usage:
+//   use <patterns.scad>
+//   calibration_coupon(target_d = 5.0, step = 0.1, n_below = 2, n_above = 3);
+//   // prints a plate with holes at 4.8, 4.9, 5.0, 5.1, 5.2, 5.3mm,
+//   // each labelled with its own diameter.
+// ------------------------------------------------------------
+module calibration_coupon(target_d, step = 0.1, n_below = 2, n_above = 3,
+                           plate_h = 4, spacing = 10, label_size = 2.6) {
+    n = n_below + n_above + 1;
+    plate_w = n * spacing + spacing / 2;
+    plate_d = spacing + label_size * 3;
+    difference() {
+        cube([plate_w, plate_d, plate_h]);
+        for (i = [0 : n - 1]) {
+            hole_d = target_d + (i - n_below) * step;
+            translate([spacing / 2 + spacing / 4 + i * spacing,
+                       plate_d - spacing / 2, -1])
+                true_hole(d = hole_d, h = plate_h + 2);
+            translate([spacing / 2 + spacing / 4 + i * spacing,
+                       label_size * 1.4, plate_h - 0.6])
+                linear_extrude(1)
+                    text(str(hole_d), size = label_size,
+                         halign = "center", valign = "center");
+        }
+    }
+}

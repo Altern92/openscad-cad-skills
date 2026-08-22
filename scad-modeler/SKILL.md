@@ -108,6 +108,14 @@ sentences in `calculations.md` or the plan, not a formal document):
   require (thread a belt around fixed pulleys, press a bearing past a
   shoulder, engage a set-screw) that geometry alone won't reveal?
 
+On the **Purchased-part fit** bullet specifically: if the fit is
+load-bearing or precision-sensitive (a bearing press fit, a structural
+pin — not a generous loose-clearance hole) and `doctor.py` finds no
+calibration profile, PROPOSE printing a `calibration_coupon()` (R-14,
+`openscad-cad` SKILL.md §4.5, `references/patterns.scad` Pattern 5)
+before committing to the final dimension, on your own initiative — don't
+wait to be asked and don't silently default to an uncalibrated guess.
+
 This step exists because the failures above were not geometry mistakes —
 the numbers were often internally consistent — they were physical
 assembly steps nobody had described in words before writing the code that

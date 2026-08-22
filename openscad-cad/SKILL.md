@@ -317,6 +317,23 @@ tolerance derived from `$fa`/`$fs` rather than a flat guess.
 dimension a shaft actually binds on, which a bounding box cannot see. Both skip
 silently when nothing is declared, so adding a declaration is the whole cost.
 
+**Before finalizing any fit-critical hole (press fit, bearing bore, threaded
+insert, snap fit — anything where the actual printed size, not the CAD
+number, decides whether it works) when no calibration profile exists
+(`doctor.py`'s `find_calibration()` returns none), proactively PROPOSE
+printing a calibration coupon first — do not wait to be asked.** Confirmed
+gap (INCIDENTS.md, 2026-08-21): across a real multi-part project, the model
+only offered to print a fit-test piece each time the user explicitly asked
+for one, never on its own, even though `references/confidence-tiers.md`
+Tier 3 already names a calibration profile as a hard gate. Use
+`calibration_coupon()` in `references/patterns.scad` (Pattern 5) — one
+labelled plate with holes at incremental diameters straddling the target —
+rather than guessing a single clearance value and hoping it prints right the
+first time. This does not apply to every hole in every project: propose it
+when a fit is actually load-bearing or precision-sensitive (a bearing press
+fit, a structural pin), not for a generous loose-clearance mounting hole
+where being off by 0.1mm changes nothing.
+
 State the confidence tier reached in the final response — see
 `references/confidence-tiers.md`. A part with no numeric check is Tier 1, and
 saying so is more useful than implying more.
@@ -363,8 +380,11 @@ saying so is more useful than implying more.
   in this project set rather than guessed.
 - `references/patterns.scad` — Pattern 0 is `true_hole_d()`/`true_hole()`, the
   exact compensation for OpenSCAD's inscribed-polygon hole undersizing; apply it
-  to any round fit-critical hole (holes only, never pins). The rest are reusable
-  geometry modules (`gridfinity_contour_pocket`,
+  to any round fit-critical hole (holes only, never pins). Pattern 5 is
+  `calibration_coupon()` — a labelled multi-hole test plate to print BEFORE
+  committing to a fit-critical dimension with no existing calibration
+  profile (§4.5). The rest are reusable geometry modules
+  (`gridfinity_contour_pocket`,
   `friction_sleeve`/`sleeve_wire_notch`, `bent_duct`) extracted from real parts;
   `use <patterns.scad>` the ones you need. The single-rectangular-pocket case is
   documented there as a snippet rather than a module — it depends on the Gridfinity
