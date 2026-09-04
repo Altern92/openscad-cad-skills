@@ -185,6 +185,18 @@ assert whose formula omits a `_clearance`/`_fit`/`_bias`/`_offset`/
 the assert's own dependencies. If a specific clearance term genuinely
 doesn't apply to a given assert, say so explicitly with `// MARGIN_EXCLUDES_OK: <clearance_var>` rather than leaving the gap silent.
 
+**A second, independent way the same failure shows up: an assert checks
+the WRONG variable entirely, not just an incomplete formula.** Confirmed
+real failure mode (INCIDENTS.md, 2026-09-02, `nas_deck_v3`): a new,
+more-specific local variable (`_deck_socket_depth`) was introduced for
+geometry, but the assert meant to guard it kept referencing the older,
+same-family global (`_socket_depth`/`post_socket_depth`) instead — a
+"passing" assert that proved nothing about the value actually cut.
+`check_margin_provenance.py`'s second detection mode (also 2026-09-04)
+flags this: any geometry-consumed, dimensionally-named local variable
+with no assert of its own, where a same-family sibling variable *does*
+have one. Same `// MARGIN_EXCLUDES_OK: <var>` opt-out applies.
+
 **When one `params.scad` value is consumed for a hardware-fit purpose in
 more than one place, declare each context explicitly instead of assuming
 one checked context covers the rest.** Confirmed real failure mode
@@ -799,6 +811,11 @@ pass, not something to analyze now; just log it accurately.
   formula omits a clearance term the real geometry applies to one of the
   assert's own dependencies. Heuristic (textual adjacency, not real
   data-flow analysis) — escalate to a human/agent read when it fires.
+  A second mode (added 2026-09-04, INCIDENTS.md `nas_deck_v3`) flags a
+  geometry-consumed local variable with no assert of its own where a
+  same-family sibling variable is asserted instead — the "wrong variable
+  checked" shape, distinct from "right variable, incomplete formula."
+  Runs across `--scad` and every file under `--parts-dir`.
 - `tests/` — added 2026-08-22: a persisted regression suite for this
   skill's OWN checker scripts (`bash tests/run_all.sh`), not for a user's
   project. Each `fixtures/<name>/` is usually a direct reproduction of a

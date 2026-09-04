@@ -55,6 +55,7 @@ check always fails."
 | `motion_sign_fail` | `motion_sweep.py` refuses to sweep a `gear_mesh` pair whose drivers share the same sign |
 | `motion_sign_pass` | a correctly opposite-signed `gear_mesh` pair is not false-flagged |
 | `motion_sign_internal_optout` | `"internal_gear_mesh"` opts a genuinely same-direction pair out of the sign check |
+| `margin_wrong_variable_fail` / `_pass` | `check_margin_provenance.py`'s wrong-variable-family mode catches the real `nas_deck_v3` incident shape (INCIDENTS.md, 2026-09-02) and passes once fixed |
 
 Not yet covered here (older checks, predating this suite — add a fixture
 when touching one of these next): `check_connectivity.py`,

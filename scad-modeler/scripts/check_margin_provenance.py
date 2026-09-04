@@ -39,6 +39,30 @@ confirmed-fine case with a `// MARGIN_EXCLUDES_OK: <clearance_var>`
 comment on the assert's own line or the line directly above it (mirrors
 the `// EXPECTED_BODIES: N` opt-out convention elsewhere in this skill).
 
+SECOND DETECTION MODE (added 2026-09-04): wrong-variable-family. Real
+incident this targets (INCIDENTS.md, 2026-09-02, nas_deck_v3): a local
+variable `_deck_socket_depth` was introduced to hold a reduced, deck-
+specific socket depth, but the assert meant to guard it kept referencing
+the older, global `_socket_depth` (`post_socket_depth`) instead -- a
+same-family name (both about "socket depth"), but not the same value.
+The geometry-cutting code used `_deck_socket_depth`; the assert checked
+`_socket_depth`; the "passing" assert proved nothing about the value
+actually cut. Unlike the omitted-clearance-term check above (cross-file,
+params.scad vs parts/*.scad), this is intra-file: for every locally-
+assigned, dimensional-sounding variable (`_depth`/`_thickness`/
+`_clearance`/`_fit`/`_bias`/`_offset`/`_backlash`/`_gap`/`_pitch`/
+`_margin`/`_wall`-suffixed) that's actually consumed inside a geometry-
+producing call (`cylinder`/`cube`/`sphere`/`translate`/`linear_extrude`/
+etc.) in a file, checks whether that EXACT variable has an assert() of
+its own in that file. If not, but a "family sibling" -- another variable
+whose name shares the same core after stripping one leading qualifier
+segment (`post_socket_depth` and `_deck_socket_depth` both normalize to
+`socket_depth`) -- DOES have an assert, that's flagged: the assert may be
+checking the wrong one. Runs across `--scad` and every file under
+`--parts-dir`, independently per file (the bug is local to one file's own
+variable shadowing, not a cross-file relationship). Same
+`// MARGIN_EXCLUDES_OK: <var>` opt-out applies, checked per-file.
+
 Usage:
     python3 check_margin_provenance.py --scad params.scad --parts-dir parts/
 
@@ -164,6 +188,104 @@ def find_clearance_applications(parts_dir, dep_var, clearance_var):
     return hits
 
 
+GEOMETRY_PRIMITIVES = (
+    "cylinder", "cube", "sphere", "polyhedron", "polygon", "linear_extrude",
+    "rotate_extrude", "translate", "rotate", "scale", "offset", "hull",
+)
+
+DIMENSIONAL_SUFFIXES = (
+    "_depth", "_thickness", "_clearance", "_fit", "_bias", "_offset",
+    "_backlash", "_gap", "_pitch", "_margin", "_wall",
+)
+
+
+def find_call_args(text, keyword):
+    """Return [(args_text, line_no)] for every call to keyword(...) in
+    text, handling nested parens the same way find_asserts() does."""
+    out = []
+    for m in re.finditer(r"\b" + re.escape(keyword) + r"\s*\(", text):
+        start = m.end()
+        depth = 1
+        i = start
+        while i < len(text) and depth > 0:
+            if text[i] == "(":
+                depth += 1
+            elif text[i] == ")":
+                depth -= 1
+            i += 1
+        out.append((text[start:i - 1], text.count("\n", 0, m.start()) + 1))
+    return out
+
+
+def geometry_variable_uses(text, assignments):
+    """Names from assignments that appear as an argument inside any
+    geometry-producing primitive call in text."""
+    used = set()
+    for kw in GEOMETRY_PRIMITIVES:
+        for args_text, _line in find_call_args(text, kw):
+            for tok in IDENT_RE.findall(args_text):
+                if tok in assignments:
+                    used.add(tok)
+    return used
+
+
+def variable_family(name):
+    """Normalize a variable name to its 'family core' -- strip a leading
+    underscore and the first underscore-separated qualifier segment, so
+    'post_socket_depth' and '_deck_socket_depth' both normalize to
+    'socket_depth'. Heuristic: a two-segment name has no qualifier to
+    strip past its own core and normalizes to itself (lstrip'd)."""
+    n = name.lstrip("_")
+    parts = n.split("_")
+    if len(parts) >= 3:
+        return "_".join(parts[1:])
+    return n
+
+
+def find_direct_assert_vars(text):
+    """Every variable name referenced by any assert()'s condition in text."""
+    names = set()
+    for condition, _line in find_asserts(text):
+        names.update(IDENT_RE.findall(condition))
+    return names
+
+
+def check_wrong_variable_family(path, assignments, opted_out):
+    """See module docstring, "SECOND DETECTION MODE". Returns a list of
+    human-readable failure strings for `path`."""
+    try:
+        text = open(path, encoding="utf-8").read()
+    except OSError:
+        return []
+    geom_vars = geometry_variable_uses(text, assignments)
+    dimensional = {v for v in geom_vars if v.endswith(DIMENSIONAL_SUFFIXES)}
+    if not dimensional:
+        return []
+    asserted = find_direct_assert_vars(text)
+    families = {}
+    for v in assignments:
+        families.setdefault(variable_family(v), []).append(v)
+
+    failures = []
+    for v in sorted(dimensional):
+        if v in asserted or v in opted_out:
+            continue
+        siblings = sorted(s for s in families.get(variable_family(v), []) if s != v)
+        asserted_siblings = [s for s in siblings if s in asserted]
+        if asserted_siblings:
+            failures.append(
+                f"'{v}' (in {path}) is used in geometry but has no assert() of "
+                f"its own; same-family sibling(s) {asserted_siblings} IS/ARE "
+                f"asserted instead. Verify '{v}' doesn't also need its own "
+                f"guard, or that the existing assert is actually meant to "
+                f"constrain '{v}' too, not just {asserted_siblings} -- this is "
+                f"exactly the shape of a refactor that introduced a new, more-"
+                f"specific local variable without updating the assert meant to "
+                f"guard it (INCIDENTS.md, 2026-09-02, nas_deck_v3)."
+            )
+    return failures
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                   formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -181,43 +303,48 @@ def main():
     cvars = clearance_vars(assignments)
     opted_out = find_opt_outs(args.scad)
 
-    if not asserts:
-        print("OK: no assert() in params.scad -- nothing to check.")
-        return 0
-    if not cvars:
-        print("OK: no clearance-suffixed variable (_clearance/_fit/_bias/_offset/_backlash) "
-              "declared in params.scad -- nothing to cross-check.")
-        return 0
-
     failures = []
-    for condition, line in asserts:
-        direct = {tok for tok in IDENT_RE.findall(condition) if tok in assignments}
-        if not direct:
-            continue
-        deps = transitive_deps(direct, assignments)
-        for dep_var in sorted(deps):
-            for cvar in sorted(cvars):
-                if cvar in deps or cvar in opted_out:
-                    continue
-                hits = find_clearance_applications(args.parts_dir, dep_var, cvar)
-                if hits:
-                    failures.append(
-                        f"assert() at {args.scad}:{line} depends on '{dep_var}', but "
-                        f"{', '.join(hits)} applies '{cvar}' directly to '{dep_var}' in "
-                        f"geometry -- the assert's own formula never references '{cvar}'. "
-                        f"Verify the assert's margin still holds once '{cvar}' is included, "
-                        f"or add '// MARGIN_EXCLUDES_OK: {cvar}' if it genuinely doesn't apply here."
-                    )
+
+    # --- Detection mode 1: omitted clearance term (cross-file) ---
+    if asserts and cvars:
+        for condition, line in asserts:
+            direct = {tok for tok in IDENT_RE.findall(condition) if tok in assignments}
+            if not direct:
+                continue
+            deps = transitive_deps(direct, assignments)
+            for dep_var in sorted(deps):
+                for cvar in sorted(cvars):
+                    if cvar in deps or cvar in opted_out:
+                        continue
+                    hits = find_clearance_applications(args.parts_dir, dep_var, cvar)
+                    if hits:
+                        failures.append(
+                            f"assert() at {args.scad}:{line} depends on '{dep_var}', but "
+                            f"{', '.join(hits)} applies '{cvar}' directly to '{dep_var}' in "
+                            f"geometry -- the assert's own formula never references '{cvar}'. "
+                            f"Verify the assert's margin still holds once '{cvar}' is included, "
+                            f"or add '// MARGIN_EXCLUDES_OK: {cvar}' if it genuinely doesn't apply here."
+                        )
+
+    # --- Detection mode 2: wrong-variable-family (intra-file, every file) ---
+    scan_files = [args.scad]
+    if args.parts_dir and os.path.isdir(args.parts_dir):
+        scan_files += [os.path.join(args.parts_dir, fn)
+                        for fn in sorted(os.listdir(args.parts_dir)) if fn.endswith(".scad")]
+    for f in scan_files:
+        f_assignments = assignments if f == args.scad else parse_assignments(f)
+        f_opted_out = opted_out if f == args.scad else find_opt_outs(f)
+        failures.extend(check_wrong_variable_family(f, f_assignments, f_opted_out))
 
     if failures:
-        print("FAIL: possible margin-provenance gap(s) -- an assert() may not account for a "
-              "clearance term the real geometry applies:")
+        print("FAIL: possible margin-provenance gap(s):")
         for f in failures:
             print(f"  - {f}")
         return 3
 
-    print(f"OK: {len(asserts)} assert(s) checked against {len(cvars)} clearance variable(s) "
-          f"in {args.parts_dir}/ -- no unaccounted-for clearance term found.")
+    print(f"OK: {len(asserts)} assert(s) in {args.scad} checked against {len(cvars)} "
+          f"clearance variable(s); {len(scan_files)} file(s) checked for wrong-variable-"
+          f"family gaps -- nothing found.")
     return 0
 
 

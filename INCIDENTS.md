@@ -140,6 +140,57 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 
 ## Entries
 
+### 2026-09-04 -- check_margin_provenance.py gained a second detection mode after re-reading INCIDENTS.md turned up a matching, independent real incident
+- **Where:** `scad-modeler/scripts/check_margin_provenance.py`, `SKILL.md`,
+  `scad-modeler/tests/fixtures/margin_wrong_variable_fail`/`_pass`.
+- **Motivation:** asked to re-read this log for anything new, found an
+  entry appended by a different session on 2026-09-02 (`nas_deck_v3`,
+  `server_rack_modular_v3` -- a project this repo has no other connection
+  to) that its own author had already flagged as matching this same
+  file's 2026-08-18 `jackshaft_bearing_wall_at_diff` pattern, but noted
+  "not yet promoted to a rule." Confirmed against the real (already
+  human-fixed) file: `_deck_socket_depth` (new, deck-specific, actually
+  used by the socket-cutting geometry) was introduced, but the assert
+  meant to guard it kept referencing the older, same-family
+  `_socket_depth`/`post_socket_depth` -- a "passing" assert that proved
+  nothing about the value actually cut. This is TWO independent real
+  incidents in the same defect family now (different projects, different
+  sessions), which is the same "2+ instances = a real pattern" bar the
+  2026-08-19 Phase-2 analysis originally used -- stronger evidence than
+  anything from the separate `research_2026_scad_llm/` literature pass,
+  and found simply by re-reading this log with fresh eyes as asked.
+- **Fix:** `check_margin_provenance.py`'s existing clearance-omission
+  check (cross-file: params.scad assert vs parts/*.scad geometry) doesn't
+  cover this shape -- the `nas_deck_v3` bug is intra-file (assert,
+  shadowed local variable, and geometry all in one part file) and the
+  variable names involved (`_socket_depth`) don't end in any of the
+  existing `_clearance`/`_fit`/`_bias`/`_offset`/`_backlash` suffixes. A
+  new, independent detection mode was added: for every geometry-consumed,
+  dimensionally-named local variable (`_depth`/`_thickness`/`_clearance`/
+  `_fit`/`_bias`/`_offset`/`_backlash`/`_gap`/`_pitch`/`_margin`/`_wall`-
+  suffixed) with no assert() of its own, check whether a "same-family"
+  sibling variable -- same name core after stripping one leading
+  qualifier segment (`post_socket_depth` and `_deck_socket_depth` both
+  normalize to `socket_depth`) -- DOES have one; if so, flag it. Runs
+  across `--scad` and every file under `--parts-dir` independently (the
+  bug is local to one file's own variable shadowing). Same
+  `// MARGIN_EXCLUDES_OK: <var>` opt-out as the first mode.
+- **Tested:** a direct synthetic reproduction of the real `nas_deck_v3`
+  bug shape (assert on `_socket_depth`, geometry uses `_deck_socket_depth`,
+  no assert on the latter) correctly fails, naming the exact variable and
+  citing this incident; the same fixture with the real fix applied
+  (matching the actual current file's own two asserts) correctly passes.
+  Full existing regression suite (the other 11 fixtures, unrelated to
+  this mode) stays clean -- no regression in the first detection mode.
+  Full `validate_scad.sh --all` against the real `gear_reduction` example
+  (now scanning both `params.scad` and every `parts/*.scad` file for this
+  mode too) stays a clean pass -- no false positive on real, unrelated
+  code.
+- **Already promoted to a rule?** Yes -- fixed directly in
+  `check_margin_provenance.py`; already covered by the existing R-15
+  (same script, same `CHECK_RESULT margin_provenance` gate) -- no new
+  rule number needed.
+
 ### 2026-09-04 -- 13 tracked skill files found silently emptied to 0 bytes (not caused this session), restored from git HEAD
 - **Where:** `scad-modeler/examples/gear_reduction/params.scad` and
   `parts/spur.scad`, `scad-modeler/references/mechanics_and_motion_planning.md`,
