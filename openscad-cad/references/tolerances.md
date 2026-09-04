@@ -135,6 +135,66 @@ build chamber, with Z-direction error statistically tied to plate position from
 uneven fan cooling. Treat these numbers as the right *shape* of the problem and
 a sane starting point, not as your machine's constants.
 
+## FDM gear-specific dimensional accuracy — a second, independent data point
+
+Added 2026-09-04, from a systematic review pass over `scad-modeler`
+(`research_2026_scad_llm/`, Muse Spark 1.3-analyzed corpus). Source:
+"Geometric Accuracy and Dimensional Precision in 3D Printing-Based Gear
+Manufacturing: A Study on Interchangeability and Forming Precision",
+PMC11820634 (article identifier `polymers-17-00416`, consistent with
+*Polymers*, MDPI — authors/year not stated in the extracted text itself).
+**A different printer and material than the Gebre et al. data above**
+(MakerBot Replicator 2X, PLA 6252D, 0.4mm nozzle, 100% infill, no
+supports) — a genuinely separate, gear-specific measurement, not a
+replacement for the general cylinder-accuracy numbers.
+
+Real gears measured (module 2, α=20°): a large gear (z=34, Ø72mm tip) and
+a small gear (z=17, Ø38mm tip), plus a flat substrate with two locating
+pins:
+
+| Feature | Deviation range | Combined tolerance (T) |
+|---|---|---|
+| Large gear | −0.045 to +0.060 mm | ~0.068 mm |
+| Small gear | −0.150 to +0.078 mm | ~0.119 mm |
+| Substrate (large pin/cylinder) | −0.06 to +0.10 mm | — |
+| Substrate (small pin/cylinder) | −0.06 to +0.12 mm | — |
+
+**Small features are markedly worse, and asymmetric** — the small gear's
+range is nearly double the large gear's, and skews further negative
+(undersize) than positive. Anisotropy direction was NOT the same for
+every part: the large gear's X deviation was mostly negative with Y/Z
+positive, but the small gear and substrate anisotropy ran the opposite
+way (Y contraction, X/Z expansion) — don't assume one part's measured
+anisotropy direction generalizes to a differently-shaped part on the same
+printer.
+
+**Achievable interchangeability: IT09–IT11** across all measured
+features, using a hole-basis clearance-fit system, with a post-forming
+dimensional deviation around 0.25mm — consistent with, and in the same
+range as, the Gebre et al. IT09–IT14 findings above (this study's
+gear-specific geometry landed at the better end of that band).
+
+**Gear mesh quality held up despite the dimensional scatter**: Static
+Transmission Error for the printed pair (mean 14.05 μm, peak-to-peak 1.41
+μm) was within 5% of the theoretical pair (13.82 μm / 1.52 μm) — evidence
+that a well-optimized FDM gear pair can hold a stable, functional mesh
+even though its individual dimensional deviations are an order of
+magnitude coarser than a machined gear's. Supports labeling a printed
+gear pair "adequate for a moderate-precision mechanism," not "precision
+instrument" or "aerospace-grade" — the same functional-fit-class framing
+already used above, not an ISO grade claim.
+
+**Practical rule for scad-modeler**: give small teeth/pins more
+clearance margin than large ones (the size effect is real and roughly
+2× between this study's two gear sizes), and treat coaxiality
+(bore-to-pitch-circle alignment) as the tightest-tolerance feature to
+verify — the study's own applicability note names it as the
+worst-held geometric characteristic, with flatness the best-held. Same
+caveats as the Gebre data: **one printer (MakerBot Replicator 2X, an
+older/simpler machine than the X1-Carbon above), one material (PLA
+6252D), five sample sets** — a shape for the problem, not your printer's
+constants.
+
 ## Empirical clearance values
 
 
