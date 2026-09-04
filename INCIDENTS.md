@@ -140,6 +140,83 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 
 ## Entries
 
+### 2026-09-04 -- 13 tracked skill files found silently emptied to 0 bytes (not caused this session), restored from git HEAD
+- **Where:** `scad-modeler/examples/gear_reduction/params.scad` and
+  `parts/spur.scad`, `scad-modeler/references/mechanics_and_motion_planning.md`,
+  `scad-modeler/references/validation_decision_tree.md`,
+  `scad-modeler/templates/part_template.scad`, `scad-modeler/tests/README.md`
+  and 8 of its fixture files.
+- **Symptom:** running `validate_scad.sh --all` against the real
+  `gear_reduction` example failed at the mechanics stage with `WARNING:
+  Ignoring unknown variable "center_distance" in file layout.scad` --
+  tracing it back, `params.scad` (which defines `center_distance`) was 0
+  bytes on disk. `git status` then showed 13 tracked files across this
+  skill modified relative to HEAD, ALL of them 0-byte on disk while HEAD
+  held correct, already-pushed content; mtimes clustered around
+  2026-08-19 21:07-22:43 and 2026-08-22 13:06 -- not a single event, and
+  not something this session did (motion_sweep.py and INCIDENTS.md, the
+  only files actually being edited this session, were untouched and
+  correct).
+- **Root cause:** not conclusively diagnosed (out of scope to root-cause
+  from inside this skill), but circumstantially consistent with the
+  iCloud file-eviction risk already flagged elsewhere in this repo's own
+  git history (a separate commit this same day: "iCloud eviction rizikos
+  irasas i HANDOFF") -- a subset of tracked files silently losing their
+  local content while git's own index/objects (and the GitHub remote)
+  stayed correct is exactly that failure shape, not a deliberate edit or
+  a git operation (git itself never produces a 0-byte file from a
+  non-empty commit without an explicit write).
+- **Fix:** `git checkout -- <13 files>` restored all of them from HEAD
+  (safe: every one was either pre-existing committed project content or
+  this session's own already-committed-and-pushed work, not uncommitted
+  work that could be lost). Re-verified: the persisted regression suite
+  (`tests/run_all.sh`) and a full `validate_scad.sh --all` run against
+  `gear_reduction` both pass clean after the restore.
+- **Already promoted to a rule?** Not yet -- this is an environment/
+  storage-layer risk, not something `check_rules.py` can gate from
+  inside a single project's validation run. Worth a periodic `git status`
+  --  or a checksum manifest -- sanity check on this skill repo
+  specifically, given it's the one most actively edited across sessions;
+  logged here as a concrete, dated instance of the already-tracked risk,
+  not a new one.
+
+### 2026-09-04 -- motion_sweep.py gained a gear-ratio sign sanity check (Muse skill-analysis recommendation)
+- **Where:** `scad-modeler/scripts/motion_sweep.py`, `SKILL.md`,
+  `scad-modeler/tests/fixtures/motion_sign_fail`/`_pass`/`_internal_optout`.
+- **Motivation:** an independent literature-and-skill-analysis research
+  pass (`research_2026_scad_llm/`, using Muse Spark 1.3 Contributor to
+  read the full `scad-modeler` `SKILL.md`) flagged that this script's own
+  docstring had warned "getting the sign wrong is the easy mistake --
+  meshing external gears turn opposite ways" since it was first written,
+  but nothing ever actually checked it: a same-sign ratio on a declared
+  `gear_mesh` pair produces a sweep that "passes" without the two gears'
+  relative motion ever meaning what real meshing teeth would -- a
+  misleadingly clean result on a mechanism that may not work at all.
+- **Fix:** `check_gear_mesh_signs()` runs before any mesh is loaded or
+  swept: for every declared `gear_mesh` contact whose both members are
+  also drivers in the same `motion` block, requires opposite-sign,
+  nonzero ratios. Deliberately scoped to `joint_type == "gear_mesh"` only
+  -- a `worm_mesh`'s ratio relationship isn't a simple sign rule (large
+  reduction across non-parallel axes), and a genuine internal/planetary
+  mesh legitimately turns same-direction; declaring
+  `"joint_type": "internal_gear_mesh"` opts a pair out of this check
+  without disabling anything else about it.
+- **Tested:** three fixtures added to the persisted regression suite --
+  a same-sign reproduction of the real `pinion`/`spur` pair's shape
+  (correctly fails, before any STL is even loaded, since fake STL paths
+  were used deliberately to prove the check runs first); the same pair
+  with the correct opposite signs (correctly passes the sign check,
+  fails later only for the expected fake-STL reason); and an
+  `internal_gear_mesh`-declared same-sign pair (correctly opts out).
+  Full `validate_scad.sh --all` against the real `gear_reduction`
+  example (whose `joints.json` already used the correct signs) stays a
+  clean pass.
+- **Already promoted to a rule?** Yes -- folded into the existing R-09
+  (motion sweep, already auto-triggered via `validate_scad.sh --all`'s
+  `mechanics` `CHECK_RESULT`); no new rule number needed since this
+  strengthens what R-09 already gates rather than adding an independent
+  check.
+
 ### 2026-08-22 -- persisted a regression suite for this skill's own checker scripts (tests/run_all.sh)
 - **Where:** `scad-modeler/tests/` (new: `run_all.sh`, `README.md`, 8
   fixtures), `SKILL.md`.
@@ -1257,3 +1334,10 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
   separately.
 - **Already promoted to a rule?** Yes -- fixed directly in the reference file
   (the fix *is* the rule here, not a separate pattern to extract).
+
+### 2026-09-02 -- nas_deck_v3 socket assert used wrong depth variable so deck sockets intersected through 5mm septum
+- **Where:** `server_rack_modular_v3/scad/nas_deck_v3.scad:17` (V3 redesign, new pin/socket system)
+- **Symptom:** `openscad --render` on `nas_deck_v3.scad` aborted with `Assertion '((_socket_depth * 2) < (_deck_t + 10))' failed`. Exit 0 but no manifold geometry beyond the assert; `assembly_v3` inherited the same failure path before the fix. The faulty formula tested `8.5*2 < 5+10` (true by accident pre-edit, but after the initial "allow overlap" fudge it still masked the real condition: two 3.2mm blind sockets from opposite faces would total 6.4mm > 5.0mm deck thickness and break through).
+- **Root cause:** assert referenced the global `post_socket_depth` (8.5) instead of the deck-local reduced depth `_deck_socket_depth`. The +10 fudge was a placeholder to make the first render pass, not a real guard. The local variable was introduced two lines below the assert, so the check ran against the wrong value.
+- **Fix:** moved `_deck_socket_depth=2.4` above the asserts, changed guard to `assert(_deck_socket_depth*2 < _deck_t)` (2.4*2=4.8 < 5.0 leaves 0.2mm septum) and added `assert(_deck_socket_depth <= _socket_depth)`. Re-rendered `nas_deck_v3.scad` and `assembly_v3.scad` — both now manifold (deck 1480 verts, assembly 10154 verts) and STL exports clean (`--export-format=binstl` 144KB).
+- **Already promoted to a rule?** not yet — pattern matches INCIDENTS 2026-08-18 jackshaft assert (margin formula must reference the same clearance terms the geometry actually cuts).

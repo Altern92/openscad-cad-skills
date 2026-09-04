@@ -42,9 +42,16 @@ of contacts to an object with both sections:
     }
 
 `ratio` is that part's motion per unit of the sweep parameter: a gear pair
-meshing 20:40 turns at 1.0 and -0.5. Getting the sign wrong is the easy mistake
--- meshing external gears turn *opposite* ways. For a `prismatic` driver,
-`ratio` is millimetres per degree of sweep parameter.
+meshing 20:40 turns at 1.0 and -0.5. Getting the sign wrong is the easy
+mistake -- meshing external gears turn *opposite* ways, and a same-sign
+pair produces a sweep that "passes" without proving anything about the
+real mechanism. Checked automatically now (added 2026-09-04, see
+check_gear_mesh_signs() below): for every declared `gear_mesh` contact
+whose both parts are also drivers in the same motion block, this refuses
+to even start sweeping unless their ratios have opposite, nonzero signs.
+Declare a genuinely same-direction mesh (internal/planetary) with
+`"joint_type": "internal_gear_mesh"` instead of `"gear_mesh"` to opt out.
+For a `prismatic` driver, `ratio` is millimetres per degree of sweep parameter.
 
 Parts named in `contacts` keep their exemption here: a press fit is expected to
 overlap and is not reported, at any position. Parts not listed as drivers are
@@ -146,6 +153,69 @@ def transform_for(driver, t):
     T[:3, :3] = R
     T[:3, 3] = origin - R @ origin      # rotate about `origin`, not the world origin
     return T
+
+
+def _name_matches(declared, driver_part):
+    """Same case-insensitive substring convention as is_declared()/match_part(),
+    applied to two plain declared-name strings instead of an STL path."""
+    a, b = str(declared).lower(), str(driver_part).lower()
+    return a in b or b in a
+
+
+def check_gear_mesh_signs(contacts, motions):
+    """Gear-ratio sign sanity check (added 2026-09-04, see INCIDENTS.md).
+    This script's own docstring has always warned "getting the sign wrong
+    is the easy mistake -- meshing external gears turn opposite ways," but
+    nothing ever actually verified it: a same-sign ratio on a declared
+    gear_mesh pair produces a sweep that never actually separates the two
+    gears' relative motion the way real meshing teeth would, so "no
+    interference found" from that sweep proves nothing about the real
+    mechanism.
+
+    For every declared 'gear_mesh' contact whose both members are ALSO
+    drivers within the SAME motion block, requires opposite-sign, nonzero
+    ratios (the correct relationship for external spur/helical gears).
+    Scoped ONLY to joint_type == "gear_mesh" deliberately -- a worm_mesh's
+    ratio relationship isn't a simple sign rule (it's a large reduction
+    across non-parallel axes), and an internal/planetary mesh legitimately
+    turns same-direction; neither should be flagged by this heuristic.
+
+    Returns a list of human-readable failure strings (empty if nothing
+    wrong).
+    """
+    failures = []
+    for c in contacts:
+        if str(c.get("joint_type", "")).lower() != "gear_mesh":
+            continue
+        pair = c.get("pair", [])
+        if len(pair) != 2:
+            continue
+        name_a, name_b = pair
+        for motion in motions:
+            drivers = motion.get("drivers", [])
+            driver_a = next((d for d in drivers if _name_matches(name_a, d.get("part", ""))), None)
+            driver_b = next((d for d in drivers if _name_matches(name_b, d.get("part", ""))), None)
+            if driver_a is None or driver_b is None:
+                continue  # this gear_mesh pair isn't (both) driven in this motion block
+            ratio_a = float(driver_a.get("ratio", 1.0))
+            ratio_b = float(driver_b.get("ratio", 1.0))
+            if ratio_a == 0.0 or ratio_b == 0.0:
+                failures.append(
+                    f"gear_mesh '{name_a}'<->'{name_b}' in motion '{motion.get('id', '?')}': "
+                    f"one driver has ratio 0 (not actually driven) -- a gear_mesh pair "
+                    f"where one side never moves relative to the other cannot mesh; check "
+                    f"the ratio was set intentionally.")
+            elif (ratio_a > 0) == (ratio_b > 0):
+                failures.append(
+                    f"gear_mesh '{name_a}'<->'{name_b}' in motion '{motion.get('id', '?')}': "
+                    f"both drivers have SAME-sign ratio ({ratio_a}, {ratio_b}). External "
+                    f"gears mesh in OPPOSITE rotational directions -- a same-sign ratio is "
+                    f"almost always the sign gotten backwards, and the sweep below would "
+                    f"prove nothing about a real collision between real meshing teeth. If "
+                    f"this is a genuine internal/planetary mesh (same-direction by design), "
+                    f"declare it with \"joint_type\": \"internal_gear_mesh\" instead of "
+                    f"\"gear_mesh\" to opt out of this check.")
+    return failures
 
 
 def sweep_period(motion):
@@ -307,6 +377,15 @@ def main():
         print(f"No 'motion' section in {args.joints} -- nothing to sweep. "
               f"(check_collisions.py covers the static pose.)")
         return EXIT_OK
+
+    sign_failures = check_gear_mesh_signs(contacts, motions)
+    if sign_failures:
+        print("FAIL: gear-ratio sign check (before any sweep runs):")
+        for f in sign_failures:
+            print(f"  - {f}")
+        print("Fix the ratio sign at the source -- do not sweep with a sign "
+              "known to be wrong; the result would not mean anything.")
+        return EXIT_FAIL
 
     meshes, degraded = {}, False
     for p in args.stls:

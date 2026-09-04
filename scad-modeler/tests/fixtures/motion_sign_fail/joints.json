@@ -1,0 +1,21 @@
+{
+  "contacts": [
+    {"pair": ["pinion", "spur"], "joint_type": "gear_mesh",
+     "expected_interference_mm": [0.5, 2.0], "multi_region_ok": true,
+     "derivation": "test fixture, not a real project"}
+  ],
+  "motion": [
+    {
+      "id": "reduction_stage",
+      "drivers": [
+        {"part": "pinion", "type": "revolute", "axis": [0, 0, 1],
+         "origin": [0, 0, 0], "ratio": 1.0, "teeth": 11},
+        {"part": "spur", "type": "revolute", "axis": [0, 0, 1],
+         "origin": [38.5, 0, 0], "ratio": 0.16667, "teeth": 66}
+      ],
+      "range_deg": [0, 360],
+      "step_deg": 2.0,
+      "min_clearance_mm": 0.0
+    }
+  ]
+}

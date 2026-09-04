@@ -1,0 +1,21 @@
+{
+  "contacts": [
+    {"pair": ["ring", "planet"], "joint_type": "internal_gear_mesh",
+     "expected_interference_mm": [0.5, 2.0], "multi_region_ok": true,
+     "derivation": "test fixture, not a real project -- same-direction internal mesh"}
+  ],
+  "motion": [
+    {
+      "id": "planetary",
+      "drivers": [
+        {"part": "ring", "type": "revolute", "axis": [0, 0, 1],
+         "origin": [0, 0, 0], "ratio": 1.0, "teeth": 60},
+        {"part": "planet", "type": "revolute", "axis": [0, 0, 1],
+         "origin": [30, 0, 0], "ratio": 0.5, "teeth": 20}
+      ],
+      "range_deg": [0, 360],
+      "step_deg": 2.0,
+      "min_clearance_mm": 0.0
+    }
+  ]
+}

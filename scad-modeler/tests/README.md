@@ -52,12 +52,15 @@ check always fails."
 | `printability_wall_fail` | `check_printability.py` flags a genuinely thin (0.3mm) wall |
 | `collisions_candidate_touch` | `check_collisions.py` classifies an undeclared, exactly-touching pair as CANDIDATE INTENTIONAL TOUCH (Phase-2 Pattern 2), with a stub printed |
 | `collisions_near_miss` | `check_collisions.py` surfaces a 0.15mm gap as a non-fatal NEAR MISS note, not a failure |
+| `motion_sign_fail` | `motion_sweep.py` refuses to sweep a `gear_mesh` pair whose drivers share the same sign |
+| `motion_sign_pass` | a correctly opposite-signed `gear_mesh` pair is not false-flagged |
+| `motion_sign_internal_optout` | `"internal_gear_mesh"` opts a genuinely same-direction pair out of the sign check |
 
 Not yet covered here (older checks, predating this suite — add a fixture
 when touching one of these next): `check_connectivity.py`,
 `check_dimensions.py`, `check_features.py`, `check_bore_reachability.py`,
 `check_subfeature_overlap.py`, `check_dependencies.py`'s edit
-classification, `motion_sweep.py`, `check_assumptions.py`,
+classification, `check_assumptions.py`,
 `check_service_envelope.py`, `check_plan.py`, `check_intake.py`,
 `check_rules.py`, `expected_bounds`/`forbidden_regions` in
 `check_collisions.py`. Deliberately not backfilled all at once — add one

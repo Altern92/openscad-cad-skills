@@ -591,6 +591,11 @@ Add a `motion` block to the same `joints.json` (see `templates/joints.json`):
 each driver gets an axis, an origin, and a `ratio` — its motion per unit of the
 sweep parameter. **Meshing external gears turn opposite ways, so one ratio is
 negative**; getting that sign wrong produces a sweep that proves nothing.
+Checked automatically since 2026-09-04: for a declared `gear_mesh` contact
+whose both parts are also drivers in the same motion block, `motion_sweep.py`
+refuses to sweep at all unless the ratios have opposite, nonzero signs —
+opt out a genuine same-direction (internal/planetary) mesh with
+`"joint_type": "internal_gear_mesh"`.
 
 Give `teeth` on every revolute driver and the sweep collapses to one tooth
 pitch — 18° instead of 360° for a 20-tooth gear, a 20× saving — applied only
