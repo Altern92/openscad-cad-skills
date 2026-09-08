@@ -1066,3 +1066,10 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 - **Root cause:** Sloppiness against own code; root cause unresolved at the time.
 - **Fix:** (a) Correct count 6. (b) Value-args work, is_undef-gates don't. Canonical entries above carry corrected facts.
 - **Already promoted to a rule?** n/a -- meta-entry.
+
+### 2026-09-08 -- coupon series instead of single version, plastic wasted (cnc_control_enclosure)
+- **Where:** v1 `din_clip_fit_coupon.scad` (`widths = [35.3, 35.4, 35.5, 35.6]`, 4 variants one print); v2 `coupon.scad` (clip + corner + M3 strip, 3 tests one print).
+- **Symptom:** User: "DARAI TIK PO VIENA KUPONO VERSIJA, KAI REIKIA BENT KELIU PATIKRINIMUI" -- printing N variants at once wastes (N-1) prints of plastic and time; failures can't be diagnosed one at a time.
+- **Root cause:** Batch thinking (test everything in one print) instead of sequential: print ONE variant, measure result, adjust ONE variable, print next. Same D41 incrementalism class, inverted -- overshooting instead of undershooting, same waste.
+- **Fix:** Rule: ONE coupon version per print. Need 4 widths tested = 4 separate small prints, each informing the next. Exception: NONE -- a 15-min single print is cheaper than a 1-hour 4-variant print with 3 useless parts.
+- **Already promoted to a rule?** yes -- this entry. Single-coupon rule.
