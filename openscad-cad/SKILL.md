@@ -1,6 +1,6 @@
 ---
 name: openscad-cad
-description: Drive OpenSCAD directly from the CLI to write, render, visually verify, and export parametric 3D models — without opening OpenSCAD's GUI. Use whenever the user mentions OpenSCAD, .scad files, parametric CAD, Gridfinity bins/baseplates/inserts, enclosures, brackets, or wants a "3D printable part," even if they just describe dimensions and don't name the tool. Also use this skill when the user wants to modify an existing .scad file, generate STL/3MF for 3D printing, or batch-generate several sizes of the same design.
+description: Drive OpenSCAD directly from the CLI to write, render, visually verify, and export parametric 3D models — without opening OpenSCAD's GUI. Use whenever the user mentions OpenSCAD, .scad files, parametric CAD, Gridfinity bins/baseplates/inserts, enclosures, brackets, or wants a "3D printable part," even if they just describe dimensions and don't name the tool. Also use this skill when the user wants to modify an existing .scad file, generate STL/3MF for 3D printing, or batch-generate several sizes of the same design. ALSO USE when the user asks to delete/remove a part, change a joint/magnet interface, rename a module, or archive obsolete versions — §4.6 impact analysis (dependents + callers + archive-first) is mandatory before any such change. MULTI-PART assemblies (2+ interacting parts that must fit: racks, gearboxes, enclosures with panels): ALSO load the scad-modeler skill — it adds gated planning, engineering calculations before geometry, and automated validation; openscad-cad alone is NOT enough there.
 ---
 
 # OpenSCAD CAD Skill
@@ -136,6 +136,14 @@ openscad -o output.stl --export-format=binstl \
   -D 'bin_width=3' -D 'bin_depth=2' -D 'bin_height=6' -D 'divider_count=4' \
   model.scad
 ```
+
+> ⚠️ `is_undef()` + `-D` is broken in the `openscad@snapshot` 2026.06.12
+> build: `is_undef(X)` returns `true` even when `-D X=...` defined it
+> (verified 2026-09-07: `-D F7=1` then `is_undef(F7)` → `true`). So never
+> gate `-D` flags through `is_undef()` on this build — pass values directly
+> as module args with plain defaults (`module wall(side=1)`), which work.
+> If a `-D` flag seems ignored after 2 tries, make a separate file instead
+> of diagnosing further.
 
 On the `openscad@snapshot` build, pass `--backend=Manifold` on render/export
 commands — it's dramatically faster than the default CGAL backend (a bin render
@@ -350,6 +358,25 @@ where being off by 0.1mm changes nothing.
 State the confidence tier reached in the final response — see
 `references/confidence-tiers.md`. A part with no numeric check is Tier 1, and
 saying so is more useful than implying more.
+
+## 4.6 Impact analysis before any design change (mandatory)
+
+Before deleting a part, changing a joint/pocket interface, or renaming a
+module, run these four steps. Skipping them caused real incidents (carrier
+removal left orphan sockets — D47; see `../INCIDENTS.md`).
+
+1. **Dependents**: `grep -rn '^use\|^include' scad/` — which files depend on
+   the file being changed.
+2. **Callers**: `grep -rn '<module_name>' scad/` — what calls the module
+   being changed or removed.
+3. **Show the list to the user** before executing (what will be touched).
+4. **Archive first**: move superseded `.scad`/`.stl` to `archive/` in the
+   same step, never as a separate later request. Nothing is deleted outright.
+
+(Rationale: codebase-memory graph has no OpenSCAD grammar — `.scad` files
+are invisible to it. But OpenSCAD dependencies are strict `use`/`include`
+statements, so one grep gives the complete impact tree in milliseconds.
+Graph navigates elsewhere; here grep navigates, file confirms — D48.)
 
 ## 5. Output conventions
 

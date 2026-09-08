@@ -250,6 +250,29 @@ module bent_duct(start, radius, bend_angle, d, segments) {
 //   // prints a plate with holes at 4.8, 4.9, 5.0, 5.1, 5.2, 5.3mm,
 //   // each labelled with its own diameter.
 // ------------------------------------------------------------
+// ------------------------------------------------------------
+// PATTERNS 1-4: session lessons 2026-09-07 (cnc_control_enclosure v2).
+//
+// PATTERN 1 -- every joint answers "fastened by what" at params stage.
+// A wall placed butt-to-butt with no holes/brackets is a design gap no
+// render check catches. Before modelling: for each joint list fastener
+// type + heat-set/clearance diameters + positions. (2 user-caught gaps.)
+//
+// PATTERN 2 -- slot pitch must exceed slot length.
+// N separate slots need pitch > length along the row axis, else they
+// merge into one opening. Check: pitch - length = real gap > 0.
+// (Caught twice: v1 panel_side, v2 wall_side.)
+//
+// PATTERN 3 -- one part = one file + own trailing call.
+// A multi-module file with a single trailing call leaves siblings
+// unrenderable and unexportable. Each part gets its own file so every
+// STL exports independently. (10 of 14 parts exported before split.)
+//
+// PATTERN 4 -- assert glob count > 0 before measuring.
+// An empty glob iterates zero times with no error -- a silent false PASS.
+// After every glob/file-list step: assert non-empty before proceeding.
+// (BBox script "passed" twice measuring nothing.)
+// ------------------------------------------------------------
 module calibration_coupon(target_d, step = 0.1, n_below = 2, n_above = 3,
                            plate_h = 4, spacing = 10, label_size = 2.6) {
     n = n_below + n_above + 1;

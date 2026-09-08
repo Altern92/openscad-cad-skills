@@ -794,601 +794,275 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
   root geometric cause) when relayed to this session.
 - **Root cause:** the current declared-contact check takes the MAX
   penetration depth across ALL FCL contact points for a pair and compares
-  that single scalar to the declared `expected_interference_mm` range.
-  Penetration depth is a per-contact-point LOCAL distance measure with no
-  awareness of contact AREA or LOCATION -- so it structurally cannot
-  distinguish "one legitimate small-depth contact zone" from "a legitimate
-  small-depth zone PLUS a completely separate, differently-located
-  small-depth zone that has nothing to do with the declared joint." A
-  genuine single-purpose joint (a gear mesh, a press fit) should physically
-  touch in ONE contiguous region; multiple spatially disjoint contact
-  patches between the same declared pair is itself a red flag that nothing
-  in the current chain checks for. This is a distinct gap from both the
-  2026-08-19 volume-heuristic bug and its penetration-depth fix (both
-  entries below) -- fixing "how much" is compared per pair does not fix
-  "whether it's actually one physical contact or several unrelated ones."
-- **Fix:** added `intersection_regions()`: for a declared-contact pair that
-  passes its depth range, the boolean intersection is additionally split
-  into connected components (the same `.split(only_watertight=False)`
-  technique the other session used manually to find this in the first
-  place). More than one region at or above a 0.5mm³ tessellation-noise
-  floor fails as `MULTIPLE DISJOINT CONTACT REGIONS`, listing each
-  region's volume and bounds, unless the contact entry declares
-  `"multi_region_ok": true` (for a joint that genuinely touches in several
-  places on purpose, e.g. a splined shaft). Degenerate near-zero boolean
-  results are handled the same way as `check_subfeature_overlap.py`'s
-  same-day fix (trust a small `.volume` even when `is_volume` is false;
-  only distrust a large one). Tested against a synthetic reproduction of
-  the exact reported shape: two disjoint 0.2mm-deep, similarly-shallow
-  contact regions between the same declared pair now correctly fails; the
-  same pair with only the legitimate region present correctly passes; the
-  same two-region case with `multi_region_ok: true` declared correctly
-  passes. Full prior regression (0.1mm/0.3mm depth-range cases, the
-  synthetic gear-assembly `validate_scad.sh --all` integration) re-run and
-  confirmed unaffected.
-- **Already promoted to a rule?** Yes -- fixed directly in
-  `check_collisions.py`, documented in `SKILL.md` §7 and
-  `templates/joints.json`.
-
-### 2026-08-19 -- validate_scad.sh's fail-fast (set -e) let one unrelated failure mask whether OTHER checks ran at all
-- **Where:** `scad-modeler/scripts/validate_scad.sh`, `scad-modeler/scripts/check_rules.py`,
-  `scad-modeler/rules_manifest.yaml` -- discovered when a different, parallel
-  Claude Code session ran a full re-validation of
-  `esp32_rc_modelis/mechanical/steering_reduction_gearbox/` (prompted by
-  this session, after this skill's tooling matured well past that project's
-  last validation round) and reported its final `check_rules.py` output.
-- **Symptom:** R-04 (connectivity) and R-09 (motion sweep) were marked FAIL
-  in the cited output, immediately followed by the model's own prose
-  explaining "the gate stops early [at R-11's unresolved Critical
-  assumption], but I manually, separately confirmed the geometry itself is
-  clean." That is an unverified self-assessment standing in for a gate that
-  never actually produced a result for those two rules -- the exact failure
-  mode the whole L2-L4 rules-enforcement design exists to eliminate, now
-  demonstrated happening in practice on real output, not hypothetically.
-- **Root cause:** `validate_scad.sh` used `set -e`, so the FIRST failing
-  command (in this case `check_assumptions.py`, gating R-11, completely
-  unrelated to R-04/R-09) aborted the entire script before the parts loop,
-  bore-reachability check, or mechanics auto-trigger ever ran. Separately,
-  `rules_manifest.yaml`'s R-04 and R-09 both gated on the WHOLE script's
-  exit code (`bash validate_scad.sh --all`) as a proxy for one specific
-  check's result -- even after fixing the fail-fast issue, a shared exit
-  code still can't distinguish "this specific check failed" from "some
-  other independent check in the same run failed."
-- **Fix:** two-part. (1) `validate_scad.sh` no longer uses `set -e`; every
-  independent check runs regardless of earlier failures and prints its own
-  `CHECK_RESULT <name>=PASS|FAIL|SKIP` line; the script's own exit code is
-  still non-zero if anything failed, for a human running it directly.
-  `validate_file()` returns instead of exiting on a render failure so other
-  parts still get attempted. (2) `check_rules.py` gained an optional
-  `success_pattern` field: when a rule's gate is a multi-purpose script,
-  its verdict is decided by searching that gate's own output for the
-  rule's specific `CHECK_RESULT` marker, not by the shared process exit
-  code. R-04/R-09 now use `success_pattern: "CHECK_RESULT (connectivity|
-  mechanics)=(PASS|SKIP)"`. Gate output is cached by literal command string
-  so R-04 and R-09 sharing one `validate_scad.sh --all` invocation doesn't
-  render twice. Tested directly against the reported scenario: a project
-  with a real unresolved Critical assumption (R-11 correctly FAIL) and
-  otherwise-clean geometry (a tangent gear pair with correct motion) now
-  shows R-04=PASS, R-09=PASS, R-11=FAIL with no self-reported "I checked
-  separately" needed -- and a genuinely broken gear mesh in the same setup
-  correctly still shows R-09=FAIL. Full regression re-run (empty project,
-  bash 3.2, gross overlap, clean tangent case) confirmed unaffected.
-- **Already promoted to a rule?** Yes -- fixed directly in `validate_scad.sh`,
-  `check_rules.py`, and `rules_manifest.yaml`.
-
-### 2026-08-19 -- check_collisions.py's declared-contact check upgraded from a volume heuristic to exact penetration depth
-- **Where:** `scad-modeler/scripts/check_collisions.py`, following up on the
-  same-day volume-plausibility-bound fix (below) after asking Perplexity
-  deep-research for an evidence-based critique of the whole validation
-  workflow, specifically whether a better geometric quantity than
-  boolean-intersection volume exists for verifying a declared
-  `expected_interference_mm` spec.
-- **Symptom (of the interim fix, not a bug in this fix):** the same-day
-  volume-plausibility-bound fix (25% of the smaller part's own volume) could
-  only catch GROSS overlap, not a real out-of-spec interference within
-  plausible range -- confirmed directly: two 10mm cubes forced to overlap by
-  0.1mm (correct, within a declared 0.05-0.15mm press-fit spec) and by
-  0.3mm (wrong, outside that same spec, 2x the upper bound) produced overlap
-  volumes of 10mm^3 and 30mm^3 respectively -- both comfortably under the
-  25%-of-1000mm^3 threshold, so the plausibility bound would have silently
-  passed BOTH as OK, unable to distinguish a correct fit from one 3x too
-  deep.
-- **Root cause:** a boolean-intersection volume is fundamentally the wrong
-  unit to compare against a linear mm interference spec -- confirmed by
-  research citing GJK/EPA-based penetration depth as the standard quantity
-  for exactly this in contact mechanics and robotics, available via the
-  same FCL backend `check_collisions.py` already depends on through
-  `trimesh.collision` (previously only used for boolean overlap detection
-  and minimum-distance queries, not its penetration-depth output).
-- **Fix:** `manager.in_collision_internal(return_data=True)` now also
-  returns FCL `ContactData` per contact point; the max `.depth` (mm) across
-  a pair's contact points is compared directly against the declared
-  `[lo, hi]` mm range. Not an exact whole-shape EPA minimum-translation-
-  distance (would need convex decomposition first) but a correctly-unified,
-  much more precise measure than volume. The old volume-plausibility bound
-  is kept only as a defensive fallback for the rare case FCL returns no
-  contact data for a pair trimesh otherwise reports as colliding. Tested:
-  the 0.1mm/0.15mm-spec cube case now correctly passes with depth measured
-  as exactly 0.100mm; the 0.3mm cube case now correctly fails with depth
-  measured as exactly 0.300mm (previously silently passed); the full
-  synthetic gear-assembly regression (tangent-touch pass, 10mm-forced-
-  overlap fail, full `validate_scad.sh --all` integration) still passes
-  with the new depth-based path, correctly reporting the failing case's
-  measured depth as ~9.98mm.
-- **Already promoted to a rule?** Yes -- fixed directly in the script.
-
-### 2026-08-19 -- check_collisions.py accepted ANY overlap volume for a declared contact with a nonzero range
-- **Where:** `scad-modeler/scripts/check_collisions.py`, discovered while
-  building and testing the mechanics auto-trigger (below) against a
-  deliberately-broken synthetic gear pair.
-- **Symptom:** two cylinders forced to overlap by 10mm (1114.74mm³, ~44% of
-  the smaller cylinder's own volume -- an obviously wrong, unbuildable
-  position) reported `OK (intentional gear_mesh)` because they were declared
-  as a contact pair with `expected_interference_mm: [0.0, 0.5]`. The check's
-  own logic only ever compared the declared range's upper bound against zero
-  (`if hi <= 0.0 and vol > 0.0: FAIL`); any declared range with `hi > 0`
-  skipped volume validation entirely and always reported OK, regardless of
-  how large the real overlap was.
-- **Root cause:** a real measurement-type mismatch the code's own comment
-  half-acknowledged ("volume is a severity signal, not a linear depth") but
-  didn't actually act on for the common case (`hi > 0`) -- only the `hi <=
-  0` edge case was enforced. A boolean-intersection volume can't be compared
-  exactly to a linear interference-depth range without knowing contact area,
-  but "can't compare exactly" was implemented as "don't compare at all,"
-  silently disabling the check for every declared press-fit/gear-mesh
-  contact with any nonzero tolerance -- which is most of them.
-- **Fix:** added a plausibility bound: for `hi > 0`, overlap volume beyond
-  25% of the smaller part's own volume now fails as `IMPLAUSIBLE DECLARED
-  OVERLAP` regardless of the declaration. Not an exact fix (still can't
-  derive true linear interference from volume alone), but catches gross,
-  obviously-wrong overlap while still passing legitimate small interference
-  fits. Tested: the 1114.74mm³ case now correctly fails; a small legitimate
-  ~12mm³ overlap (0.5% of the smaller part's volume) still correctly passes;
-  the original zero-overlap tangent case still passes clean.
-- **Already promoted to a rule?** Yes -- fixed directly in the script.
-
-### 2026-08-19 -- mechanics (motion) checks required someone to remember to run them
-- **Where:** `scad-modeler/scripts/validate_scad.sh`.
-- **Symptom:** `check_collisions.py` and `motion_sweep.py` both existed and
-  worked, but neither was ever auto-triggered by `validate_scad.sh --all` --
-  a moving assembly could pass full validation without either ever running,
-  exactly the gap the user's own vision (point 4: "jei tai buna judancios
-  detales, automatiskai tai ir planuoja, net patikrina mechanika") called
-  out. `rules_manifest.yaml`'s R-09 could only mark this MANUAL.
-- **Root cause:** two of this skill's own reference docs
-  (`intake_and_analysis.md`, `mechanics_and_motion_planning.md`) each
-  independently proposed a `design_manifest.json.motion` auto-trigger with
-  mutually incompatible schemas (an object with `has_kinematics` vs. an
-  array of driver/driven joint objects) -- and BOTH were different from
-  `motion_sweep.py`'s own real, already-tested interface, which reads a
-  `motion` array from `joints.json` (the same file `check_collisions.py`
-  already uses for contacts). Neither doc's proposal matched the working
-  script.
-- **Fix:** wired the trigger to what `motion_sweep.py` actually reads:
-  `validate_scad.sh --all` now detects a non-empty `joints.json#motion`
-  array, renders each part positioned in assembly space via `assembly.scad`'s
-  `MODE="part"`/`PART="<name>"` switch (SKILL.md §6 -- the per-part STLs the
-  main loop produces are in local coordinates, not valid for cross-part
-  interference checking), then runs `check_collisions.py` (static
-  precondition) and `motion_sweep.py` (dynamic sweep) automatically, in that
-  order. Tested end-to-end against a real two-part synthetic gear assembly:
-  clean tangent case passes, a deliberately-broken deep-overlap case fails
-  with a non-zero exit code that propagates through `set -e`, and a
-  no-motion/no-joints.json project is unaffected (mechanics block correctly
-  skipped). `rules_manifest.yaml` R-09 updated to `kind: auto` accordingly.
-- **Already promoted to a rule?** Yes -- fixed directly in
-  `validate_scad.sh` and `rules_manifest.yaml` R-09.
-
-### 2026-08-19 -- validate_scad.sh crashed on an empty parts/ directory under macOS's default bash
-- **Where:** `scad-modeler/scripts/validate_scad.sh`, and (root-caused from
-  the same bug) `scad-modeler/scripts/check_rules.py`'s first version.
-- **Symptom:** running the new `check_rules.py` (built this session to close
-  the L4 rules-enforcement gap) against a bare project directory with no
-  `parts/*.scad` files yet crashed with `parts[@]: unbound variable` instead
-  of printing the intended `WARNING: no files found under parts/*.scad`.
-  Never seen before this session because every prior test run this whole
-  session happened to have at least one part file present, so the empty-array
-  code path was never actually exercised.
-- **Root cause:** two independent problems that happened to surface
-  together. (1) macOS ships bash 3.2.57 as `/bin/bash` (frozen at the GPLv2
-  license boundary, no 4.4+); bash <4.4 treats `"${array[@]}"` on a
-  declared-but-empty array as an unbound variable under `set -u`, even
-  though `${#array[@]}` correctly reports 0 -- confirmed directly: `arr=()`
-  under `set -u` fails on `for x in "${arr[@]}"` but not on
-  `${#arr[@]}`. `validate_scad.sh`'s `for scad in "${parts[@]}"; do` hit
-  this exactly. (2) Separately, `check_rules.py`'s first version ran each
-  gate command via `subprocess.run(cmd, shell=True, ...)` without passing
-  `cwd=project_dir` -- `validate_scad.sh` and its relative-path globs assume
-  the project directory IS the working directory, not an argument, so the
-  gate was silently checking whatever directory `check_rules.py` itself was
-  invoked from.
-- **Fix:** `validate_scad.sh` now uses the `${parts[@]+"${parts[@]}"}` /
-  `${built_stls[@]+"${built_stls[@]}"}` idiom (a standard bash
-  version-portable empty-array guard) instead of bare `"${array[@]}"`.
-  `check_rules.py` now passes `cwd=project_dir` to every gate subprocess.
-  Both re-tested: an empty project directory now correctly prints the
-  warning and passes; a populated one still passes; the fixes were verified
-  against real bash 3.2 directly (`/bin/bash -c '...'`), not just assumed
-  from documentation.
-- **Already promoted to a rule?** Yes -- fixed directly in both scripts;
-  no separate prose rule needed since this is a portability bug, not a
-  process gap.
-
-### 2026-08-19 -- belt-and-pulley stage passed every geometry check but could never physically be tensioned
-- **Where:** `esp32_rc_modelis` (steering/reduction belt drive, exact part
-  file not captured in the source transcript) -- a different, parallel
-  Claude Code session's own work, self-diagnosed and written up in a
-  blunt post-mortem shared with this session; not fixed directly here.
-- **Symptom:** two pulleys modeled at fixed, non-adjustable centers,
-  sized against a belt pitch length -- every declared geometry check
-  (bbox, bore diameter, part-to-part collision in final position) passed.
-  The design was still physically un-buildable: a non-stretch GT2 belt
-  cannot be installed onto two pulleys whose centers are both fixed, with
-  no tensioner, no idler, and no way to shorten the effective path during
-  assembly.
-- **Root cause:** category-B blind spot -- every check in this chain
-  validates parts in their *final assembled position*; none of them
-  simulate the *process* of getting a part into that position. A belt
-  loop closing around two fixed centers with zero slack has no assembly
-  path, and nothing in geometry-only validation asks "can this actually
-  be installed," only "does it collide once installed."
-- **Fix:** Not fixed by this session (source project, another session's
-  work) -- motivated `scad-modeler/SKILL.md` §0.6 "Physical assembly
-  narrative," which requires stating the installation path for any
-  belt/bearing/fastener feature in writing before its geometry is coded.
-- **Already promoted to a rule?** Yes -- `SKILL.md` §0.6 (this session,
-  2026-08-19), though as prose/checklist only -- no automated check can
-  catch "this belt architecture has no tensioner," that's a design-review
-  judgment call, not a geometry predicate.
-
-### 2026-08-19 -- three bearing bores measured correctly but were sealed behind unbored material with no path to the outside
-- **Where:** a gearbox frame with three bearing towers, each modeled as a
-  cylinder bored perpendicular through its own center axis -- a
-  different, parallel Claude Code session's own work, self-diagnosed and
-  written up in a blunt post-mortem shared with this session.
-- **Symptom:** `check_features.py` correctly measured each bore's
-  diameter *at the declared probe point* and passed; `check_connectivity.py`
-  reported each tower as one clean, watertight body. Both were true and
-  both missed the real problem: every one of the three bores was sealed
-  behind ~8mm of solid, un-bored material, with no path connecting the
-  bore to any exterior surface. The part was completely unassemblable --
-  a bearing could never be inserted -- and nothing in the validation chain
-  said so.
-- **Root cause:** category-B/C blind spot -- a bore that measures the
-  right diameter *at its seat* proves nothing about whether material in
-  the way *between* the seat and the outside was ever actually removed. A
-  fully enclosed internal cavity is still one connected, perfectly valid
-  watertight shell; `body_count==1` and correct-diameter-at-one-point are
-  both necessary but not sufficient for "this hole goes anywhere."
-- **Fix:** The other session's §7 addition was prose + an inline code
-  example only, not a runnable check -- itself a live instance of the
-  "log is inert" mistake this whole post-mortem was about. This session
-  turned it into `scad-modeler/scripts/check_bore_reachability.py`: a
-  point-containment scan (`trimesh.contains()`, needs `rtree`) along a
-  declared bore axis from a `bores.json` entry, wired into
-  `validate_scad.sh --all` (opt-in via `bores.json`'s existence, runs
-  once against every rendered part STL). Tested against synthetic
-  fixtures matching this exact geometry -- a tower with a bore drilled
-  only halfway through correctly failed (blocked at the first
-  unreached point), the same tower with a full-depth bore correctly
-  passed -- and confirmed end-to-end through a real `validate_scad.sh
-  --all` run in both states.
-- **Already promoted to a rule?** Yes -- `scad-modeler/scripts/check_bore_reachability.py`,
-  wired into `validate_scad.sh`, referenced from SKILL.md §0.6/§7.
-
-### 2026-08-19 -- a bearing tower overlapped a motor mount by 419mm³, invisible because both lived inside one part's `union()`
-- **Where:** a gearbox frame part combining a bearing tower and a motor-
-  mounting cradle in a single `union()` -- a different, parallel Claude
-  Code session's own work, self-diagnosed and written up in a blunt
-  post-mortem shared with this session.
-- **Symptom:** the part rendered, exported as one watertight STL, and
-  passed every check in the chain -- `check_collisions.py` never saw a
-  problem because it only ever compares *separately exported* STL files
-  against each other. Once the tower and the cradle were `union()`-ed
-  together into one part, they stopped existing as distinguishable
-  objects to any tool downstream, so a real 419mm³ overlap between them
-  was structurally invisible, not just missed.
-- **Root cause:** category-C blind spot -- `union()` of two overlapping
-  solids is still one valid, single-body, watertight shell; nothing about
-  that operation records or exposes that an overlap happened. The whole
-  collision-checking approach in this skill is built on comparing
-  distinct STL files, which by construction cannot see inside one.
-- **Fix:** The other session's §7 addition was prose + an inline code
-  example only, not a runnable check -- itself a live instance of the
-  "log is inert" mistake this whole post-mortem was about. This session
-  turned it into `scad-modeler/scripts/check_subfeature_overlap.py`:
-  pairwise boolean-intersection volume between solo-exported sub-feature
-  STLs, with `--exempt` for declared intentional fusions. Tested against
-  synthetic fixtures -- two overlapping boxes correctly failed with the
-  exact expected overlap volume (300mm³ for a known 10x10x3mm overlap
-  region), two clear boxes correctly passed, and the overlapping pair
-  correctly passed once declared via `--exempt`. NOT wired into
-  `validate_scad.sh` -- unlike the bore check, this needs an extra export
-  step (each sub-module rendered solo, pre-`union()`) that the normal
-  per-part render doesn't produce, so it stays a manual command
-  documented in SKILL.md §7, the same pattern as `check_collisions.py`.
-- **Already promoted to a rule?** Yes -- `scad-modeler/scripts/check_subfeature_overlap.py`,
-  documented as a manual step in SKILL.md §0.6/§7 (not auto-run, by design).
-
-### 2026-08-19 -- short blind pilot holes near a curved tower wall left tiny negative-volume "ghost" bodies, not a real design error
-- **Where:** `esp32_rc_modelis/mechanical/steering_reduction_gearbox/parts/
-  gearbox_frame.scad` (`cap_pilot_holes_x`) and `bearing_cap.scad` -- a
-  different, parallel Claude Code session's own work while fixing the
-  incident below (jackshaft bearing axial retention); diagnosed from a
-  shared transcript, not fixed directly by this session.
-- **Symptom:** after adding M2 self-tap pilot holes for the new
-  `bearing_cap`, `trimesh.body_count`/`.split()` reported extra
-  disconnected bodies -- small, consistently NEGATIVE-volume shards
-  (~-10mm³ to -16mm³, i.e. inverted normals) near the pilot hole location.
-  Six debug variants were tried (removing a `-0.1mm` pre-offset, raising
-  `$fn` 32→64, widening the hole 1.6mm→2.0mm) -- none of them cleared it.
-  Only two configurations came out clean: a hole with a much larger
-  diameter (5mm), and a hole deliberately cut with generous overlap past
-  the tower's true outer surface instead of a precisely-sized blind depth.
-- **Root cause:** the pilot hole's outer end landed almost exactly tangent
-  to the tower's own curved outer cylindrical surface -- a near-tangent
-  intersection between two curved CSG surfaces. At that near-tangency,
-  floating-point/mesh-tessellation precision in the CGAL/Manifold boolean
-  engine can leave a tiny inverted-normal shard behind instead of a clean
-  cut, and the effect is insensitive to `$fn`/diameter tweaks that don't
-  change the tangency condition itself -- only genuine geometric margin
-  (bigger diameter, or a cut that clearly crosses the real surface with
-  overlap) fixes it. This is a known category of CSG boolean fragility
-  (grazing/near-tangent intersections), not a logic bug in the OpenSCAD
-  code, and not a real disconnected-body design error either -- a false-
-  positive-*adjacent* case for `check_connectivity.py`: the check correctly
-  reports extra bodies, but the fix is a modeling-margin change, not
-  evidence the part is actually two pieces.
-- **Fix:** Not fixed/confirmed by this session -- diagnosed and relayed as
-  a recommendation to the other session: replace the short blind pilot hole
-  with either a full through-hole, or a blind cut that starts clearly
-  outside the tower's outer surface with generous overlap margin, rather
-  than a depth calculated to land precisely at the wall.
-- **Already promoted to a rule?** not yet -- candidate for a part-file
-  modeling note ("give a boolean cut genuine overlap margin past a curved
-  surface it's not meant to just graze") and/or a `check_connectivity.py`
-  docstring note ("a small negative-volume disconnected body is often a
-  tangent-CSG-boolean artifact from a blind cut near a curved surface --
-  try more overlap/diameter before assuming the part design itself is
-  wrong").
-
-### 2026-08-19 -- gearbox_frame.stl rendered as two physically disconnected bodies
-- **Where:** `esp32_rc_modelis/mechanical/.../gearbox_frame.scad` (a different,
-  parallel Claude Code session's own work; reported directly by that session)
-- **Symptom:** a part meant to be printed as one solid piece was actually two
-  unconnected bodies -- a floating disc (~1043mm³, bounds X:±9mm, Z:25-29mm)
-  matching the upper bearing tower exactly, visible as a piece "hanging in
-  air" in a render. `check_dimensions.py` passed (same overall bbox either
-  way) and `check_collisions.py` passed (it only checks BETWEEN separate STL
-  files, never within one file's own geometry).
-- **Root cause:** fixing a collision between the tower's support legs and a
-  worm gear's teeth widened the legs' radius from 7mm to 15mm. That solved
-  the collision. Nobody re-checked whether the legs, at the new radius, still
-  touched the disc they were supposed to hold up -- they didn't (disc radius
-  9mm, legs' new inner edge 12mm, a permanent 3mm gap). The session had a
-  working tool for exactly this (`trimesh` connected-body count) and used it
-  manually, once, after the bug was already visible by eye -- it was never a
-  standard, mandatory validation step.
-- **Fix:** promoted directly to a rule this session -- `scripts/
-  check_connectivity.py` (new; uses `trimesh.body_count`/`.split()`) is now
-  wired into `validate_scad.sh` as a MANDATORY, default-on check for every
-  part (opt out via `// EXPECTED_BODIES: N` for the rare genuinely-multi-body
-  part). `SKILL.md` §7 also now says explicitly: after any geometry fix,
-  re-run the whole validation cycle, not just the one check that was failing
-  -- the reporting session named this as the second, broader root cause
-  (stopped the moment `check_collisions.py` said OK).
-- **Already promoted to a rule?** Yes -- `scad-modeler/SKILL.md` §7,
-  `scripts/check_connectivity.py`, `scripts/validate_scad.sh`,
-  `templates/part_template.scad` (all this session, 2026-08-19).
-
-### 2026-08-18 -- rear_axle assembly had undocumented collisions across nearly every part pair
-- **Where:** `esp32_rc_modelis/mechanical/rear_axle/` (built in a separate/
-  parallel session, not this one)
-- **Symptom:** the user spotted a visible overlap in a rendered screenshot;
-  running `check_collisions.py` on it found far more than the single pair
-  already flagged in a code comment — the axle tubes and motor mount also
-  collided with both the diff carrier and the jackshaft housing.
-- **Root cause:** the reduction-scheme architecture and a key gear module
-  value were still unresolved/contradictory across prior documents when
-  detailed calculations and part geometry were written. Work proceeded
-  straight into the calculation table and geometry before the mechanical
-  concept was actually settled, and a center distance (CD2=25mm) was locked
-  in before checking whether it left room for two housings' full wall
-  thickness.
-- **Fix:** not fixed in that project itself (out of scope for this session)
-  -- but directly motivated a new `scad-modeler` §0.5 "Planning" stage
-  (decision log + lightweight architecture comparison + dependency ordering)
-  required before the calculation table, so a design commits to numbers only
-  after the concept is genuinely settled.
-- **Already promoted to a rule?** Yes -- `scad-modeler/SKILL.md` §0.5 and
-  `scad-modeler/references/planning.md` (this session, 2026-08-19).
-
-### 2026-08-18 -- selftest.py's bad-bore check never actually failed
-- **Where:** `scad-modeler/scripts/selftest.py`
-- **Symptom:** the self-test's own headline claim ("UNcompensated bore fails,
-  as it must") reported FAIL -- `check_features.py` returned OK on the
-  deliberately-bad bore instead of catching it.
-- **Root cause:** both the compensated and uncompensated test cylinders
-  shared the test file's fine `$fa=2, $fs=0.3`, so the "bad" one was only
-  ~0.006mm short of nominal -- inside `check_features.py`'s own 0.05mm
-  default tolerance. The test's premise (a meaningful deficit) never held at
-  those facet settings.
-- **Fix:** forced the uncompensated cylinder to OpenSCAD's true defaults
-  (`$fa=12, $fs=2`) via a local block override, producing a real ~0.23mm
-  deficit that correctly fails.
-- **Already promoted to a rule?** Yes -- fixed directly in `selftest.py`,
-  documented in `scad-modeler/references/setup-notes.md`.
-
-### 2026-08-18 -- selftest.py step 3 hung indefinitely
-- **Where:** `scad-modeler/scripts/selftest.py`
-- **Symptom:** `openscad --render --summary all --summary-file -` (no `-o`)
-  hung for minutes at near-zero CPU, not just ran slowly.
-- **Root cause:** NOT backend choice -- adding `--backend=Manifold` made no
-  difference, and CSG evaluation itself finished in 13ms per the render log.
-  OpenSCAD needs an explicit `-o` export target to take its proper
-  non-interactive/batch code path; without one it stalls rather than erroring.
-- **Fix:** added a throwaway `-o` output alongside `--summary`, which made the
-  same call complete in under 5ms.
-- **Already promoted to a rule?** Yes -- fixed in `selftest.py`, documented in
-  `setup-notes.md`.
-
-### 2026-08-16 -- assembly.scad silently doubled a part's geometry
-- **Where:** `scad-modeler/SKILL.md` §6 (found while dogfooding the skill
-  end-to-end on a synthetic assembly)
-- **Symptom:** would have duplicated any part positioned away from the
-  origin -- once unpositioned via the part file's own trailing render call,
-  once positioned via `at()`.
-- **Root cause:** `include`-ing a part file into `assembly.scad` also runs
-  that file's own unconditional top-level render call (every part file ends
-  with one, so it renders standalone). `include` doesn't skip that; `use` does.
-- **Fix:** `SKILL.md` §6 now mandates `use`, not `include`, for part files in
-  `assembly.scad`.
-- **Already promoted to a rule?** Yes -- `SKILL.md` §6 and `setup-notes.md`.
-
-### 2026-08-18 -- gearbox_case.scad EXPECTED_BBOX Z value fails validate_scad.sh's own tolerance
-- **Where:** `esp32_rc_modelis/mechanical/rear_axle/parts/gearbox_case.scad` (read-only
-  audit of a separate/parallel session's work)
-- **Symptom:** running `validate_scad.sh --all` against the current files:
-  `FAIL: gearbox_case.stl bbox mismatch ... Z: expected 70.900 mm, got
-  70.927 mm (diff 0.0273 mm > tol 0.0108 mm)`. X (51.5mm) and Y (67.2mm)
-  pass; only Z fails.
-- **Root cause:** the header comment's `// EXPECTED_BBOX: [51.5, 67.2,
-  70.9]` rounds the real rendered Z extent (70.927mm) to one decimal
-  place, but `check_dimensions.py`'s tolerance is derived from the
-  model's own facet resolution (~0.011mm here), far tighter than the
-  0.027mm rounding gap -- exactly the "declared bbox is a rounded
-  nominal" case SKILL.md §7 says needs `--abs-tol`/`--rel-tol`, which
-  was never added.
-- **Fix:** Not fixed -- read-only audit, scoped by user request
-  (2026-08-19); flagged for the project owner to address (either write
-  the full-precision 70.927 into the comment, or add an explicit
-  tolerance override).
+### 2026-08-21 -- P1S bed limit, 250mm too close to 256mm (server_rack, part1)
+- **Where:** module width decision (pre-D).
+- **Symptom:** 250mm width leaves ~3mm for skirt/brim on P1S bed — risky.
+- **Root cause:** designing to nominal bed size without slicer margins.
+- **Fix:** user chose diagonal print; later refined to 250.5mm for EIA-310.
 - **Already promoted to a rule?** not yet.
 
-### 2026-08-18 -- check_collisions.py currently fails on gearbox_case_bottom/top; no joints.json declares the intended split-line touch
-- **Where:** `esp32_rc_modelis/mechanical/rear_axle/` (positioned STLs
-  exported per SKILL.md §6/§7, checked with `check_collisions.py
-  --min-clearance 0.3`)
-- **Symptom:** `check_collisions.py` returns exit 3, `FAIL: UNINTENDED
-  INTERFERENCE: gearbox_case_bottom.stl <-> gearbox_case_top.stl` -- yet
-  `README.md`/`calculations.md` both describe this exact pair as
-  confirmed benign ("0.0mm³ ... patvirtinta esąs tikslus 0.0mm³ ...
-  teisingas clamshell elgesys" / "Kolizijų patikra ... švari, išskyrus
-  tikėtiną gearbox_case_bottom↔top prisilietimą"). Re-verified
-  independently with a manual trimesh boolean intersection: the overlap
-  is a genuine zero-volume degenerate surface at the Y=0 split plane
-  (`is_volume: False`), confirming it IS benign -- but the project has
-  no `joints.json` anywhere to declare it, so the check fails exactly as
-  SKILL.md §7 warns an undeclared "intentional contact" will.
-- **Root cause:** the clamshell split-line touch was identified and
-  reasoned about correctly during the original session, but was never
-  formalized as an `--expected-contacts` declaration
-  (`templates/joints.json`), so the validation pipeline as it stands
-  cannot actually be run to a clean pass -- the documented "švari"
-  claim isn't reproducible from the command as given in README.md.
-- **Fix:** Not fixed -- read-only audit, scoped by user request
-  (2026-08-19); flagged for the project owner to address (add a
-  `joints.json` declaring `gearbox_case_bottom`/`gearbox_case_top` as a
-  `touching` contact with `expected_interference_mm: [0.0, 0.0]`).
+### 2026-08-21 -- hidden screw channel crossed EIA holes (server_rack, part1)
+- **Where:** vertical screw channel vs horizontal EIA holes.
+- **Symptom:** channel geometry intersected hole bores.
+- **Root cause:** two systems routed without collision check.
+- **Fix:** channel shortened to joint zones only.
 - **Already promoted to a rule?** not yet.
 
-### 2026-08-18 -- calculations.md's CD1/CD2 values (33.6mm/26.5mm) don't match what params.scad's own gear_dist() calls compute (33.83mm/26.62mm)
-- **Where:** `esp32_rc_modelis/mechanical/rear_axle/calculations.md` +
-  `params.scad`
-- **Symptom:** every mention of the two center distances in
-  `calculations.md`, `README.md`, and inline `params.scad`/
-  `gearbox_case.scad` comments says CD1=33.6mm, CD2=26.5mm (the naive
-  `(T1+T2)×mod/2` hand formula). Directly querying the live top-level
-  variables from `params.scad` (`echo(CD1, CD2)`) gives 33.8326mm and
-  26.6206mm -- a 0.23mm and 0.12mm drift.
-- **Root cause:** `params.scad` correctly calls BOSL2's `gear_dist()`
-  for both stages (matching SKILL.md §5's own guidance), but P1 (12T)
-  and P2 (15T) are both below the ~17-tooth undercut threshold at 20°
-  pressure angle, so `gear_dist()` silently applies its automatic
-  profile-shift correction -- exactly the divergence SKILL.md §5
-  already warns about ("stops being exact once BOSL2's
-  profile_shift='auto' kicks in for small tooth counts").
-  `calculations.md`'s calculation table was never re-verified against
-  the actual `gear_dist()` output, so it still states the
-  pre-profile-shift hand values as the final "OK" numbers.
-- **Fix:** Not fixed -- read-only audit, scoped by user request
-  (2026-08-19); flagged for the project owner to address (currently
-  benign -- both real values are larger than documented, i.e. more
-  clearance, not less -- but should be corrected in `calculations.md`
-  so a future reader doesn't measure against the wrong nominal).
-- **Already promoted to a rule?** not yet -- SKILL.md §5 already
-  contains the general caution; this shows it wasn't actually applied
-  to double-check this project's own calculation table after the fact.
+### 2026-08-21 -- shelf_plate stayed square after module went rectangular, D8 (server_rack, part1)
+- **Where:** shelf_plate after D8 rectangle change.
+- **Symptom:** auto-checks missed it; found by manual STL re-measure.
+- **Root cause:** no parametric link between module shape and shelf shape; checks verified presence, not dimensions.
+- **Fix:** fixed, logged in INCIDENTS.md (v1 project).
+- **Already promoted to a rule?** not yet — candidate: dimension-cross-check after shape change.
 
-### 2026-08-18 -- jackshaft_bearing_wall_at_diff assert in params.scad omits clearances the real geometry subtracts, understating the true minimum wall
-- **Where:** `esp32_rc_modelis/mechanical/rear_axle/params.scad`
-  (assert) vs. `parts/gearbox_case.scad` (`diff_cavity()`,
-  `jackshaft_bearing_pockets()`)
-- **Symptom:** `params.scad` computes
-  `jackshaft_bearing_wall_at_diff = CD2 - diff_ring_outer_r -
-  jackshaft_bearing_od/2` = 1.62mm (using the corrected CD2 from the
-  previous entry) and asserts it's `> 1.0`, i.e. reports a "safe"
-  ~1.6mm margin. But `gearbox_case.scad`'s own header comment
-  independently flags the real wall as "~1.2mm ... ties FDM
-  spausdinimo riba" (at the FDM printing limit) -- confirmed by hand:
-  the actual cavities are cut with `gear_spin_clearance` (0.4mm, added
-  to `diff_ring_outer_r` in `diff_cavity()`) and `bearing_press_fit`
-  (0.05mm, added to the bearing pocket diameter in
-  `jackshaft_bearing_pockets()`), neither of which the assert's formula
-  includes. Recomputing with both terms gives 1.196mm, matching the
-  code comment.
-- **Root cause:** the assert was written against nominal pitch/OD
-  dimensions only, not the actual clearance-inflated cavity radii the
-  geometry modules use -- so it protects against a *gross* tooth-count
-  regression but would not catch a smaller regression that pushes the
-  real (clearance-inflated) wall toward zero while the assert's own
-  optimistic formula still reports comfortable margin.
-- **Fix:** Not fixed -- read-only audit, scoped by user request
-  (2026-08-19); flagged for the project owner to address (add
-  `gear_spin_clearance` and `bearing_press_fit` to the assert's formula
-  so its "safe" verdict matches the geometry it's meant to guard).
+### 2026-08-21 -- EIA slot extension merged with magnet pocket, D11 (server_rack, part1)
+- **Where:** D11 slot lengthening vs lower magnet pocket.
+- **Symptom:** slot void merged with pocket void.
+- **Root cause:** adjacent voids grown without clearance check.
+- **Fix:** inset bump correction, all STLs regenerated.
 - **Already promoted to a rule?** not yet.
 
-### 2026-08-18 -- axle_d=6mm is incompatible with the MR105 bearings (fixed 5mm ID) at the wheel_hub end of the same half-shaft
-- **Where:** `esp32_rc_modelis/mechanical/rear_axle/params.scad`
-  (`axle_d`), `parts/wheel_hub.scad`, `BOM.md` #1/#7
-- **Symptom:** `params.scad` sets `axle_d = 6` ("atnaujinta iš 5mm --
-  nuotraukoje diff stebulė ~6mm; PATIKRINTI") and this single value is
-  used uniformly as the half-shaft diameter in both `axle_tube.scad`'s
-  bore and `wheel_hub.scad`'s central bore. But `wheel_hub.scad` also
-  seats two MR105 bearings (BOM #1: fixed 10×5×4mm, ID=5mm) at its two
-  ends, and the same half-shaft must pass through both. A uniform 6mm
-  shaft cannot pass through a 5mm-ID bearing.
-- **Root cause:** the 6mm figure comes from a photo measurement of the
-  *diff-side* output stub diameter; nothing in `calculations.md`'s
-  PATIKRINTI note ("gali reikėti keisti axle_d iš 5 į 6mm") considers
-  that the same `axle_d` variable is also used for the wheel-hub/bearing
-  end, where the bearing spec (MR105, ID fixed at 5mm) requires 5mm.
-  The two ends of the half-shaft need different diameters (a stepped
-  shaft) or a different bearing choice at the wheel end -- neither is
-  modeled or called out anywhere in the CAD or BOM.
-- **Fix:** Not fixed -- read-only audit, scoped by user request
-  (2026-08-19); flagged for the project owner to address (decide:
-  stepped half-shaft 6mm at diff / 5mm through the wheel_hub bearings,
-  or a different bearing/stub diameter, and update
-  `params.scad`/`BOM.md` accordingly).
+### 2026-08-21 -- flush recess detached spigots from posts (server_rack, part1)
+- **Where:** flush recess geometry.
+- **Symptom:** spigots disconnected (separate shells).
+- **Root cause:** recess cut removed spigot base material.
+- **Fix:** recess geometry fixed, re-validated.
 - **Already promoted to a rule?** not yet.
 
-### 2026-08-18 -- tolerances.md overstated milling's precision
-- **Where:** `openscad-cad/references/tolerances.md`
-- **Symptom:** none from an automated check -- found by cross-checking the
-  file's claim against the actual cited paper's PDF (user-supplied).
-- **Root cause:** the file claimed "milling and turning occupy IT7-IT10" --
-  the paper's real Table 4 has milling at IT9-11; only turning reaches
-  IT7-10. An earlier transcription pass conflated the two.
-- **Fix:** corrected the claim in `tolerances.md` to cite the two ranges
-  separately.
-- **Already promoted to a rule?** Yes -- fixed directly in the reference file
-  (the fix *is* the rule here, not a separate pattern to extract).
+### 2026-08-22 -- EIA holes bored through wrong axis, D12 (server_rack, part2)
+- **Where:** EIA holes through post width (X); screwdriver blocked by side magnetic panel.
+- **Symptom:** user measured 211mm between holes, interior 7.87in instead of 10in; assistant defended geometry for rounds before conceding.
+- **Root cause:** axes swapped (EIA on Y needed for open front); overconfidence in STL scans vs user caliper.
+- **Fix:** EIA to Y, ladder slots inward; full process analysis to INCIDENTS.md + memory rule "don't argue with user".
+- **Already promoted to a rule?** Yes — user-measurement-wins rule.
 
-### 2026-09-02 -- nas_deck_v3 socket assert used wrong depth variable so deck sockets intersected through 5mm septum
-- **Where:** `server_rack_modular_v3/scad/nas_deck_v3.scad:17` (V3 redesign, new pin/socket system)
-- **Symptom:** `openscad --render` on `nas_deck_v3.scad` aborted with `Assertion '((_socket_depth * 2) < (_deck_t + 10))' failed`. Exit 0 but no manifold geometry beyond the assert; `assembly_v3` inherited the same failure path before the fix. The faulty formula tested `8.5*2 < 5+10` (true by accident pre-edit, but after the initial "allow overlap" fudge it still masked the real condition: two 3.2mm blind sockets from opposite faces would total 6.4mm > 5.0mm deck thickness and break through).
-- **Root cause:** assert referenced the global `post_socket_depth` (8.5) instead of the deck-local reduced depth `_deck_socket_depth`. The +10 fudge was a placeholder to make the first render pass, not a real guard. The local variable was introduced two lines below the assert, so the check ran against the wrong value.
-- **Fix:** moved `_deck_socket_depth=2.4` above the asserts, changed guard to `assert(_deck_socket_depth*2 < _deck_t)` (2.4*2=4.8 < 5.0 leaves 0.2mm septum) and added `assert(_deck_socket_depth <= _socket_depth)`. Re-rendered `nas_deck_v3.scad` and `assembly_v3.scad` — both now manifold (deck 1480 verts, assembly 10154 verts) and STL exports clean (`--export-format=binstl` 144KB).
-- **Already promoted to a rule?** not yet — pattern matches INCIDENTS 2026-08-18 jackshaft assert (margin formula must reference the same clearance terms the geometry actually cuts).
+### 2026-08-22 -- EIA wall only 0.29mm, unprintable, D13 (server_rack, part2)
+- **Where:** post wall at EIA hole.
+- **Symptom:** 0.29mm wall — fails in print.
+- **Root cause:** post too thin (14mm) for 7.1 hole + magnets.
+- **Fix:** post widened X 14→18mm (wall 2.29mm); Y kept 14 for P1S limit.
+- **Already promoted to a rule?** not yet — candidate: min-wall check at holes.
+
+### 2026-08-22 -- socket bore 3.4mm instead of 8.38mm, D14 (server_rack, part2)
+- **Where:** lower socket (M3 channel) vs spigot.
+- **Symptom:** spigot doesn't fit, modules don't join.
+- **Root cause:** socket cut as screw channel, not joint bore.
+- **Fix:** cut_socket perimeter_ring, 8.383mm void; joint_test coupons for physical print.
+- **Already promoted to a rule?** not yet.
+
+### 2026-08-22 -- flush recess on every module made 3.15mm gaps, D15 (server_rack, part2)
+- **Where:** stacked frames with recess each.
+- **Symptom:** 3.15mm gap between stacked frames.
+- **Root cause:** recess applied per-module instead of topmost-only.
+- **Fix:** split intermediate (flat) / topmost (recess) STL variants.
+- **Already promoted to a rule?** not yet.
+
+### 2026-08-22 -- intermediate ring closed on 4 sides, 28mm band at seam, D16 (server_rack, part2)
+- **Where:** intermediate module ring.
+- **Symptom:** 28mm solid band at seam.
+- **Root cause:** ring not opened front/back for stacking.
+- **Fix:** front/back cuts in intermediate rings; single 14.004mm ring at seam, one body confirmed.
+- **Already promoted to a rule?** not yet.
+
+### 2026-08-23 -- 1U 44.5 vs EIA-310 44.45, error propagated, D17 (server_rack, part2)
+- **Where:** unit_1U constant.
+- **Symptom:** 0.05mm per U error across every module.
+- **Root cause:** rounded constant instead of exact 44.45.
+- **Fix:** changed to 44.45, all STLs rebuilt, tower height recomputed.
+- **Already promoted to a rule?** not yet — candidate: exact-standards-no-rounding.
+
+### 2026-08-23 -- 2U meant outer height, interior only 1.37U, D18 (server_rack, part2)
+- **Where:** 2U module convention.
+- **Symptom:** interior 60.9mm with one hole group instead of two.
+- **Root cause:** U counted with rings instead of interior clear span.
+- **Fix:** module_h = interior + rings; 2U interior exactly 88.9mm with 2 hole groups; +84mm tower.
+- **Already promoted to a rule?** not yet.
+
+### 2026-08-23 -- NAS bay interior 194 to 170, bottom ring 14 to 5, D19-D20 (server_rack, part2)
+- **Where:** NAS bay dims.
+- **Symptom:** oversize bay, heavy bottom ring.
+- **Root cause:** initial guess without NAS measurements.
+- **Fix:** interior 170, ring 5; assembly_full rebuilt (~601mm, 53 parts).
+- **Already promoted to a rule?** not yet.
+
+### 2026-08-26 -- dovetail tail/socket offset 6mm, 5 separate bodies, D25/D27 class (server_rack, part3)
+- **Where:** post.scad / node.scad vertical dovetail (+h/2 after rotate vs -h/2).
+- **Symptom:** tail and socket missed by ~6mm; post_v2_final 5 disconnected bodies.
+- **Root cause:** asymmetric y=0..h trapezoid + rotate sign bug class (the exact class peg later eliminated).
+- **Fix:** one-line offset sign fix, re-rendered and verified.
+- **Already promoted to a rule?** Yes — peg centering eliminated the class (D37/D48 rationale).
+
+### 2026-08-26 -- magnet pocket coincident faces, negative-volume fragments (server_rack, part3)
+- **Where:** post.scad pockets, 0.6 wall at body edge.
+- **Symptom:** 4 degenerate negative-volume fragments.
+- **Root cause:** pocket wall too thin at filleted edge.
+- **Fix:** post.scad rewritten with through-tunnel + plugs.
+- **Already promoted to a rule?** not yet.
+
+### 2026-08-26 -- top dovetail socket covered top EIA hole (server_rack, part3)
+- **Where:** 8mm socket vs top EIA-310 hole.
+- **Symptom:** socket void covered the hole.
+- **Root cause:** socket too deep at post top.
+- **Fix:** shortened to 2.8mm per user choice, ray-cast verified.
+- **Already promoted to a rule?** not yet.
+
+### 2026-08-26 -- NAS as one welded body, top plate bridge in air (server_rack, part3)
+- **Where:** NAS floor+posts+deck welded.
+- **Symptom:** 245mm unsupported bridge on 4 thin posts — unprintable without massive support.
+- **Root cause:** welded instead of jointed; inconsistent with every other joint.
+- **Fix:** split nas_floor + nas_deck, deck rests on posts.
+- **Already promoted to a rule?** not yet — candidate: no-welded-tiers.
+
+### 2026-08-26 -- NAS posts welded with glue-in magnets, wrong system (server_rack, part3)
+- **Where:** NAS posts.
+- **Symptom:** welded + glue-in pockets vs dovetail + pause-print convention everywhere else.
+- **Root cause:** built separately without following project conventions.
+- **Fix:** nas_post.scad with tails both ends + roofed embedded pockets, printed on side (D23).
+- **Already promoted to a rule?** not yet.
+
+### 2026-08-26 -- nas_side_panel pocket open to inner face, D33 (server_rack, part3)
+- **Where:** nas_side_panel pocket at inner face.
+- **Symptom:** visible open hole on post-touching face.
+- **Root cause:** pocket centered at depth/2 from own inner face instead of mid-thickness.
+- **Fix:** centered mid-thickness (0.7 walls both sides), ray-cast verified.
+- **Already promoted to a rule?** not yet — candidate: pocket-centering-rule (later applied project-wide D48).
+
+### 2026-08-30 -- dovetail bowtie, impossible 50deg angle (server_rack, part3)
+- **Where:** dovetail.scad trapezoid (h*tan50=7.15 > w/2=5).
+- **Symptom:** self-intersecting bowtie, non-watertight mesh, 10 vertices, pinch at y~4.2.
+- **Root cause:** trapezoid formula geometrically impossible for all used w/h ratios; confirmed by 2 independent Muse audits.
+- **Fix:** wedge-lock prototype as replacement; later full dovetail removal (D37).
+- **Already promoted to a rule?** Yes — peg replacement (D37).
+
+### 2026-09-04 -- beam default len 211 vs computed 216.5/191 (server_rack, part4)
+- **Where:** beam.scad default.
+- **Symptom:** beam shaft rammed ~10mm into node body.
+- **Root cause:** default disconnected from assembly math (center-to-center vs face-to-face).
+- **Fix:** removed default (mandatory arg now).
+- **Already promoted to a rule?** not yet — candidate: no-default-for-computed-dims.
+
+### 2026-09-04 -- top_panel magnet walls inverted 0.6/0.8, D21 (server_rack, part4)
+- **Where:** top_panel pockets.
+- **Symptom:** visible side 0.6, top 0.8 instead of reverse.
+- **Root cause:** pocket depth measured from wrong face.
+- **Fix:** documented; unfixed this part (later fixed in v54 wave).
+- **Already promoted to a rule?** not yet.
+
+### 2026-09-04 -- Task 4 ternary-offset countersink outside solid (server_rack, part4)
+- **Where:** enclosure plan Task 4 literal code.
+- **Symptom:** wide mouth outside solid body.
+- **Root cause:** plan code assumed solid where chamfer removed it.
+- **Fix:** used plan's own mirror() fallback, proven by render.
+- **Already promoted to a rule?** not yet — candidate: plan-fallback-first.
+
+### 2026-09-04 -- glue-in pocket only -Y, +Y panel had nothing (server_rack, part4)
+- **Where:** post.scad Y pockets.
+- **Symptom:** back panel magnets with no counterpart.
+- **Root cause:** plan gap (one side only); one corner post serves both front AND back.
+- **Fix:** reviewer caught; double ySign/mirror pockets, 8 probes confirmed.
+- **Already promoted to a rule?** not yet.
+
+### 2026-09-04 -- assembly not fully watertight, 5 of 53 shells at corners (server_rack, part4)
+- **Where:** full assembly corners.
+- **Symptom:** 5 shells open at corners.
+- **Root cause:** harmless CSG-kernel artifact (D26 type), proven by control render + point-containment; accepted.
+- **Fix:** accepted as artifact, documented.
+- **Already promoted to a rule?** not yet.
+
+### 2026-09-08 -- used openscad-cad alone for 14-part assembly, ignored dual-skill rule (cnc_control_enclosure v2)
+- **Where:** session 2026-09-08 (~20:00), own memory rule `3d-abu-skill-kartu.md` + cross-refs in both SKILL.md (written previous evening, same project).
+- **Symptom:** Loaded only openscad-cad for a 14-part enclosure; rule written 24h earlier says 2+ parts = both skills. No planning/calculation phase, no validation gates -- straight to write-render-fix loop.
+- **Root cause:** Rule written but not applied -- same D44 pattern (documented, not applied), this time self-authored. Session started from prior context (params already existed) so skill-loading step was skipped entirely.
+- **Fix:** No geometry harm (parts verified by render + STL measure). Process fix: 3D session start = load both skills + read INCIDENTS, no exception for continuations.
+- **Already promoted to a rule?** Rule already exists (3d-abu-skill-kartu.md); this entry is evidence it needs a start-of-session trigger, not just a card on disk.
+
+### 2026-09-08 -- never read canonical INCIDENTS.md before modelling (cnc_control_enclosure v2)
+- **Where:** same session; scad-modeler \u00a70 requires INCIDENTS read before geometry; canonical log updated previous evening 20:15 (D39-D51).
+- **Symptom:** Modelled 14 parts without opening the log. Missed directly relevant entries: D49 (stale STL -- same export step), D51 (never copy coords -- same hole-placement step), D40 (count-check marks).
+- **Root cause:** Read the log previous evening only when told to, not as session-start habit. Continuation bias: felt "already oriented" from prior context.
+- **Fix:** Same process fix as above -- INCIDENTS read is step 0 of every 3D session, continuations included. No geometry harm found retroactively.
+- **Already promoted to a rule?** scad-modeler \u00a70 already requires it; this entry is evidence the requirement needs enforcing at session start.
+
+### 2026-09-08 -- wrote 11 entries to wrong INCIDENTS.md, duplicated log (cnc_control_enclosure v2)
+- **Where:** `~/.claude/skills/INCIDENTS.md` (foreign system file) vs canonical `Claude_Code_SCAD_Skill/claude_skills/INCIDENTS.md`.
+- **Symptom:** 11 v2 entries + 1 supersede went to the wrong file. Canonical log missed a full day of work until user caught it ("CIA YRA INCIDENTS.md ... BLET").
+- **Root cause:** Assumed the first INCIDENTS.md found was the right one; never asked which log the project uses though the skill folder was known since previous evening.
+- **Fix:** 11 entries re-recorded in canonical log with corrected facts + promotion statuses (above). Wrong-file entries left untouched (foreign file, append-only) -- canonical entries note the correction. Rule: one project = one log; confirm path before first append.
+- **Already promoted to a rule?** not yet -- candidate: confirm-log-path-first.
+
+### 2026-09-08 -- wall_side louver slots merged into one opening (cnc_control_enclosure v2)
+- **Where:** `cnc_control_enclosure/scad/v2/wall_side.scad`.
+- **Symptom:** 6 louver slots rendered as one continuous opening; slot length 40 with pitch 15, neighbours geometrically overlap.
+- **Root cause:** Pitch-vs-length not checked; copied v1 intent numbers. Same bug class as v1 panel_side.
+- **Fix:** Slots 8 wide (Y) x 30 tall (Z), pitch 16 -- 8mm real gap. Verified discrete in render.
+- **Already promoted to a rule?** yes -- openscad-cad patterns.scad PATTERN 2 (pitch > length).
+
+### 2026-09-08 -- wall_side() ignored -D side override, L/R identical (cnc_control_enclosure v2)
+- **Where:** `cnc_control_enclosure/scad/v2/wall_side.scad` trailing call.
+- **Symptom:** `openscad -D side=-1` produced same R geometry; L/R preview PNGs identical shape.
+- **Root cause:** File ended with hardcoded `wall_side(1)`, discarding the -D variable.
+- **Fix:** Trailing call `wall_side(side=is_undef(side) ? 1 : side)`.
+- **Already promoted to a rule?** partially -- value-args pattern in SKILL.md is_undef warning.
+
+### 2026-09-08 -- wall_side outer length poked past front/rear walls (cnc_control_enclosure v2)
+- **Where:** `cnc_control_enclosure/scad/v2/wall_side.scad`.
+- **Symptom:** Side wall spanned outer_y (221) while front/rear sit at inner faces -- corners overlapped in assembly render.
+- **Root cause:** Copied outer dims for all walls; side must be inner_y (fits BETWEEN), front/rear outer_x (cap ends).
+- **Fix:** Side cube `[wall_t, inner_y, wall_h]`. Rule: perpendicular walls -- one caps (outer), one fits between (inner).
+- **Already promoted to a rule?** not yet -- candidate: outer/inner wall pairing.
+
+### 2026-09-08 -- corner brackets poked through walls in assembly (cnc_control_enclosure v2)
+- **Where:** `cnc_control_enclosure/scad/v2/assembly_v2.scad`.
+- **Symptom:** 24-wide brackets at +/-(inner/2-8) stuck through wall inner faces in render.
+- **Root cause:** Half-width 12 > 8mm inset, unchecked against wall plane.
+- **Fix:** Centers to +/-(inner/2-18). Verified clean.
+- **Already promoted to a rule?** not yet -- single slip, render check caught it.
+
+### 2026-09-08 -- assembly walls had zero fastening, butt-placed only (cnc_control_enclosure v2)
+- **Where:** `cnc_control_enclosure/scad/v2/` (all walls + assembly).
+- **Symptom:** User asked "kaip sienos susikabins" -- answer: никак. Zero holes, zero brackets-with-holes.
+- **Root cause:** v2 dropped v1 post-socket system with no replacement; no checklist asked "how does each joint fasten".
+- **Fix:** corner.scad L-brackets + 4 heat-set holes per wall (z=19/107) + top row for lid. 16 brackets.
+- **Already promoted to a rule?** yes -- PATTERN 1 (joint-fastening checklist).
+
+### 2026-09-08 -- lid gravity-held, bosses referenced deleted posts (cnc_control_enclosure v2)
+- **Where:** `cnc_control_enclosure/scad/v2/lid_top.scad`.
+- **Symptom:** User: "nieks jos netvirtins???" -- correct. Solid d=8 bosses "into wall posts" that don't exist in postless v2.
+- **Root cause:** Copied v1 lid intent into postless design.
+- **Fix:** 4x M3 clearance holes in lid + top heat-set row in walls. 4x M3x8 from top.
+- **Already promoted to a rule?** yes -- same PATTERN 1.
+
+### 2026-09-08 -- hardware.scad single trailing call, siblings unexportable (cnc_control_enclosure v2)
+- **Where:** `cnc_control_enclosure/scad/v2/hardware.scad` + empty `duct.scad`.
+- **Symptom:** bracket/foot/comb unrenderable alone; STL covered 10 of 14 parts.
+- **Root cause:** Multi-module file, one trailing call; empty duct.scad from interrupted write.
+- **Fix:** Split into corner/bracket/foot/comb.scad with own calls.
+- **Already promoted to a rule?** yes -- PATTERN 3 (one-file-per-part).
+
+### 2026-09-08 -- STLs in wrong dir, bbox glob silently empty (cnc_control_enclosure v2)
+- **Where:** session workflow (scad/v2_preview vs nested path).
+- **Symptom:** BBox script "passed" with zero output twice -- glob-miss, files elsewhere.
+- **Root cause:** Relative-path confusion; empty glob iterates zero times, no error; no count assert.
+- **Fix:** Moved to build/v2; re-measured (all <=250).
+- **Already promoted to a rule?** yes -- PATTERN 4 (glob-count assert).
+
+### 2026-09-08 -- binary STL parser on ASCII STLs, silent empty (cnc_control_enclosure v2)
+- **Where:** session bbox script; snapshot exports ASCII by default.
+- **Symptom:** struct parser no rows, exit ok.
+- **Root cause:** Assumed binary; ASCII header misread as facet count.
+- **Fix:** ASCII vertex grep. Rule: check file/magic before parsing.
+- **Already promoted to a rule?** not yet -- candidate: file-magic-first.
+
+### 2026-09-08 -- -D via is_undef ignored, snapshot is_undef broken (cnc_control_enclosure v2)
+- **Where:** `assembly_v2.scad`, openscad 2026.06.12; `-D NO_WALLS=1` + is_undef guard left walls rendered.
+- **Symptom:** Minimal tests: `-D F7=1` arrives (echo=1) but `is_undef(F7)` -> true regardless.
+- **Root cause:** is_undef() broken for -D-defined vars in this snapshot; value-passed flags work, is_undef-gated don't. Not shell quoting.
+- **Fix:** Separate guts_v2.scad, no -D. Never gate -D through is_undef() on this build.
+- **Already promoted to a rule?** yes -- SKILL.md is_undef warning block.
+
+### 2026-09-08 -- SUPERCEDES: prior-day review corrections (cnc v2 entries)
+- **Where:** review of prior-day entries (were in wrong log).
+- **Symptom:** (a) louver count said "8", code has 6; (b) -D entries inconsistent.
+- **Root cause:** Sloppiness against own code; root cause unresolved at the time.
+- **Fix:** (a) Correct count 6. (b) Value-args work, is_undef-gates don't. Canonical entries above carry corrected facts.
+- **Already promoted to a rule?** n/a -- meta-entry.
