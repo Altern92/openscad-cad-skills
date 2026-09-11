@@ -57,6 +57,7 @@ flowchart TD
     OptIn -->|"part has\n// EXPECTED_BBOX"| Dimensions["check_dimensions.py"]
     OptIn -->|"part has\n// EXPECTED_HOLE"| Features["check_features.py"]
     OptIn -->|"project has\nbores.json"| BoreCheck["check_bore_reachability.py"]
+    OptIn -->|"project has\nattachments.json"| AttachCheck["check_attachment.py"]
 
     Validate --> Motion{"joints.json has a\nnon-empty #quot;motion#quot; array? --\nsomething moves, see\nmotion_sweep.py's own\ndocstring for the schema"}
     Motion -- yes --> Mechanics["MECHANICS -- built + tested 2026-08-19:\nrenders each part positioned via\nassembly.scad MODE=#quot;part#quot;, then\ncheck_collisions.py (static precondition),\nthen motion_sweep.py (sweep) --\nboth AUTOMATIC, not situational"]
@@ -108,6 +109,7 @@ purpose. Everything else in the graph is a DAG (no other cycles).
 
 ## Reference files
 
+- `validation.md` — the gate-by-gate reference behind SKILL.md §7: what each check catches, declaration semantics, tolerances, exit codes, edge cases.
 - `intake_and_analysis.md` — Stage 0/0.5: requirements schema, printed-vs-purchased criteria, variant retrieval.
 - `mechanics_and_motion_planning.md` — motion taxonomy, fit tables, design manifest schema.
 - `change_propagation.md` — dependency DAG, dirty-root algorithm, user-facing choice-tree output.
