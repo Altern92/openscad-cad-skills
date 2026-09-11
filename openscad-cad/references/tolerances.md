@@ -239,3 +239,59 @@ General principles behind all three rows:
 - When grid/space is genuinely not a constraint, default to 1.5mm/side and
   only tighten it once a real constraint (bed size, existing layout) forces
   the question — don't preemptively tighten for no reason.
+
+## Other materials — what this file does NOT cover
+
+**Every clearance value and both measurement studies above are PLA.** The
+studies were run on one printer and one material and say so themselves. This
+section exists because a user asking "will this fit in PETG?" deserves an
+honest answer rather than a borrowed PLA number.
+
+### PETG
+
+**This library has no measured PETG data.** Not a rounding of the PLA figures —
+no data. The values in the tables above come from real PLA prints in this
+project set, and nothing here has been printed in PETG and measured.
+
+What *is* well established from the literature, with the direction that matters:
+
+| Property | PLA | PETG | Consequence |
+|---|---|---|---|
+| Linear shrinkage (FDM, typical) | ~0.2–0.5 % | **~0.3–0.8 %** | PETG pulls in more, so **holes end up smaller** and external features can land further *under* nominal |
+| Warping tendency | low | higher on tall parts | orientation and part cooling matter more |
+| Oozing / stringing | low | higher | hole edges and small features get **more variable**, not just smaller |
+
+Source for the PETG dimensional-error behaviour: Imran et al., *Parametric
+Modeling and Optimization of Dimensional Error and Surface Roughness of Fused
+Deposition Modeling Printed Polyethylene Terephthalate Glycol Parts*,
+Polymers 15(3):546, 2023 — <https://doi.org/10.3390/polym15030546> (open access).
+Their finding worth acting on: PETG dimensional error is **setting-dependent**,
+and their optimum was print speed 50 mm/s, layer thickness **0.1 mm**, extrusion
+temperature 230 °C, raster width 0.6 mm. Lower layers printed PETG more
+dimensionally accurately in their setup. Their study is parametric optimization,
+not a per-side clearance table — it does not give you the number below.
+
+The shrinkage ranges are widely-reported community figures (multiple vendor and
+hobbyist sources agree on the direction and rough magnitude), **not** a measured
+value for your machine. Treat them as "more than PLA", not as an offset to add.
+
+### What to do instead of guessing
+
+1. **Print a calibration coupon in the actual material before committing a
+   fit-critical dimension** — `calibration_coupon()` (`patterns.scad`, Pattern 5)
+   is exactly this, and `Tier 3` in `confidence-tiers.md` makes it a hard gate
+   rather than a suggestion.
+2. **Do not scale the PLA clearance by a shrinkage percentage.** Shrinkage is
+   only one of several contributing errors (flow, extrusion width, ooze), and
+   compounding an offset from a percentage is how a fit gets double-corrected.
+   Measure the coupon, use the measured number.
+3. If the user has no coupon and asks whether a fit will work in PETG, the
+   honest answer is **"unknown until measured"**, capped at Tier 2 — see the
+   abstention rule in `confidence-tiers.md`.
+
+### Adding a material honestly
+
+If you do measure a material, add it the way this file's PLA sections are
+written: state the printer, the material, the layer height, the sample size, and
+whether the number is measured or reported. An unsourced number in this file
+would be worse than the current honest gap.
