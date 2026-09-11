@@ -1080,3 +1080,53 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 - **Root cause:** Batch thinking (test everything in one print) instead of sequential: print ONE variant, measure result, adjust ONE variable, print next. Same D41 incrementalism class, inverted -- overshooting instead of undershooting, same waste.
 - **Fix:** Rule: ONE coupon version per print. Need 4 widths tested = 4 separate small prints, each informing the next. Exception: NONE -- a 15-min single print is cheaper than a 1-hour 4-variant print with 3 useless parts.
 - **Already promoted to a rule?** yes -- this entry. Single-coupon rule.
+
+### 2026-09-09 -- BOSL2 overrides translate(), breaks pts[i] indexing in shared templates (openscad-organic)
+- **Where:** `openscad-organic/references/organic-patterns.scad` hull_chain(); selftest with `use <BOSL2/std.scad>` in same file.
+- **Symptom:** TRACE errors from BOSL2 transforms.scad ($transform unknown); hull_chain balls misplaced; skin()/sweep untested same file.
+- **Root cause:** BOSL2 redefines built-in translate(); pts[i] list indexing inside hull_chain resolves through BOSL2 wrapper, not builtin. Shared template file must NOT include BOSL2 itself.
+- **Fix:** templates use plain builtins only; BOSL2 include lives in the USER file alongside. Selftest hull_chain/detail_on/base_round without BOSL2: NoError. skin()/limb() documented BOSL2-only, verified by wiki spec not render.
+- **Already promoted to a rule?** yes -- NOTE comment in organic-patterns.scad + §0.3 (No BOSL2 = blobs only).
+
+### 2026-09-09 -- helmet modeled from imagination, no research, wrong proportions (salmas_romenu)
+- **Where:** `3D_Spausdinimas/salmas_romenu/salmas_romenu.scad` v1.
+- **Symptom:** model reads as ball/egg with ring, not a Roman galea; proportions guessed (R100 sphere scaled blindly), no reference dimensions, no agent-reach research before modeling.
+- **Root cause:** (a) skipped research — modeled from one artwork photo, never fetched real galea dimensions; (b) ignored two-skill rule (no scad-modeler calculations before geometry); (c) never used agent-reach to inspect real proportions.
+- **Fix:** agent-reach research post-facto (Exa): real Imperial-Gallic H = 21.5x19cm inner, cap 17cm, total 28cm; market models split in parts (dome flat-down, crest separate). Workflow rule added to openscad-organic section 0: research-first for replicas BEFORE geometry; v1 archived as blockout.
+- **Already promoted to a rule?** yes -- openscad-organic section 0.4 (research-first rule, this entry).
+
+### 2026-09-09 -- v2/v3 vis dar ne galea: brezinys sako viena, kodas skaiciuoja kita (salmas_romenu)
+- **Where:** `3D_Spausdinimas/salmas_romenu/salmas_romenu_v2+v3.scad`, `salmas_v3_brezinys.md`
+- **Symptom:** front render: kiausinis su plysiu + pelekas sone, ne galea. Tiksliai: veido virsus kode Z=+25 (lentele: +45); kupolas kirstas -50 (lentele: -125); ziedas kybo 0.3mm ore (inner 111.8 > kupolo 111.5); skruostai po kupolu ore (kupolas iki -50, skruostai iki -100); kaklas() apibreztas, bet niekur nekvieciamas (dead code); ausies R18 iskerpa per daug, lieka plonas pelekas.
+- **Root cause:** (a) Pattern-1 recidyvas: lenteles skaiciai i koda perkelti isgalvotom formulem ((top-170)/2-20 vietoj (top+bottom)/2) - niekas nepatikrino ar formule grazina lenteles skaiciu; (b) apacios -50 nukopijuota is v1 sferos-logikos, nepritaikyta elipsoidui su skruostais; (c) ziedas skaiciuotas nominaliai be 1mm ileidimo (unionui butinas overlap); (d) renderiai is vieno nepazymeto kampo - "taisymai" ejo ne i ta asi (Y sumaisyta); (e) STL patikros skaiciumi nebuvo - atskiri kunai ir kabantys ziedai nematomi is toli.
+- **Fix:** v4: 18 parametru rasomi TIESIAI (centras=(top+bottom)/2, jokiu tarpiniu formuliu); apacia -125; ziedas inner=ax-1; skruosto X=cheek_x(z) seka pavirsiu; ausis = atviras krasto ipjovimas, ne uzdara skyle; 3 pazymetu kampu renderiai; STL bbox patikra. Kaklo liezuvis, V ornamentas, kniedes - v5.
+- **Already promoted to a rule?** pasiulyta: "brezinio skaicius i koda tik tiesiogiai + assert; tarpine formule be patikros = draudziama".
+
+### 2026-09-10 -- v4 darytas be pilno skill-loading: organic tik skaitytas, ne krautas (salmas_romenu)
+- **Where:** `3D_Spausdinimas/salmas_romenu/` v4 sesija (si sesija).
+- **Symptom:** openscad-cad krautas per skill-tool ir taikytas (render 3 kampai, Manifold, STL, INCIDENTS); openscad-organic tik perskaitytas failu (`read`), ne krautas per skill-tool — patikrinta: skill-registre tokio vardo NERA (skill-tool grazina "unknown"); BOSL2 skin/sweep nenaudoti (v4 = hull-blob, bet tai nepasakyta garsiai); scad-modeler tik dabar krautas (check_*.py nenaudoti, bbox tik rankinis python); projekto README.md neparasyta (openscad-cad §5 reikalauja).
+- **Root cause:** skubejimas prie geometrijos + "faila perskaiciau = skill panaudojau" iliuzija. Skill-loading yra proceduros vartai (garantuoja visa konteksta), failo skaitymas ju neperjunge.
+- **Fix:** scad-modeler pakrautas per skill-tool (siame zingsnyje); v5 daryti su pilnu load (cad+modeler), BOSL2 patikra pirma (doctor.py), check_dimensions.py vietoj rankinio bbox, README.md irasyti. openscad-organic registruoti arba pakeisti keliu i faila — kol kas krauti per read.
+- **Already promoted to a rule?** ne — tik siuloma: "skaitytas failas != krautas skill; be skill-load geometrijos nepradeti".
+
+### 2026-09-10 -- v6/v7 sokinejo prie geometrijos be uzsaldyto speco (server_rack_modular_v4)
+- **Where:** v6 (tray-dugnas + deze-duct) ir v7 (bankas/gaubtas/fan pozicijos), 4 render iteracijos per vakara.
+- **Symptom:** kiekvienas render rode vis kita defekta; vartotojas: vazineji ratais, nesukuri specifikacijos dokumento su vidu dydziais.
+- **Root cause:** (a) vidiniu daliu erdvinis kontraktas neuzfiksuotas pries geometrija, tik bendras vokas; (b) layout pozicijos keistos pagal renderi, ne is matmenu grandines; (c) 11 saltiniu tyrimas darytas PO v6 geometrijos, ne Stage 0.
+- **Fix:** SPEC su vidinemis grandinemis UZSALDYTAS pries geometrija; jokia layout pozicija neatsiranda is renderio, tik is grandines; tyrimas visada Stage 0.
+- **Already promoted to a rule?** not yet, siulyti i scad-modeler planning.md kaip layout-poziciju-saltinio pastraipa.
+
+### 2026-09-10 -- top projekcija melavo apie flansu kolizija (server_rack_modular_v4 v7)
+- **Where:** exhaust_hood.scad, 2 flansai Z-offset 50.
+- **Symptom:** top view rode ziedu persidengima, nors FCL kūnai atskiri (2 bodies, abu watertight).
+- **Root cause:** ortho projekcija suglaudzia skirtingu Z objektus i viena plokstuma; sprendimas priimtas is Z grandines skaiciavimo (tarpas 26 oro), ne is renderio.
+- **Fix:** pasitiketa skaiciumi (body count + watertight), ne akimi; front view patvirtino skirtingus auksius.
+- **Already promoted to a rule?** not yet, susije su SKILL §1 ispėjimu (render = sanity layer, ne gate).
+
+### 2026-09-11 -- sonines plokstes: (a) be jokio tvirtinimo, (b) kirtosi su stulpais (server_rack_modular_v4/v8)
+- **Where:** `v8/scad/parts/side_panel.scad` + `v8/scad/layout.scad`.
+- **Symptom:** (a) plokste buvo plikas 3x229.7x200 stačiakampis — nulis tvirtinimo elementu; (b) plokste Y -237.7..+237.7, stulpai ±229..±247 -> persidengimas 1499.6 mm3 (8.7 mm kiekviename gale).
+- **Root cause:** (a) "nukertu smulkmenas, kad surinkimas susikompiuotu" — nuemiau kraigus ir insert boss'us ir NEGRAZINAU, nes niekas to nepagavo (connectivity'io patikra ziuri TIK atskira dali, ne ar ji turi tvirtinimo elementus); (b) formulėje `case_depth/2` (250) vietoj `post_y` (239) — tas pats klaidos tipas kaip D41/D42: matmuo paimtas nuo KORPUSO krašto, kai reikejo nuo STULPO centro.
+- **Fix:** vienas saltinis `params.scad` (`post_y`, `side_span_half`) — layout ir detale naudoja ta pati kintamaji, nebe dvi atskiras formules; persidengimas 0, tarpas 0.31 mm (= shadow_gap). Tvirtinimas pridetas atskiru zingsniu.
+- **Papildomai:** AESTHETIC_SPEC §9 panele orientacija buvo neteisinga ("vertikaliai" -> fasade 1000 sluoksniu liniju). Taisykle pataisyta: spausdinti GULSCIAS, isorine puse ant lovos. Pamoka: spec'e irasytas MECHANINIS teiginys nebuvo patikrintas render'iu ar skaiciavimu — teksto autoritetas != patikrintas faktas.
+- **Already promoted to a rule?** Ne — siuloma: "detales tvirtinimo elementai tikrinami atskiru check'u, ne tik connectivity".
