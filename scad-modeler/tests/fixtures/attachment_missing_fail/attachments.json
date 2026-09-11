@@ -1,0 +1,4 @@
+[
+  {"name": "panel_to_post_upper", "part": "part", "at": [4.5, 20, 15],
+   "feature": "m3_boss (stands 6mm off the panel face)", "min_material_mm": 6.0}
+]

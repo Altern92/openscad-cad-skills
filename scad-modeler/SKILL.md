@@ -457,6 +457,7 @@ In execution order, with the failure each one exists to catch:
 | `check_collisions.py` | Unintended interference / insufficient clearance between separately-exported parts. Reports three verdicts: unintended interference (fail), candidate intentional touch (fail + paste-ready `joints.json` stub), near miss (non-fatal note), declared contact (range-checked). |
 | `motion_sweep.py` | A static pose that is clear at 0° and clashes at 37°. Needs a `motion` block in `joints.json` — axis, origin, `ratio` per driver. **Meshing external gears need opposite, nonzero ratio signs.** Sampling, not proof. |
 | `check_bore_reachability.py` | A bore that is a fully enclosed internal cavity — `body_count==1` and `is_watertight==True` both stay clean while the part is unassemblable. Needs a project-root `bores.json`; picked up automatically once that file exists. |
+| `check_attachment.py` | A part that has nothing on it to attach *with* — a bare platform with no bosses, flanges or holes. Passes every other gate here (one solid, right size) while being impossible to fasten to anything. Opt-in via a project-root `attachments.json` declaring each fastener's point. |
 
 Then render a preview and actually look at it:
 
@@ -489,7 +490,8 @@ Declare expectations in the `.scad` file next to the part's own dimension variab
 ```
 
 Assembly-level declarations live in `joints.json` (contacts + `motion` block),
-`bores.json` (bore axis segments), `fusions.json` (sub-feature exemptions). See
+`bores.json` (bore axis segments), `attachments.json` (fastener points),
+`fusions.json` (sub-feature exemptions). See
 `templates/joints.json`; the full field set (`expected_bounds`,
 `forbidden_regions`, `derivation`, `multi_region_ok`, `joint_type`) is in
 `references/validation.md`.

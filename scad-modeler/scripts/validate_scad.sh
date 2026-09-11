@@ -310,6 +310,33 @@ if [[ "$MODE" == "--all" ]]; then
         fi
     fi
 
+    # Attachment-point check: opt-in via a project-root attachments.json
+    # declaring where each part is fastened to another part. Every other
+    # check here asks whether a part is correct; none asks whether it has
+    # anything on it to attach WITH. A bare platform with no bosses, flanges
+    # or holes passes connectivity (one solid) and dimensions (right size)
+    # while being impossible to fasten to anything -- confirmed live
+    # (INCIDENTS.md 2026-09-11, side panels). Runs against the rendered part
+    # STLs, after the parts loop above so they already exist.
+    if [ -f attachments.json ]; then
+        shopt -s nullglob
+        attach_stls=("$BUILD_DIR"/*.stl)
+        shopt -u nullglob
+        if [ ${#attach_stls[@]} -gt 0 ]; then
+            if python3 "$SCRIPT_DIR/check_attachment.py" --attachments attachments.json ${attach_stls[@]+"${attach_stls[@]}"}; then
+                echo "CHECK_RESULT attachment=PASS"
+                log_check "attachment" 0 "check_attachment.py --attachments attachments.json (via validate_scad.sh)" "PASS"
+            else
+                echo "CHECK_RESULT attachment=FAIL"
+                OVERALL_FAIL=1
+                log_check "attachment" 1 "check_attachment.py --attachments attachments.json (via validate_scad.sh)" "FAIL"
+            fi
+        else
+            echo "CHECK_RESULT attachment=SKIP"
+            log_check "attachment" 0 "n/a" "SKIP: attachments.json present but no built STLs"
+        fi
+    fi
+
     # Mechanics auto-trigger: opt-in via joints.json declaring a non-empty
     # "motion" array (motion_sweep.py's own documented convention -- see its
     # docstring, NOT design_manifest.json.motion, which two of this skill's

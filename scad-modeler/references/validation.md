@@ -25,6 +25,7 @@ manual.
 | `check_collisions.py` | yes, 3+ parts |
 | `motion_sweep.py` | yes, when motion declared |
 | `check_bore_reachability.py` | yes, opt-in by bores.json |
+| `check_attachment.py` | yes, opt-in by attachments.json |
 | `check_subfeature_overlap.py` | **no** — manual, needs solo sub-feature STLs |
 | `check_printability.py` | **no** — manual, standalone |
 | load / strength | **not checked at all** (needs datasheet + material properties) |
@@ -342,3 +343,55 @@ connectivity bug above happened: a leg radius was widened until
 re-running `validate_scad.sh --all`, which would have caught the new
 disconnection immediately. Stopping at the first green result for the thing
 you were looking at is not the same as the part being right.
+
+---
+
+## Attachment points (`check_attachment.py`, added 2026-09-11)
+
+Every other check in this chain asks whether a part is **correct** — one solid,
+the right size, free of collisions, bores that reach. None of them asks the
+previous question: **does this part have anything on it to attach with at all?**
+
+Confirmed failure, not hypothetical: a side panel shipped as a bare
+3 × 229.7 × 200 mm rectangle with zero attachment features. It passed
+connectivity (one solid), dimensions (exactly the declared size) and collision
+(a separate finding) while being physically impossible to fasten to anything.
+The author had removed the bosses earlier "to make the assembly fit" and never
+restored them, and nothing noticed — because connectivity checks whether a part
+is one body, never whether that body carries attachment features
+(`INCIDENTS.md` 2026-09-11, "side panels: (a) no fastening at all, (b) collided
+with the posts"; server_rack_modular_v4 v8).
+
+Declare each fastener's point in a project-root `attachments.json`:
+
+```json
+[
+  {"name": "side_panel_to_post_front",
+   "part": "side_panel",
+   "at": [4.5, 20, 15],
+   "feature": "m3_boss",
+   "min_material_mm": 6.0}
+]
+```
+
+`at` is in the part's **own local coordinates** (the system the part file is
+modelled in and its STL exported from) — this checks the part, not the
+assembly. `part` is matched case-insensitively as a substring against each
+input STL's basename, the same convention `check_collisions.py` and
+`check_bore_reachability.py` use.
+
+`min_material_mm` is optional. With it, a ring of points at half that radius
+around `at` is also sampled, which separates a real boss from a sliver that
+happens to cross one point. Fewer than half the ring solid reports "likely a
+sliver" — advisory wording, because it is not certain.
+
+`validate_scad.sh --all` picks the check up automatically once the file exists,
+the same convention `bores.json` uses. A declared point with no material fails
+closed: a fastener cannot go through air. Getting the point wrong (declaring it
+in assembly coordinates, say) produces a failure, not a false pass — the safe
+direction.
+
+Requires `trimesh`, `numpy`, `rtree` (`pip install trimesh numpy rtree`).
+Regression fixtures: `tests/fixtures/attachment_missing_fail` (real incident
+shape) and `attachment_present_pass` — a true A/B pair on the same declared
+point.

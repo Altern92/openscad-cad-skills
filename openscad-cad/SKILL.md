@@ -392,6 +392,15 @@ Graph navigates elsewhere; here grep navigates, file confirms — D48.)
 - Always include at least one PNG render (rendered with `--render`, not just
   preview) in the final response so the user can see the result without opening
   a slicer.
+- **Always also hand back an interactive inspection path, not only stills.** A few
+  fixed-angle PNGs are a genuinely weaker channel for a 3D object: geometry hidden
+  behind a wall, interpenetration, and orientation errors are invisible from the
+  chosen angles, so the user cannot actually check the model. Export the STL/3MF
+  (for an assembly, the assembly STL) and state the command or viewer, so they can
+  rotate the real thing. Ship it by default, not on request — a user asking *"how
+  am I supposed to judge this from a picture?"* has already lost a review cycle.
+  A top view once reported a flange collision that did not exist: the projection
+  collapsed two different Z heights into one plane (`INCIDENTS.md` 2026-09-10).
 - Name variables and the file itself descriptively (e.g. `gridfinity_bin_3x2x6.scad`),
   not `model.scad`, once the design is finalized.
 - Give each project folder its own short `README.md`: what it is, the exact

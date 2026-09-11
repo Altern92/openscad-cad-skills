@@ -143,3 +143,35 @@ wrong number presented confidently costs a print; a question costs a sentence.
 Stop conditions: no calibration profile + fit claim requested → cap at Tier 2
 and say so; conflicting references → cite both, pick neither silently.
 Source: 06_RAG_taisykles (T4), cAST precision finding (R-002).
+
+## Tier naming rule (mandatory in every final report)
+
+State the tier the part actually reached, by name, in the final response — and
+name the gates that ran to get there. This is not ceremony: it is the difference
+between a deliverable and an overclaim, and the user has no other way to know
+what was actually verified.
+
+Shape of the sentence: *"Reached **Tier 3** — prints on the calibrated rig;
+held back from Tier 4 because no positioned collision check ran."*
+
+Three things this closes, all confirmed in real sessions:
+
+1. **Running the gate bundle is not climbing the ladder.** A project ran
+   \`validate_scad.sh --all\` 14 times and produced only 3 distinct gate
+   signatures — the same bundle re-run, no new information, while the tier the
+   design had actually reached was never named. If two consecutive runs give an
+   identical failing signature, the next action must be a new hypothesis or a
+   narrower probe — not another full run.
+2. **A SKIP is not a PASS.** \`assumptions\` and \`mechanics\` report SKIP when a
+   file is absent or no motion is declared. A report that lists SKIP gates
+   without saying so reads as all-green. Say which gates skipped and why.
+3. **A part that was designed as an enclosure while lacking closure, bracing or
+   attachment must not be presented as that thing.** Name the shortfall in the
+   report or fix it — silence is the failure mode.
+
+**Cap the claim, not the design.** Saying "Tier 2" about a good part is normal
+and cheap; overclaiming is not recoverable, because the user finds out by
+printing.
+
+Source: INCIDENTS.md 2026-09-10 ("tier ladder unused", rack_v6 session,
+\`user_corrections.jsonl\` uc-007).
