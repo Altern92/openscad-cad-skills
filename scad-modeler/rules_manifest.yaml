@@ -131,6 +131,13 @@ rules:
     gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
     success_pattern: "CHECK_RESULT param_context=PASS"
 
+  - id: R-18
+    rule: "Attachment points (§7, added 2026-09-11): every declared fastener point in attachments.json has solid material behind it -- catches a part that shipped with no fastening features at all (a bare platform with no bosses, flanges or holes), which passes every other gate because connectivity checks whether a part is ONE body, never whether that body carries anything to attach with"
+    applies: "file_exists:attachments.json"
+    kind: auto
+    gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
+    success_pattern: "CHECK_RESULT attachment=(PASS|SKIP)"
+
   - id: R-17
     rule: "FDM printability (§7): each printed part was checked with check_printability.py for unsupported overhang and thin walls -- manual because it is new, not yet wired into validate_scad.sh --all, and its wall-thickness reading has a confirmed edge-case limitation (a solid, sharply-tapered feature's edge can produce a spuriously short reading) that needs a human/agent read of the result, not a bare pass/fail"
     applies: "always"

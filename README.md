@@ -59,11 +59,29 @@ condition — lives in
 |-------|-----|
 | `openscad-cad` | A single part: an insert, bracket, cover, enclosure, Gridfinity bin. Writing, rendering, exporting, dimensional checks. |
 | `scad-modeler` | Multi-part assemblies: gears, bearings, shafts. Adds mandatory calculations before geometry, centralized parameters and positions, collision/clearance/motion checking. |
+| `openscad-organic` | Organic figurines: characters, creatures, miniatures. hull/skin/sweep techniques and FDM detail minimums. |
 
 `scad-modeler` builds on `openscad-cad` — render/export commands and
 tolerance data live there. For a single part, use `openscad-cad` directly;
 its validation scripts live in `scad-modeler/scripts/` but work fine
 against a single part too.
+
+Validation scripts (all in `scad-modeler/scripts/`): `doctor.py`,
+`selftest.py`, `check_dimensions.py`, `check_features.py`,
+`check_connectivity.py`, `check_collisions.py`, `motion_sweep.py`,
+`check_bore_reachability.py`, `check_attachment.py`, `check_printability.py`,
+`check_subfeature_overlap.py`. `validate_scad.sh --all` runs the wired-in ones;
+the others are opt-in by declaration file (`bores.json`, `attachments.json`,
+`fusions.json`) or manual. See `scad-modeler/references/validation.md`.
+
+## Navigation
+
+Two orientation files, both cheap to read:
+
+- `references/retrieval.md` — which skill to load, the passport format every
+  reference chunk carries, and the abstention rule.
+- `scad-modeler/references/validation_decision_tree.md` — "which check applies
+  right now", as a flowchart.
 
 ## Quickstart
 
