@@ -1135,3 +1135,39 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 - **Fix:** vienas saltinis `params.scad` (`post_y`, `side_span_half`) — layout ir detale naudoja ta pati kintamaji, nebe dvi atskiras formules; persidengimas 0, tarpas 0.31 mm (= shadow_gap). Tvirtinimas pridetas atskiru zingsniu.
 - **Papildomai:** AESTHETIC_SPEC §9 panele orientacija buvo neteisinga ("vertikaliai" -> fasade 1000 sluoksniu liniju). Taisykle pataisyta: spausdinti GULSCIAS, isorine puse ant lovos. Pamoka: spec'e irasytas MECHANINIS teiginys nebuvo patikrintas render'iu ar skaiciavimu — teksto autoritetas != patikrintas faktas.
 - **Already promoted to a rule?** Ne — siuloma: "detales tvirtinimo elementai tikrinami atskiru check'u, ne tik connectivity".
+
+### 2026-09-10 -- 45deg flanges appeared in geometry with no requirement behind them (server_rack_modular_v4 v7)
+- **Where:** `v7/scad/parts/exhaust_hood.scad` (flanges above the GPU bank).
+- **Symptom:** user asked "kas tie 45 laipsniu kampu?" -- angular flanges materialised in the render that neither the SPEC nor the user ever requested.
+- **Root cause:** geometry invented during render iteration to make a fit "work out", instead of deriving the shape from the frozen SPEC's internal dimension chain. Same class as the v7 layout churn: a render is not a requirements source.
+- **Fix:** SPEC with internal chains frozen before geometry; any shape not traceable to a SPEC line must be named and justified in `calculations.md` or removed.
+- **Already promoted to a rule?** Ne -- siuloma: "kiekviena geometrijos forma turi atsekama SPEC eilute; renderis nera reikalavimu saltinis".
+
+### 2026-09-10 -- unexplained circle ("kas tas ratas random") visible in render (server_rack_modular_v4 v7)
+- **Where:** `v7` assembly render, `assembly_a_iso.png`.
+- **Symptom:** user saw a stray circular primitive in the assembly and could not tell what it belonged to; nothing in the report explained it.
+- **Root cause:** a helper/leftover primitive (or an ungrouped cut leftover) made it into the assembly render without being part of any named part. No check compares "shapes visible in the render" against "parts declared in layout.scad" -- so an orphan solid renders happily.
+- **Fix:** before delivering a render, account for every visible solid: each must map to a named part in `layout.scad` or be removed. Candidate automated check: rendered body count vs declared part count.
+- **Already promoted to a rule?** Ne -- siuloma: "render'yje matomas kunas turi tureti varda layout.scad; orfanai salinami".
+
+### 2026-09-10 -- user had to ask whether the skill was actually loaded; procedure ran from read files (server_rack_modular_v4)
+- **Where:** session-level process, `scad-modeler` + `openscad-cad`.
+- **Symptom:** user asked "kuriuos tu skills naudoji? is kurios lokacijos?" and "kokia lokacija scad-modeler?" -- i.e. had to audit the agent's own tooling mid-session because the output looked like the discipline was not applied.
+- **Root cause:** "read the SKILL.md file" was treated as equivalent to "loaded the skill through the skill mechanism". Reading gives the text; loading is the procedural gate (the invocation is what the harness records and what guarantees the full procedure, not the presence of text in context).
+- **Fix:** state at the start of any geometry work which skills are loaded and from which path; if the skill tool cannot resolve a name, say so explicitly instead of silently substituting a file read.
+- **Already promoted to a rule?** Ne -- siuloma: "skaitytas failas != krautas skill; pries geometrija deklaruoti pakrautus skill'us ir kelius".
+
+### 2026-09-10 -- tiered validation available but only partially used (server_rack_modular_v4 v7/v8)
+- **Where:** `scad-modeler` tier system vs what actually ran in the session.
+- **Symptom:** user: "kodel tu neini per tuos scad-modeler irankius ir netikrini skirtingu tier???" -- confidence tiers existed and were not walked through systematically.
+- **Root cause:** `validate_scad.sh --all` was run (14 times) but the tier ladder was never used as the ordering discipline: the same 3 unique gate-result signatures repeated across the session, i.e. re-running the same bundle instead of climbing Tier 1 -> 5 and naming which tier the part actually reached.
+- **Fix:** name the achieved tier in the final response (Tier 1..5 per `confidence-tiers.md`), and when a gate fails, fix the cause or drop a tier -- do not re-run the same bundle hoping for a different signature.
+- **Already promoted to a rule?** Ne -- siuloma: "kiekvieno etapo gale ivardinti pasiekta tier; pakartotinis tas pats vartu rinkinys be priezasties = kvapas".
+
+### 2026-09-11 -- static PNG render is not a sufficient evaluation channel (server_rack_modular_v4 v8)
+- **Where:** `v8/renders/asm_iso.png` + `asm_side.png` + `asm_front.png` delivered as the review artefact.
+- **Symptom:** user: "as nelabai galiu efektyviai vertinti is paveiksliuko... man reikia sugebeti sukioti 3d!" -- every visual judgement so far had been made through still images, and the user could not actually inspect the model.
+- **Root cause:** the skill's review loop assumes a human/model can judge correctness from a few fixed-angle PNGs. For a 3D object this is a genuinely weaker channel: hidden geometry, interpenetration behind a wall, and orientation errors are invisible from chosen angles (confirmed again by the top-view flange false alarm, INCIDENTS 2026-09-10).
+- **Fix:** deliver an interactive path alongside the render -- export STL/3MF and state the viewer/command, so the user rotates the real model instead of trusting selected angles. Candidate: ship an assembly STL by default in the final report, not only on request.
+- **Already promoted to a rule?** Ne -- siuloma: "galutiniame pristatyme VISADA interaktyvus perziuros kelias (STL + viewer), ne vien PNG kampus".
+
