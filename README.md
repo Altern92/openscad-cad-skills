@@ -76,12 +76,15 @@ the others are opt-in by declaration file (`bores.json`, `attachments.json`,
 
 ## Navigation
 
-Two orientation files, both cheap to read:
+Three orientation files, all cheap to read:
 
 - `references/retrieval.md` — which skill to load, the passport format every
   reference chunk carries, and the abstention rule.
 - `scad-modeler/references/validation_decision_tree.md` — "which check applies
   right now", as a flowchart.
+- `NEXT.md` — what is known and not yet done, with the evidence for each item.
+  Read it before starting a large change so a known gap does not get
+  rediscovered; update it by deleting finished items, not by marking them.
 
 ## Quickstart
 
