@@ -11,6 +11,11 @@ if a fix needs revising later, add a new entry that supersedes it and say so.
 Not every skill file edit belongs here -- only things that were actually
 *wrong* (a bug, a bad test, an inaccurate claim), not routine additions.
 
+### 2026-09-11 -- FULL plan: stash landing + retrieval.md + organic passports + SCAD golden seed + T8 research
+- **Where:** PLAN-2026-09-11-VISI-tobulinimai.md (5 fazės A–E).
+- **Fix:** A) 7 stash įrašai append-only (+50, jokių trynimų); B) references/retrieval.md rodyklė; C) organic 2 pasai + 4 CHUNK; D) golden_scad_10.json + EVAL_SKETCH.md; E) DESIGN_T8.md verdict (CSG-eksportas, ne kompiliatorius). Testai 13/13.
+- **Already promoted to a rule?** yes — retrieval.md yra rodyklė (T3).
+
 ## Pattern analysis (Phase 2, 2026-08-19)
 
 First real pass over the accumulated log (9 entries, 2026-08-16 to
