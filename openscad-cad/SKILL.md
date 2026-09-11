@@ -10,6 +10,8 @@ fix what's wrong, and only export STL/3MF once the render looks right. The whole
 loop runs through the CLI — the human never has to open the OpenSCAD GUI, though
 they can if they want to tweak the `.scad` file by hand afterward.
 
+**Not sure which skill to load, or where a fact lives? `references/retrieval.md` is the routing table (skill choice, passport format, abstention). Read it before assuming this skill has the answer.
+
 ## 0. Check installation
 
 ```bash
@@ -405,6 +407,8 @@ Graph navigates elsewhere; here grep navigates, file confirms — D48.)
   Raw data for a later pattern-review pass, not something to analyze now.
 
 ## Reference files
+
+- `references/retrieval.md` (sibling `claude_skills/references/`) — routing table: which skill to load, passport format, abstention rule.
 
 - `../INCIDENTS.md` — append-only log of real bugs found and fixed, shared
   with `scad-modeler`. Not reviewed automatically; a later pass reads it for

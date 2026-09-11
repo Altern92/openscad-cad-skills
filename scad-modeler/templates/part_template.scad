@@ -1,3 +1,4 @@
+// RAG-passport: file=templates/part_template.scad | skill=scad-modeler | applies_to=[part-file, local-coordinates, EXPECTED_BBOX, EXPECTED_HOLE, trailing-call] | units=mm | version=2026-09-11 | source=06_RAG_taisykles (T2) | kind=TEMPLATE (copy into project, do not edit here)
 // ============================================================
 // <part_name>.scad
 // Local origin: <state the exact datum, e.g. "center of the bearing bore,

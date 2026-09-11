@@ -1,3 +1,4 @@
+<!-- RAG-passport: file=templates/service_envelope.md | skill=scad-modeler | applies_to=[service-envelope, maintenance-access, gate-check_service_envelope] | units=mm | version=2026-09-11 | source=06_RAG_taisykles (T2) | kind=TEMPLATE (copy into project, do not edit here) -->
 # Service envelope — <part/assembly name>
 
 Why this file exists: "service-environment load mismatch" (vibration,

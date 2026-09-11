@@ -1,3 +1,4 @@
+// RAG-passport: file=templates/layout.scad | skill=scad-modeler | applies_to=[layout, positions, assembly-coordinates, at] | units=mm | version=2026-09-11 | source=06_RAG_taisykles (T2) | kind=TEMPLATE (copy into project, do not edit here)
 // ============================================================
 // layout.scad -- where each printed part sits in the shared assembly
 // coordinate system. See SKILL.md §3 for the full explanation and

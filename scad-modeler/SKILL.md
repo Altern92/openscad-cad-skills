@@ -10,6 +10,8 @@ assemblies where multiple parts must fit together correctly (gear meshes, bearin
 press-fits, shaft alignments), where a wrong number means two parts collide or a
 gear pair doesn't mesh, not just "the pocket is 2mm too small."
 
+**Not sure which skill to load, or where a fact lives? See `../references/retrieval.md` — the routing table (skill choice, passport format, abstention).**
+
 ## 0. Before anything else: read project facts
 
 Check the project's design docs (`CLAUDE.md` under Claude Code, `AGENTS.md`, or a
@@ -542,6 +544,8 @@ finishing, using its entry format. This is raw data for a later pattern-review
 pass, not something to analyze now; just log it accurately.
 
 ## Reference files
+
+- `../references/retrieval.md` — routing table: which skill to load, passport format, abstention rule.
 
 - `references/validation.md` — **full detail behind §7**: every gate's reasoning,
   exact `joints.json`/`bores.json` field semantics (`expected_bounds`,

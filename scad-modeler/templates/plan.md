@@ -1,3 +1,4 @@
+<!-- RAG-passport: file=templates/plan.md | skill=scad-modeler | applies_to=[plan, architecture-options, decision, gate-check_plan] | version=2026-09-11 | source=06_RAG_taisykles (T2) | kind=TEMPLATE (copy into project, do not edit here) -->
 # Plan — <project name>
 
 Fill in every section for real before touching the calculation table (§1).
