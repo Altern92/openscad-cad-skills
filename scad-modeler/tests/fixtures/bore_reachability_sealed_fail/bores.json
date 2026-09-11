@@ -1,0 +1,4 @@
+[
+  {"name": "bearing_tower_bore", "part": "part",
+   "start": [-40, 10, 10], "end": [10, 10, 10], "step_mm": 0.5}
+]
