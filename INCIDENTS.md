@@ -140,6 +140,13 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 
 ## Entries
 
+### 2026-09-11 -- RAG hardening: references without metadata passports + modeler description over 1024 chars
+- **Where:** `openscad-cad/references/*` (4 files), `scad-modeler/references/*` (8 files), `scad-modeler/SKILL.md` frontmatter.
+- **Symptom:** no chunk carried its own retrieval identity (file/section/applies_to/version) — model had to read whole files to find one table (R-002 distraction); `scad-modeler` description 1311 chars exceeded Anthropic 1024 limit (R-020).
+- **Root cause:** references written as human docs, not retrievable chunks; description grew by accretion without limit check.
+- **Fix:** RAG-passport headers on 12 files; CHUNK markers on patterns.scad P0–P5 (comments only, parse verified); abstention rule in confidence-tiers.md; description trimmed 1311→865 chars (meaning preserved). Plan: PLAN-2026-09-11-RAG-taisykles.md; synthesis: 06_RAG_taisykles (reviewer R01 6/6).
+- **Already promoted to a rule?** yes — passports + abstention are the rule (T2/T4).
+
 ### 2026-09-04 -- check_margin_provenance.py gained a second detection mode after re-reading INCIDENTS.md turned up a matching, independent real incident
 - **Where:** `scad-modeler/scripts/check_margin_provenance.py`, `SKILL.md`,
   `scad-modeler/tests/fixtures/margin_wrong_variable_fail`/`_pass`.

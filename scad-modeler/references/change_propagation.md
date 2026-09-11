@@ -1,3 +1,4 @@
+<!-- RAG-passport: file=references/change_propagation.md | skill=scad-modeler | applies_to=[param-change, dependency-DAG, revalidation-scope] | version=2026-09-11 | source=06_RAG_taisykles (T2) -->
 # Change-propagation choice tree
 
 **Status note (2026-08-21):** most of this file describes the aspirational

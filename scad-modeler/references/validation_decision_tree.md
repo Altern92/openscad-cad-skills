@@ -1,3 +1,4 @@
+<!-- RAG-passport: file=references/validation_decision_tree.md | skill=scad-modeler | applies_to=[which-check, validation, navigation] | version=2026-09-11 | source=06_RAG_taisykles (T2) -->
 # Validation decision tree — v2 (2026-08-19)
 
 Quick-reference for "which check applies to my situation right now" — the

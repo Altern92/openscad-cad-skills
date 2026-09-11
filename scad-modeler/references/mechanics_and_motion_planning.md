@@ -1,3 +1,4 @@
+<!-- RAG-passport: file=references/mechanics_and_motion_planning.md | skill=scad-modeler | applies_to=[motion, mechanism, joints.json, rotation, translation] | version=2026-09-11 | source=06_RAG_taisykles (T2) -->
 # Mechanics & Motion Planning Stage
 
 > **When to apply**: Any assembly where parts move relative to each other — rotation, translation, flexure, or constrained rolling/sliding. This stage plans the mechanism, declares it in a machine-readable manifest, and verifies it through automated checks that catch failures visual inspection cannot.

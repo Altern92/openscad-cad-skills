@@ -1,3 +1,4 @@
+<!-- RAG-passport: file=references/rules_enforcement.md | skill=scad-modeler | applies_to=[rule-following, check_rules.py, gates] | version=2026-09-11 | source=06_RAG_taisykles (T2) -->
 # Rules-enforcement engine (how to make the skill follow its own rules EVERY time)
 
 > Goal: zero "forgot the rule" cases. Principle — **a rule must be

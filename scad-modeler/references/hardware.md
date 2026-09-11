@@ -1,3 +1,4 @@
+<!-- RAG-passport: file=references/hardware.md | skill=scad-modeler | applies_to=[vitamins, bearings, shafts, fasteners, purchased-parts] | version=2026-09-11 | source=06_RAG_taisykles (T2) -->
 # Purchased hardware ("vitamins") — the blind spot this closes
 
 ## Why this exists

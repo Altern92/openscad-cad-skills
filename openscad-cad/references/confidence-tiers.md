@@ -1,3 +1,4 @@
+<!-- RAG-passport: file=references/confidence-tiers.md | section=all | skill=openscad-cad+scad-modeler | applies_to=[tier-claim, validation-gate, abstention] | units=n/a | printer=FDM | version=2026-09-11 | source=06_RAG_taisykles (T2/T4) -->
 # Confidence tiers — what may be promised, and on what evidence
 
 State the tier in the final response, with the assumptions it rests on. The
@@ -132,3 +133,13 @@ Two of these are worth overriding on sight rather than defaulting: `$fa`/`$fs`,
 because OpenSCAD's stock values put a Ø8 hole 0.23 mm under nominal on their
 own; and orientation, because on FDM it is a structural decision, not a
 support-material convenience.
+
+## Abstention rule (RAG T4 — precision over recall)
+
+When the retrieved reference does not actually cover the case at hand (top
+match is a weak/partial fit, units or printer profile differ, no fit intent
+stated for a mating feature): **ask the user once instead of guessing.** A
+wrong number presented confidently costs a print; a question costs a sentence.
+Stop conditions: no calibration profile + fit claim requested → cap at Tier 2
+and say so; conflicting references → cite both, pick neither silently.
+Source: 06_RAG_taisykles (T4), cAST precision finding (R-002).

@@ -1,3 +1,4 @@
+<!-- RAG-passport: file=references/tolerances.md | section=all | skill=openscad-cad | applies_to=[hole, bore, press-fit, sliding-fit, clearance] | units=mm | printer=FDM 0.4mm nozzle, PLA default | version=2026-09-11 | source=06_RAG_taisykles (T2) -->
 # Fit tolerances — reference values from real prints
 
 ## Read this first: two different errors, two different fixes

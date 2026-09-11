@@ -1,3 +1,4 @@
+<!-- RAG-passport: file=references/setup-notes.md | skill=scad-modeler | applies_to=[setup, openscad-version, BOSL2-install, MCAD] | version=2026-09-11 | source=06_RAG_taisykles (T2) -->
 # Setup verification notes (2026-08-16)
 
 Facts below were empirically verified against the actual installed OpenSCAD build

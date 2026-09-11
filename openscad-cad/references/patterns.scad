@@ -1,3 +1,4 @@
+// RAG-passport: file=references/patterns.scad | skill=openscad-cad | applies_to=[true_hole, pocket, sleeve, duct, coupon] | units=mm | printer=FDM | version=2026-09-11 | source=06_RAG_taisykles (T1/T2). 1 pattern = 1 retrievable chunk (PATTERN 0..5 + session lessons).
 // ============================================================
 // patterns.scad -- reusable OpenSCAD snippets pulled from real, tested
 // parts in this project set (not written from scratch here). Each pattern
@@ -9,6 +10,7 @@
 
 
 // ------------------------------------------------------------
+// CHUNK: pattern=true_hole_d | applies_to=[hole, bore] | depends_on=none
 // PATTERN 0: circular-hole tessellation compensation
 // Source: derived from OpenSCAD's own facet math, not from a project --
 // see references/tolerances.md for the error-layer explanation.
@@ -82,6 +84,7 @@ module true_hole(d, h, center = false) {
 
 
 // ------------------------------------------------------------
+// CHUNK: pattern=rect_pocket | applies_to=[gridfinity, pocket] | depends_on=none
 // PATTERN 1: single rectangular locating pocket in a Gridfinity bin
 // Source: gridfinity_hardware_storage_inserts/insert_B.scad (and C/D/F)
 //
@@ -105,6 +108,7 @@ module true_hole(d, h, center = false) {
 
 
 // ------------------------------------------------------------
+// CHUNK: pattern=contour_pocket | applies_to=[gridfinity, pocket, contour] | depends_on=PATTERN 1
 // PATTERN 2: irregular-contour locating pocket in a Gridfinity bin
 // Source: helping_hands_base_insert/helping_hands_base_insert.scad
 //
@@ -135,6 +139,7 @@ module gridfinity_contour_pocket(outline, clearance, pocket_depth) {
 
 
 // ------------------------------------------------------------
+// CHUNK: pattern=friction_sleeve | applies_to=[sleeve, press-fit, cable-slot] | depends_on=PATTERN 0
 // PATTERN 3: friction-fit sleeve with a wire/cable exit slot
 // Source: nema23_fan_shroud/nema23_fan_shroud.scad
 //
@@ -171,6 +176,7 @@ module sleeve_wire_notch(body_w, clearance, wall, sleeve_len, notch_side, notch_
 
 
 // ------------------------------------------------------------
+// CHUNK: pattern=bent_duct | applies_to=[duct, tube, hull] | depends_on=none
 // PATTERN 4: bent duct / tube via segmented hull()
 // Source: nema23_fan_shroud/nema23_fan_shroud.scad
 //
@@ -218,6 +224,7 @@ module bent_duct(start, radius, bend_angle, d, segments) {
 }
 
 // ------------------------------------------------------------
+// CHUNK: pattern=hole_coupon | applies_to=[calibration, coupon, fit-test] | depends_on=PATTERN 0
 // PATTERN 5: hole calibration coupon
 // Source: prompted by a real steering_reduction_gearbox-style incident
 // (2026-08-21) where the model only proposed printing a fit-test piece

@@ -1,3 +1,4 @@
+<!-- RAG-passport: file=references/gridfinity-params.md | section=all | skill=openscad-cad | applies_to=[gridfinity, bin, baseplate, -D override] | units=mm/grid-units | printer=FDM | version=2026-09-11 | source=06_RAG_taisykles (T2) -->
 # Gridfinity parameter reference
 
 Full `-D` override tables for `gridfinity-rebuilt-openscad`'s two entry points.

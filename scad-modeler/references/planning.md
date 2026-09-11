@@ -1,3 +1,4 @@
+<!-- RAG-passport: file=references/planning.md | skill=scad-modeler | applies_to=[architecture, planning, plan.md, 3-plus-parts] | version=2026-09-11 | source=06_RAG_taisykles (T2) -->
 # Planning — before the calculation table
 
 ## Why this exists

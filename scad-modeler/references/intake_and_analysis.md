@@ -1,3 +1,4 @@
+<!-- RAG-passport: file=references/intake_and_analysis.md | skill=scad-modeler | applies_to=[new-design, requirements, printed-vs-purchased, variant-retrieval] | version=2026-09-11 | source=06_RAG_taisykles (T2) -->
 # Intake & Analysis Stage
 
 > **When to apply**: the very start of any new design — before §0.5 Planning.
