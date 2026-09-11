@@ -18,6 +18,32 @@ changing anything in `../scripts/`:
 bash tests/run_all.sh
 ```
 
+## Exit codes are NOT uniform across checkers — read this before writing a fixture
+
+A trap worth stating plainly: **half the checkers use exit 1 for a failure, half
+use exit 3.** This was found the hard way — two fixtures written in one session
+both assumed 3 and both failed, for no reason other than the assumption.
+
+| Exit code | Checkers |
+|---|---|
+| **1** on failure | `check_assumptions`, `check_connectivity`, `check_dimensions`, `check_features`, `check_plan`, `check_service_envelope` |
+| **3** on failure | `check_attachment`, `check_bore_reachability`, `check_collisions`, `check_intake`, `check_rules`, `check_subfeature_overlap` |
+| 4 on usage/runtime error | most checkers |
+| 2 = degraded | `check_collisions` only — **treat as not checked, not as pass** |
+
+`motion_sweep.py`, `check_margin_provenance.py`, `check_param_context.py`,
+`check_printability.py` and `check_dependencies.py` compute their own codes —
+read the docstring of the one you are testing rather than guessing.
+
+**Do not "fix" this by changing the codes.** `validate_scad.sh` and any
+user-side script branch on these values; a silent renumbering would break them.
+The correct move when adding a checker is to document its code and add a fixture
+that pins it.
+
+When writing a fixture, do not assume — derive the expected code by running the
+checker once and reading what it actually returns. That is what caught both
+mistakes above.
+
 ## Adding a fixture
 
 1. Create `fixtures/<descriptive_name>/`.
