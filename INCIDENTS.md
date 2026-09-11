@@ -145,6 +145,34 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 
 ## Entries
 
+### 2026-09-11 -- golden set was too easy to measure anything (eval, N=10)
+
+- **Where:** `golden_scad/golden_scad_10.json`, pre/post comparison of the
+  RAG-hardening cycle (`golden_scad/PRES_PO_2026-09-11.md`).
+- **Symptom:** the same 10 questions were run against the library BEFORE and AFTER
+  a whole cycle of changes (passports, SKILL.md section split, retrieval.md, new
+  rules, new checker). Both arms scored **100% on answer correctness**. The metric
+  that was supposed to show improvement showed nothing.
+- **Root cause:** the questions were answerable from general OpenSCAD knowledge and
+  a single obvious file. A discriminating eval needs cases where the "before"
+  library genuinely cannot produce the right answer -- a question requiring the
+  right one of two similar references, a chunk found by `applies_to` rather than
+  by filename, or a trap where a plausible-but-wrong answer exists.
+- **What DID move:** source attribution (83% -> 100% evidence recall) and search
+  cost (8.0 -> 3.8 files read per answer, -52%). So the cycle made answers cheaper
+  and better-grounded, not more correct -- a real but different gain.
+- **Also found:** one case (SCAD-05) was not a valid control at all: the
+  `openscad-organic` skill was untracked in git, so the `git worktree` "before"
+  version lacked a file that existed on disk. The eval measured the worktree
+  setup, not the library. And two rubric wordings of mine (Lithuanian diacritics:
+  `kalibracij` vs `kalibravimas`) under-scored the "before" arm by 15pp until
+  fixed -- an evaluator's own wording is a source of measurement error.
+- **Fix:** before trusting a golden set, check it discriminates -- run both arms and
+  confirm the score actually differs. If both are 100%, the set measures nothing.
+  Needs ~30 cases and deliberately hard ones.
+- **Already promoted to a rule?** no -- this entry is the rule.
+
+
 ### 2026-09-11 -- RAG hardening: references without metadata passports + modeler description over 1024 chars
 - **Where:** `openscad-cad/references/*` (4 files), `scad-modeler/references/*` (8 files), `scad-modeler/SKILL.md` frontmatter.
 - **Symptom:** no chunk carried its own retrieval identity (file/section/applies_to/version) — model had to read whole files to find one table (R-002 distraction); `scad-modeler` description 1311 chars exceeded Anthropic 1024 limit (R-020).
