@@ -145,6 +145,27 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 
 ## Entries
 
+### 2026-09-12 -- file count is not a cost proxy: the optimisation cycle raised cost ~70%
+
+- **Where:** this skill library, measured on the golden_scad eval (10 cases x 3 runs x 2 library versions).
+- **Symptom:** an earlier report claimed the RAG-hardening cycle cut search cost by 52%
+  (8.0 -> 3.8 files read). Re-measuring with real token counts from the DSH session
+  `usage` records showed the opposite: **+70% tokens** (median +68%, 6 clean matched
+  pairs), **+67% steps**, **+67% tool calls**. Every component rose: fresh input +17%,
+  cache read +68%, output +299%.
+- **Root cause:** the "files read" figure came from the agents' own self-reported file
+  lists, not from the harness. Fewer files were named, but those files are bigger --
+  `references/validation.md` (397 lines, added this cycle), 12 new INCIDENTS entries
+  (file now 1173 lines), `NEXT.md`, `templates/README.md`, 22 passports. Fewer, larger
+  files: file count went down while context volume went up.
+- **Fix:** never use a self-reported count as a cost metric. Read token usage from the
+  session records (`assistant/chunk` -> `chunk.type == "usage"`). This matches the
+  literature: arXiv 2602.11988 found context files raise inference cost >20% with no
+  task-success gain.
+- **Open question:** which change caused it. Needs one-at-a-time ablation (drop
+  NEXT.md / truncate INCIDENTS.md / remove passports) before the cost can be reduced.
+- **Already promoted to a rule?** yes -- this entry, plus `golden_scad/KOSTAI_2026-09-12.md`.
+
 ### 2026-09-11 -- golden set was too easy to measure anything (eval, N=10)
 
 - **Where:** `golden_scad/golden_scad_10.json`, pre/post comparison of the

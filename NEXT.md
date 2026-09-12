@@ -108,3 +108,33 @@ grep -rl 'RAG-passport' --include='*.md' --include='*.scad' . | wc -l
 # ar R-taisyklių skaičius (turetų buti 18)?
 grep -c '  - id: R-' scad-modeler/rules_manifest.yaml
 ```
+
+---
+
+## 6. KAINOS KILIMAS — ką tik rasta, reikia išspręsti (prioritetas: AUKŠČIAUSIAS)
+
+**Įrodymas:** `golden_scad/KOSTAI_2026-09-12.md`. Tie patys atvejai, 3 paleidimai
+rankai, tokenai iš DSH sesijų `usage` įrašų:
+
+| Matas | PRIEŠ | PO | Delta |
+|---|---:|---:|---:|
+| Tokenai (6 švarios poros) | — | — | **+70%** |
+| Žingsniai (40 sesijų) | 2,5 | 4,2 | **+67%** |
+| Įrankių kvietimai | 2,4 | 4,0 | **+67%** |
+
+Kaina kilo **visais komponentais**: fresh input +17%, cache read +68%, output +299%.
+
+**Tai sutampa su literatūra** (arXiv 2602.11988: konteksto failai +20% kaštų be
+teisingumo prieaugio). Taigi stebėjimas patikimas, bet **priežastis neįrodyta**.
+
+**Kandidatai „kaltininkams" (reikia abliacijos po vieną):**
+1. `references/validation.md` (397 eil., rodyklėje iš SKILL.md)
+2. `NEXT.md` (šis failas — agentai gali skaityti be reikalo)
+3. `templates/README.md`
+4. 12 naujų INCIDENTS įrašų (INCIDENTS.md 1173 eil.)
+5. 22 pasai (papildoma eilutė kiekviename atidarytame faile)
+
+**Testas:** PO versija be vieno iš šių, 6 poros × 2 rankos = 12 paleidimų, ~40 min.
+Kol to nepadaryta — žinoma, kad kaina kilo, bet ne kodėl, tad negalima jos sumažinti.
+
+**Taip pat:** ankstesnis „−52% failų" teiginys atšauktas (žr. PRES_PO korekciją).
