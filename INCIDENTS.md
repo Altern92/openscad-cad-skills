@@ -1414,3 +1414,21 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 - **Ir sablonai:** taisyklingai užpildytas `plan.md` -> `exit 0` ('2 options listed; decision confirmed'); `service_envelope.md` su visais 9 laukais -> `exit 0`. Neužpildyti -> `exit 1`. Veikia kaip parašyta.
 - **Suite:** 37 -> **38 passed, 0 failed**.
 - **Ko tai NEIRODO:** kad skill'as **pagerina modelio sprendimus**. Tai rodo tik tai, kad grandine veikia ir nemeluoja. 'Ar geriau' klausimas lieka atviras (golden set'as 100%/100%).
+### 2026-09-12 -- Nepriklausomas recenzentas: 10 radiniu, visi tikri, visi pataisyti
+- **Kaip gauta:** paleistas **priesiskas** subagentas, kurio vienintelė užduotis buvo **sugriauti** skill'o teiginius. Ne patvirtinti -- paneigti. Jis gavo sąrašą konkrečiu klasiu ir įpareigojimą tikrinti **vykdant**, ne skaitant.
+- **Rezultatas: 10 radiniu, visi patvirtinti matavimu.** Nė vienas nebuvo stilistikos pastaba.
+
+- **F1 -- tripwire klaidingas teigiamas (PATAISYTA PRIES recenzija).** Skill'o paties pavyzdys `examples/gear_reduction` krito: `mechanics=FAIL`, 'spur.stl 1786110 B vs assembly 2157216 B = 0.828 >= 0.8'. 66-dantis krumpliaratis **teisėtai** sudaro 83% dvieju daliu assembly. Failo dydis netinka -- pakeista i **bounding box**. Dabar `exit 0`, `collisions=PASS`, `mechanics=PASS`.
+- **F2 -- SKILL.md sake, kad `check_subfeature_overlap.py` NEPRIJUNGTAS.** Jis prijungtas (tai padariau šiandien), ir `references/validation.md` tai sako, ir fixture tai fiksuoja. Dokumentai prieštaravo vienas kitam; SKILL.md buvo neteisus.
+- **F3 -- `fusions.json`: šablono NEBUVO, ir vartai jo niekada neskaitė.** `validate_scad.sh` nekviecia `--exempt`, tad deklaracija buvo no-op vieninteliame automatiniame kelyje. Sukurtas šablonas, `--exempt fusions.json` perduodamas. Patikrinta: be deklaracijos FAIL 640 mm3, su ja PASS.
+- **F4 -- vienos dalies rezimas nespausdino nei `CHECK_RESULT`, nei `COVERAGE`.** `validate_scad.sh spur` grazindavo 'All validations passed' be nė vieno geometrijos verdikto. Dabar spausdina `connectivity`, `dimensions`, `features` ir `COVERAGE`.
+- **F5 -- `intake=SKIP` priezastis melavo.** Sakydavo 'no design_manifest.json' net kai failas YRA. Dabar tikrina.
+- **F6 -- VAKUUMINIS PASS: R-09.** `joints.json` deklaruoja judesi, `assembly.scad` nera, tad `motion_sweep.py` niekada nepaleidziamas -- o `check_rules.py` grazino **exit 0** ir '[PASS] R-09'. Ta pati klase, kuria R-04 buvo pataisyta ryte. Du fix'ai: `success_pattern: CHECK_RESULT mechanics=PASS` (be SKIP) ir teisinga SKIP priezastis.
+- **F7 -- SKILL.md dokumentavo 0/2/3/4 `validate_scad.sh`, kuris grazina tik 0/1.** Pataisyta.
+- **F8 -- `validation.md`: '2 = degraded, tik `check_collisions`'. Netiesa -- 2 grazina ir `check_intake`, `check_subfeature_overlap`, `check_printability`, `motion_sweep`, `doctor`. Pataisyta, ir tas pats failas sau prieštaravo 349 eiluteje.
+- **F9 -- BLOGIAUSIAS: sekmė ant nepatikrinto projekto.** `templates/README.md` siunte failus i `scad/`, o vartai globina `parts/*.scad` nuo esamo katalogo. Rezultatas: 'no files found under parts/*.scad' -> **'All validations passed.', exit 0**, nulis renderintu daliu. Pataisyta abipus: README sako 'project root', o tuščias paleidimas dabar **krenta** su paaiškinimu ir nuoroda i `scad/parts/`.
+- **F10 -- `templates/plan.md` sakė 'uncomment' `PLAN_EXEMPT` eilute, o `check_plan.py` priima tik `<!-- -->` forma.** Pataisyta; patikrinta, kad abi formos elgiasi kaip parašyta.
+
+- **Ka recenzentas patvirtino kaip TEISINGA:** visi 6 `success_pattern` sutampa su realiai spausdinamomis eilutėmis (patikrino 44 galimas eilutes); '18 patikru' ir '8-10 SKIP' tikslus; `check_plan`/`motion_sweep`/`doctor`/`check_rules` exit kodai teisingi; R-04 N/A (ne PASS) veikia.
+- **Dvi naujos fixtures:** `rules_no_vacuous_pass` ir `pipeline_empty_run_fails`. Suite: 38 -> **40 passed, 0 failed**.
+- **Pamoka, kuri verte viska:** 'patikrinta' ir 'teisinga' nera tas pats. Radau ir pataisiau 10 dalyku, kuriu **pats neieškojau**, nes tikėjau savo pačio tekstu. Priesiškas recenzentas su įpareigojimu matuoti rado juos per viena paleidima.
