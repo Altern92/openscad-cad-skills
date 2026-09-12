@@ -77,6 +77,8 @@ DIM_FAIL=0
 FEAT_DECLARED=0
 FEAT_FAIL=0
 PREVIEW_COUNT=0
+RENDER_FAIL=0
+RENDER_FAILED_FILES=""
 
 validate_file() {
     local scad="$1"
@@ -107,16 +109,27 @@ validate_file() {
     fi
 
     mkdir -p "$(dirname "$stl")"
+    # A part that does not render was never checked. That used to leave NO
+    # trace beyond an ERROR line and the generic summary, which meant
+    # connectivity could still print PASS while a part had never been built
+    # (INCIDENTS.md, 2026-09-12: front_swerve_module/parts/a_arm.scad renders
+    # an empty top level -- "Current top level object is empty." -- and openscad
+    # still exits 0, so only the missing STL reveals it). A false PASS is worse
+    # than a false FAIL: it is a check that claims to have looked and did not.
     if ! "$OPENSCAD" --backend="$BACKEND" \
         --hardwarnings \
         --check-parameters=true \
         --check-parameter-ranges=true \
         -o "$stl" "$scad"; then
         echo "ERROR: render failed: $scad" >&2
+        RENDER_FAIL=1
+        RENDER_FAILED_FILES="$RENDER_FAILED_FILES $scad"
         return 1
     fi
     if [ ! -s "$stl" ]; then
-        echo "ERROR: STL is empty: $stl" >&2
+        echo "ERROR: STL is empty: $stl (the file rendered no geometry -- check for a missing top-level module call)" >&2
+        RENDER_FAIL=1
+        RENDER_FAILED_FILES="$RENDER_FAILED_FILES $scad"
         return 1
     fi
     echo "OK: $(du -h "$stl" | cut -f1)"
@@ -317,9 +330,26 @@ if [[ "$MODE" == "--all" ]]; then
         validate_file "assembly.scad" "$BUILD_DIR/assembly.stl" || OVERALL_FAIL=1
     fi
 
+    # Render is the precondition of every geometry check below: a part that
+    # produced no STL was never examined by any of them, so it gets its own
+    # check and it vetoes connectivity=PASS below (INCIDENTS.md, 2026-09-12).
+    if [ "$RENDER_FAIL" -eq 0 ]; then
+        echo "CHECK_RESULT render=PASS"
+        log_check "render" 0 "validate_scad.sh --all" "PASS: every parts/*.scad produced a non-empty STL"
+    else
+        echo "CHECK_RESULT render=FAIL"
+        OVERALL_FAIL=1
+        echo "  - no STL produced for:" >&2
+        for f in $RENDER_FAILED_FILES; do echo "      $f" >&2; done
+        log_check "render" 1 "validate_scad.sh --all" "FAIL: no STL for$RENDER_FAILED_FILES"
+    fi
+
     if [ ${#parts[@]} -eq 0 ]; then
         echo "CHECK_RESULT connectivity=SKIP"
         log_check "connectivity" 0 "validate_scad.sh --all" "SKIP: no parts/*.scad"
+    elif [ "$RENDER_FAIL" -ne 0 ]; then
+        echo "CHECK_RESULT connectivity=FAIL"
+        log_check "connectivity" 1 "validate_scad.sh --all" "FAIL:$RENDER_FAILED_FILES never rendered, so connectivity was never measured"
     elif [ "$PART_CONNECTIVITY_FAIL" -eq 0 ]; then
         echo "CHECK_RESULT connectivity=PASS"
         log_check "connectivity" 0 "validate_scad.sh --all" "PASS (${#parts[@]} part(s), $PREVIEW_COUNT preview file(s) excluded)"
