@@ -79,6 +79,8 @@ FEAT_FAIL=0
 PREVIEW_COUNT=0
 RENDER_FAIL=0
 RENDER_FAILED_FILES=""
+LIB_COUNT=0
+LIB_SKIPPED=""
 
 validate_file() {
     local scad="$1"
@@ -116,17 +118,56 @@ validate_file() {
     # an empty top level -- "Current top level object is empty." -- and openscad
     # still exits 0, so only the missing STL reveals it). A false PASS is worse
     # than a false FAIL: it is a check that claims to have looked and did not.
-    if ! "$OPENSCAD" --backend="$BACKEND" \
+    # openscad's own words for "the file defines things but instantiates
+    # nothing". Captured rather than streamed so the two very different causes
+    # below can be told apart; still echoed in full either way.
+    render_out="$(mktemp)"
+    "$OPENSCAD" --backend="$BACKEND" \
         --hardwarnings \
         --check-parameters=true \
         --check-parameter-ranges=true \
-        -o "$stl" "$scad"; then
+        -o "$stl" "$scad" >"$render_out" 2>&1
+    render_rc=$?
+    cat "$render_out"
+
+    # A shared module library renders nothing by construction -- see the long
+    # note on the empty-STL branch below. openscad reports it as "Current top
+    # level object is empty." AND exits non-zero, so this has to be tested
+    # before the generic render failure, not after it.
+    if grep -qi "top level object is empty" "$render_out" \
+        && grep -qE '^[[:space:]]*module[[:space:]]' "$scad"; then
+        rm -f "$render_out"
+        LIB_COUNT=$((LIB_COUNT + 1))
+        echo "SKIP: $scad defines module(s) but instantiates none, so it renders no geometry -- a shared library file, not a printable part. If it was meant to be printable, its top-level call is missing."
+        return 0
+    fi
+    rm -f "$render_out"
+
+    if [ "$render_rc" -ne 0 ]; then
         echo "ERROR: render failed: $scad" >&2
         RENDER_FAIL=1
         RENDER_FAILED_FILES="$RENDER_FAILED_FILES $scad"
         return 1
     fi
     if [ ! -s "$stl" ]; then
+        # No STL means the geometry checks below cannot run. Two very different
+        # reasons produce that, and only one of them is a defect:
+        #
+        #   shared module library -- defines module(s), calls none, so it
+        #     renders nothing by construction. 8 files across 5 projects are
+        #     this: rack_v4/parts/{peg_joint,plate}.scad, v4/v8's
+        #     plate_common.scad, front_swerve_module/parts/a_arm.scad -- each
+        #     with 2-5 modules and 0 top-level calls. Reporting these as a
+        #     failure would put a standing FAIL on 5 of 11 projects, and a FAIL
+        #     that fires on a file that is CORRECT is how FAILs stop being read.
+        #
+        #   a part whose top-level call is missing or whose boolean cancels
+        #     everything -- a real defect, and the reason this branch exists.
+        #
+        # Library files are SKIPPED with the reason spelled out rather than
+        # silently passing: they are still named in the run, so a file that was
+        # MEANT to be printable and lost its top-level call shows up as SKIP
+        # instead of vanishing (INCIDENTS.md, 2026-09-12).
         echo "ERROR: STL is empty: $stl (the file rendered no geometry -- check for a missing top-level module call)" >&2
         RENDER_FAIL=1
         RENDER_FAILED_FILES="$RENDER_FAILED_FILES $scad"
@@ -335,7 +376,12 @@ if [[ "$MODE" == "--all" ]]; then
     # check and it vetoes connectivity=PASS below (INCIDENTS.md, 2026-09-12).
     if [ "$RENDER_FAIL" -eq 0 ]; then
         echo "CHECK_RESULT render=PASS"
-        log_check "render" 0 "validate_scad.sh --all" "PASS: every parts/*.scad produced a non-empty STL"
+        if [ "$LIB_COUNT" -gt 0 ]; then
+            echo "INFO: $LIB_COUNT file(s) are shared module libraries (define modules, instantiate none) -- skipped, not printable parts."
+            log_check "render" 0 "validate_scad.sh --all" "PASS: every printable parts/*.scad produced a non-empty STL; $LIB_COUNT library file(s) skipped"
+        else
+            log_check "render" 0 "validate_scad.sh --all" "PASS: every parts/*.scad produced a non-empty STL"
+        fi
     else
         echo "CHECK_RESULT render=FAIL"
         OVERALL_FAIL=1
