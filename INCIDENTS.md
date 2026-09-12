@@ -1467,3 +1467,12 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 - **Naujas fixture `rules_cover_and_pervasive`:** reikalauja, kad COVER butu, kad jis **įvardytu** taisykles (ne tik skaičiuotu), ir kad PERVASIVE atsirastu, o jei paleidimas žalias -- OK eilutė neša skaičiu.
 - **Suite:** 43 -> **44 passed, 0 failed**.
 - **Kas dar liko is recenzento sąrašo:** golden set'o mutation matavimas ir kainos permatavimas.
+### 2026-09-12 -- INCONCLUSIVE per platus: tuscias motion masyvas duoda klaidinga teigiama
+- **Where:** `validate_scad.sh`, mechanikos blokas.
+- **Kaip rasta:** agentas, dirbdamas NESUSIJUSIA uzduoti (detalės atkurimas pagal spec'a), savo ataskaitoje parase: *"validate_scad.sh reports mechanics=INCONCLUSIVE purely because joints.json exists with an empty motion array -- a false positive of the bundle, not a defect here"*. **Radė agentas, ne suite.**
+- **Kas buvo neteisinga:** INCONCLUSIVE sakaka buvo prideta 2026-09-12 ir tikrino **tik ar failas egzistuoja** (`[ -f joints.json ] && [ ! -f assembly.scad ]`). Bet projektas gali tureti `joints.json` su **TUSCIU** motion masyvu -- taip jis dokumentuoja, kad judesio nera. Tada patikra **netaikoma**, ir verdiktas turi buti SKIP.
+- **Kaina:** kiekvienas toks projektas gaudavo INCONCLUSIVE, o INCONCLUSIVE paleidima padaro ne-zalia. Tai **klaidingas teigiamas, verciantis ignore'inti signalą** -- ka tik uzfiksavau kaip atskira problema (Google Tricorder: <10 % FP patariamajam, 0 blokuojanciam).
+- **Antras bug'as tame paciame bloke:** `echo "CHECK_RESULT mechanics=SKIP"` buvo spausdinamas **visada** pries `if`, tad INCONCLUSIVE atveju išeidavo ABU verdiktai.
+- **Fix:** motion deklaracija tikrinama atskirai (python inline, tas pats pattern kaip `has_motion`); SKIP spausdinamas tik `else` sakoje.
+- **Patikrinta:** to paties agento projekte -- `mechanics=SKIP`, `COVERAGE: 12 passed, 0 failed, 4 not-applicable, 0 inconclusive`.
+- **Naujas fixture `mechanics_empty_motion_is_skip`:** reikalauja SKIP, draudzia INCONCLUSIVE, ir tikrina, kad COVERAGE skaiciuoja kaip not-applicable. Suite: 44 -> **45 passed**.

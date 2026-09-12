@@ -732,9 +732,25 @@ print(sum(1 for r in rows[1:] if all(abs(float(r[a]) - asm[a]) < 0.01 for a in r
         # collisions is NOT skipped here any more: it runs on positioned parts
         # whenever assembly.scad exists, declaration or not. Only the dynamic
         # sweep needs a motion block.
-        echo "CHECK_RESULT mechanics=SKIP"
-        # Two different causes, and they were reported with one sentence.
-        if [ -f joints.json ] && [ ! -f assembly.scad ]; then
+        # The INCONCLUSIVE case needs BOTH: motion actually declared AND nowhere
+        # to render it. Merely HAVING a joints.json is not enough -- a project can
+        # ship one with an EMPTY motion array (that is how it documents "there is
+        # no motion"), and then the check does not apply at all. The first version
+        # tested only the file's existence, so every such project got INCONCLUSIVE:
+        # a false positive introduced 2026-09-12 and reported the same day by an
+        # agent whose own project hit it.
+        motion_declared=$(python3 -c "
+import json, os, sys
+if not os.path.isfile('joints.json'):
+    sys.exit(1)
+try:
+    d = json.load(open('joints.json'))
+except Exception:
+    sys.exit(1)
+motion = d.get('motion') if isinstance(d, dict) else None
+sys.exit(0 if motion else 1)
+" 2>/dev/null && echo yes || echo no)
+        if [ "$motion_declared" = "yes" ] && [ ! -f assembly.scad ]; then
             # The check APPLIES (motion is declared) but cannot be carried out.
             # That is INCONCLUSIVE, not "not applicable": the next action is to
             # add assembly.scad, not to conclude the sweep was unnecessary.
@@ -743,6 +759,7 @@ print(sum(1 for r in rows[1:] if all(abs(float(r[a]) - asm[a]) < 0.01 for a in r
             log_check "mechanics" 0 "INCONCLUSIVE" "INCONCLUSIVE: joints.json declares motion but assembly.scad is missing -- positioned parts cannot be rendered"
             mechanics_reported=1
         else
+            echo "CHECK_RESULT mechanics=SKIP"
             log_check "mechanics" 0 "n/a" "SKIP: no joints.json motion declared"
         fi
     fi
