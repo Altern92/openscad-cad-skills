@@ -15,10 +15,16 @@ At least two meaningfully different options, even if one is obviously
 better — comparing one option against itself isn't a comparison, it's an
 assumption wearing a table. If there is genuinely only one sane architecture
 (a single bracket, an obvious layout with no real alternative), skip this
-gate explicitly by uncommenting and filling in the line below -- delete it
-entirely otherwise, don't leave it as an inactive example:
+gate explicitly by filling in the line below -- delete the whole block
+otherwise, don't leave it as an inactive example.
 
-<!-- Uncomment and fill in only if truly exempt:
+**Keep the comment markers.** `check_plan.py` reads the form
+`<!-- PLAN_EXEMPT: reason -->` and does not accept a bare `PLAN_EXEMPT: ...` line. An
+earlier version of this template said "uncomment", which produces a plan the
+gate rejects with "fewer than 2 architecture options listed (found 1), and no
+PLAN_EXEMPT declared" -- measured 2026-09-12, found by an adversarial review:
+
+<!-- Fill in only if truly exempt. Keep the comment markers.
 PLAN_EXEMPT: single obvious architecture -- <state why in one clause>
 -->
 

@@ -97,7 +97,12 @@ rules:
     applies: "json_true:joints.json#motion"
     kind: auto
     gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
-    success_pattern: "CHECK_RESULT mechanics=(PASS|SKIP)"
+    # SKIP removed: when joints.json DECLARES motion the sweep must actually run.
+    # Accepting SKIP let a project with a motion array but no assembly.scad score
+    # [PASS] R-09 / exit 0 while motion_sweep.py had never executed -- the same
+    # vacuous-PASS class R-04 was fixed for (adversarial review, INCIDENTS.md
+    # 2026-09-12). Motion declared and no positioned parts = a real gap, not N/A.
+    success_pattern: "CHECK_RESULT mechanics=PASS"
 
   - id: R-10
     rule: "Change-propagation (§0/choice tree): a parameter edit's affected chain is traced with check_dependencies.py before assuming only the touched part needs re-checking"

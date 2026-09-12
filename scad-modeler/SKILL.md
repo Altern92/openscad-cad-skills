@@ -499,15 +499,16 @@ openscad --backend=Manifold --render -o build/preview.png --imgsize=1200,900 --a
 
 ### Manual checks (not wired into `validate_scad.sh`)
 
-Run these when their trigger applies — they need extra inputs the normal per-part
-render does not produce:
+Run these when their trigger applies — they need inputs the normal per-part render
+does not produce:
 
-- **`check_subfeature_overlap.py`** — overlap *between* named sub-modules inside one
-  part. `union()` of two overlapping solids is still one valid watertight shell, so no
-  gate above can see it. Export each sub-module as its own pre-union solo STL and
-  check every pair; declare intentional fusions with `--exempt fusions.json`.
-- **`check_printability.py`** — FDM overhang and wall thickness. Has a documented
-  edge case near sharp edges; minimum feature size is deliberately not checked.
+- **`check_printability.py`** — FDM overhang and wall thickness. **Not a gate**:
+  measured 2026-09-12 it FAILED 4 of 4 real parts, for two different reasons. Any
+  FDM part with a fillet or a hole has *some* face past 45°, so overhang area alone
+  does not separate good from bad; and the thin-wall reading is corrupted on a mesh
+  with sub-micron edges (a real part reported a "0.014 mm wall" -- see
+  `check_connectivity.py`'s DEGENERATE GEOMETRY note, which is where to look first).
+  Run it by hand with `--stl` once the mesh is clean.
 - **Load / strength** — not checked at all; needs a datasheet and material properties
   this chain cannot derive from geometry.
 
@@ -535,8 +536,12 @@ copy to the project root. A missing one is SKIP naming that template, not a pass
 without `joints.json` the static collision check still runs and prints a paste-ready
 stub.
 
-Exit codes: `0` pass · `2` **degraded — treat as not checked, not as pass** · `3`
-fail · `4` usage error.
+Exit codes differ per script, so check the one you are calling: the individual
+checkers use `0` pass · `2` **degraded — treat as not checked, not as pass** · `3`
+fail · `4` usage error (see the table in `references/validation.md`, and
+`check_intake.py` is the odd one: `2` means no manifest at all). **`validate_scad.sh` itself
+only ever returns `0` or `1`** — it is a bundle, so read its `CHECK_RESULT` and
+`COVERAGE` lines rather than its exit code.
 
 **Read the COVERAGE line, not just the exit code.** Every run ends with
 `COVERAGE: N passed, N failed, N skipped.` A SKIP is not a pass — it names what it
@@ -783,8 +788,7 @@ pass, not something to analyze now; just log it accurately.
   before `union()` — the gap `check_collisions.py` structurally can't close,
   since two overlapping solids `union()`-ed into one part are still one
   valid, watertight, single-body shell with no trace of the overlap. Declared
-  exemptions via `--exempt` for intentional fusions. Manual step, not wired
-  into `validate_scad.sh` (solo sub-feature export is an extra step the part
+  exemptions via `--exempt fusions.json`. Wired into `validate_scad.sh` (the solo sub-feature export is an extra step the part
   author adds). Needs `trimesh`; `manifold3d` for volume measurement.
 - `../openscad-cad/references/confidence-tiers.md` — what may be claimed at each
   tier, the gates each requires, and the default table that keeps the spec a

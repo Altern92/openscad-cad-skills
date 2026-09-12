@@ -370,7 +370,18 @@ if [[ "$MODE" == "--all" ]]; then
     parts=(parts/*.scad)
     shopt -u nullglob
     if [ ${#parts[@]} -eq 0 ]; then
-        echo "WARNING: no files found under parts/*.scad" >&2
+        # A run that rendered nothing is not a pass. Following the skill's own
+        # templates used to land here: templates/README.md said to copy files to
+        # scad/, the gate globs parts/ relative to the CURRENT directory, and the
+        # result was 'WARNING: no files found under parts/*.scad' followed by
+        # 'All validations passed.' with nothing rendered, measured or checked
+        # (INCIDENTS.md 2026-09-12, found by an adversarial review). Measured on
+        # that exact layout today: exit 0, 17 checks reported, 0 parts.
+        echo "ERROR: no parts/*.scad found under $(pwd) -- NOTHING was rendered or checked. Either run this from the project root (the directory that contains parts/ and assembly.scad), or the project has no parts yet. Reporting this as a failure, because a green run that examined nothing is the one verdict worse than a red one." >&2
+        if [ ! -d parts ] && [ -d scad/parts ]; then
+            echo "  -> found scad/parts/ instead. validate_scad.sh operates on the project ROOT: cd scad && bash .../validate_scad.sh --all" >&2
+        fi
+        OVERALL_FAIL=1
     fi
     # ${parts[@]+"${parts[@]}"} not "${parts[@]}": bash 3.2 (macOS's default
     # /bin/bash, frozen at GPLv2, no bash 4.4+) treats a plain "${array[@]}"
@@ -518,7 +529,15 @@ if [[ "$MODE" == "--all" ]]; then
         done
         if [ ${#sf_stls[@]} -ge 2 ]; then
             SUBFEAT_STLS=$((SUBFEAT_STLS + ${#sf_stls[@]}))
-            if ! python3 "$SCRIPT_DIR/check_subfeature_overlap.py" ${sf_stls[@]+"${sf_stls[@]}"}; then
+            # fusions.json declares sub-features that are MEANT to overlap (a
+            # boss blending into its tower). The checker takes --exempt for
+            # exactly that, but validate_scad.sh never passed it, so a project
+            # that declared an intentional fusion still got a hard FAIL -- the
+            # declaration was a no-op in the only automated path (found by an
+            # adversarial review, INCIDENTS.md 2026-09-12).
+            sf_exempt=""
+            [ -f fusions.json ] && sf_exempt="--exempt fusions.json"
+            if ! python3 "$SCRIPT_DIR/check_subfeature_overlap.py" $sf_exempt ${sf_stls[@]+"${sf_stls[@]}"}; then
                 SUBFEAT_FAIL=1
             fi
         fi
@@ -616,18 +635,41 @@ sys.exit(0 if motion else 1)
             # Tripwire: an STL's byte size is 84 + 50*triangles, so a positioned
             # part at >= 80% of the full assembly's size is not a part. This has
             # to run BEFORE any checker consumes them.
+            # Compare BOUNDING BOXES, not file sizes. Size was the first
+            # attempt and it produced a false positive on the very first
+            # complete test project (2026-09-12): a base plate with four screw
+            # holes plus a centre bore carries more triangles than the small
+            # assembly it belongs to, so an 80%-of-assembly-size rule called
+            # it "the whole assembly". A part equals the assembly's bbox only
+            # if it IS the assembly.
             positioned_bogus=0
             if [ -s "$BUILD_DIR/assembly.stl" ]; then
-                asm_sz=$(wc -c < "$BUILD_DIR/assembly.stl" | tr -d ' ')
-                for pstl in ${positioned_stls[@]+"${positioned_stls[@]}"}; do
-                    p_sz=$(wc -c < "$pstl" | tr -d ' ')
-                    if [ "$p_sz" -ge $((asm_sz * 8 / 10)) ]; then
-                        positioned_bogus=$((positioned_bogus + 1))
-                    fi
-                done
+                positioned_bogus=$(python3 -c '
+import struct, sys
+def extent(p):
+    f = open(p, "rb")
+    f.read(80)
+    n = struct.unpack("<I", f.read(4))[0]
+    lo = [1e30] * 3; hi = [-1e30] * 3
+    for _ in range(n):
+        b = f.read(50)
+        for k in range(3):
+            v = struct.unpack_from("<3f", b, 12 + 12 * k)
+            for a in range(3):
+                lo[a] = min(lo[a], v[a]); hi[a] = max(hi[a], v[a])
+    f.close()
+    return [hi[a] - lo[a] for a in range(3)]
+asm = extent(sys.argv[1])
+bogus = 0
+for p in sys.argv[2:]:
+    e = extent(p)
+    if all(abs(e[a] - asm[a]) < 0.01 for a in range(3)):
+        bogus += 1
+print(bogus)
+' "$BUILD_DIR/assembly.stl" ${positioned_stls[@]+"${positioned_stls[@]}"} 2>/dev/null || echo 0)
             fi
             if [ "$positioned_bogus" -gt 0 ]; then
-                echo "ERROR: $positioned_bogus of ${#positioned_stls[@]} positioned part(s) are as large as the whole assembly -- assembly.scad's MODE/PART switch did not take effect, so every 'part' is a copy of the full assembly. Fix assembly.scad to guard its default (SKILL.md §6): MODE = is_undef(MODE) ? \"assembly\" : MODE; -- a plain MODE = 1; reassigns the variable and defeats -D. Collision checks are skipped: running them on N copies of the assembly produces N*(N-1)/2 meaningless overlaps." >&2
+                echo "ERROR: $positioned_bogus of ${#positioned_stls[@]} positioned part(s) have exactly the assembly's bounding box -- assembly.scad's MODE/PART switch did not take effect, so every 'part' is a copy of the full assembly. Fix assembly.scad to guard its default (SKILL.md §6): MODE = is_undef(MODE) ? \"assembly\" : MODE; -- a plain MODE = 1; reassigns the variable and defeats -D. Collision checks are skipped: running them on N copies of the assembly produces N*(N-1)/2 meaningless overlaps." >&2
                 echo "CHECK_RESULT collisions=SKIP"
                 log_check "collisions" 0 "n/a" "SKIP: assembly.scad MODE/PART switch not working ($positioned_bogus part(s) sized as the whole assembly)"
                 echo "CHECK_RESULT mechanics=FAIL"
@@ -679,7 +721,13 @@ sys.exit(0 if motion else 1)
         # whenever assembly.scad exists, declaration or not. Only the dynamic
         # sweep needs a motion block.
         echo "CHECK_RESULT mechanics=SKIP"
-        log_check "mechanics" 0 "n/a" "SKIP: no joints.json motion declared"
+        # Two different causes, and they were reported with one sentence.
+        if [ -f joints.json ] && [ ! -f assembly.scad ]; then
+            echo "  -> joints.json declares motion but there is no assembly.scad, so positioned parts cannot be rendered and the sweep was NOT run. R-09 in rules_manifest.yaml treats this as a failure for exactly that reason."
+            log_check "mechanics" 0 "n/a" "SKIP: joints.json declares motion but assembly.scad is missing -- positioned parts cannot be rendered"
+        else
+            log_check "mechanics" 0 "n/a" "SKIP: no joints.json motion declared"
+        fi
     fi
 
     # dimensions/features are opt-in PER PART (// EXPECTED_BBOX / EXPECTED_HOLE),
@@ -732,7 +780,15 @@ sys.exit(0 if motion else 1)
     log_check "printability" 0 "n/a" "SKIP: not a gate -- fails 4/4 real parts, needs threshold work first (run scripts/check_printability.py --stl <stl> manually)"
 
     echo "CHECK_RESULT intake=SKIP"
-    log_check "intake" 0 "n/a" "SKIP: no design_manifest.json -- the Stage-0 requirement spec was never produced; see references/intake_and_analysis.md"
+    # The reason must be true. It said "no design_manifest.json" unconditionally,
+    # including in a project that HAD one -- a SKIP whose stated cause is false
+    # is worse than a bare SKIP, because it sends the reader to fix something
+    # that is not broken (adversarial review, INCIDENTS.md 2026-09-12).
+    if [ -f design_manifest.json ] || [ -f requirements.json ]; then
+        log_check "intake" 0 "n/a" "SKIP: a manifest exists but validate_scad.sh does not run check_intake.py -- run it directly, or 'bash {skill_dir}/scripts/check_rules.py --project-dir .' for rule R-01"
+    else
+        log_check "intake" 0 "n/a" "SKIP: no design_manifest.json -- the Stage-0 requirement spec was never produced; see references/intake_and_analysis.md"
+    fi
     echo "CHECK_RESULT dependencies=SKIP"
     log_check "dependencies" 0 "n/a" "SKIP: on-demand analysis (--change), not a gate"
 else
@@ -742,6 +798,42 @@ else
         exit 1
     fi
     validate_file "$scad" "$BUILD_DIR/$MODE.stl" || OVERALL_FAIL=1
+    # Single-part mode must report like every other run. SKILL.md tells the
+    # reader to trust the CHECK_RESULT lines and the COVERAGE line, and this
+    # mode used to print NEITHER for the per-part checks -- it emitted only the
+    # project-level gates above, so a part whose connectivity or bbox was wrong
+    # still ended in "All validations passed." with no verdict line naming it
+    # (adversarial review, INCIDENTS.md 2026-09-12).
+    if [ "$PART_CONNECTIVITY_FAIL" -eq 0 ]; then
+        echo "CHECK_RESULT connectivity=PASS"
+        log_check "connectivity" 0 "validate_scad.sh $MODE" "PASS (single part)"
+    else
+        echo "CHECK_RESULT connectivity=FAIL"
+        log_check "connectivity" 1 "validate_scad.sh $MODE" "FAIL (single part)"
+    fi
+    if [ "$DIM_DECLARED" -eq 0 ]; then
+        echo "CHECK_RESULT dimensions=SKIP"
+        log_check "dimensions" 0 "n/a" "SKIP: no // EXPECTED_BBOX in parts/$MODE.scad"
+    elif [ "$DIM_FAIL" -eq 0 ]; then
+        echo "CHECK_RESULT dimensions=PASS"
+        log_check "dimensions" 0 "validate_scad.sh $MODE" "PASS"
+    else
+        echo "CHECK_RESULT dimensions=FAIL"
+        log_check "dimensions" 1 "validate_scad.sh $MODE" "FAIL"
+    fi
+    if [ "$FEAT_DECLARED" -eq 0 ]; then
+        echo "CHECK_RESULT features=SKIP"
+        log_check "features" 0 "n/a" "SKIP: no // EXPECTED_HOLE in parts/$MODE.scad"
+    elif [ "$FEAT_FAIL" -eq 0 ]; then
+        echo "CHECK_RESULT features=PASS"
+        log_check "features" 0 "validate_scad.sh $MODE" "PASS"
+    else
+        echo "CHECK_RESULT features=FAIL"
+        log_check "features" 1 "validate_scad.sh $MODE" "FAIL"
+    fi
+    echo "INFO: single-part mode ($MODE) runs the per-part geometry checks and the project-level
+  gates above. It does NOT render the assembly, so collisions / mechanics / sub-feature
+  overlap are not evaluated -- run validate_scad.sh --all from the project root for those."
 fi
 
 if [[ "$MODE" == "--all" ]]; then
@@ -749,6 +841,10 @@ if [[ "$MODE" == "--all" ]]; then
     if [ "$CHK_SKIP" -gt 0 ]; then
         echo "  $CHK_SKIP check(s) did NOT run -- each SKIP above names what it needs. A green run with a large SKIP count has verified less than it looks."
     fi
+fi
+
+if [[ "$MODE" != "--all" ]]; then
+    echo "COVERAGE: $CHK_PASS passed, $CHK_FAIL failed, $CHK_SKIP skipped ($((CHK_PASS + CHK_FAIL + CHK_SKIP)) checks reported, single-part mode)."
 fi
 
 if [ "$OVERALL_FAIL" -eq 0 ]; then

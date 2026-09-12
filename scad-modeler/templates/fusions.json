@@ -1,0 +1,12 @@
+[
+  {
+    "_comment": "Copy to the PROJECT ROOT as fusions.json. Declares sub-features that are MEANT to overlap inside one part's union() -- a boss that blends into the tower it mounts on, a rib that runs into a wall. Passed to check_subfeature_overlap.py as --exempt by validate_scad.sh whenever this file exists at the project root; without it, every intentional blend is reported as an unintended overlap. Silently excluding a pair is not an option: like joints.json's declared contacts, this is a written decision with a reason.",
+    "pair": ["tower_main", "boss_a"],
+    "reason": "boss_a is the mounting boss for tower_main -- it blends into the tower by design, 180mm3 of intentional fusion"
+  },
+  {
+    "_comment": "Fields: pair (the two sub-feature names exactly as they appear in the part's // SUBFEATURES: line) and reason (why the overlap is intended). One entry per intentional fusion. Delete these _comment entries and replace the example. If a pair is NOT listed here and overlaps, that is a real finding and the check fails -- raise --max-overlap-mm3 only when the threshold itself is wrong for the process, never to silence a known pair.",
+    "pair": ["rib_left", "wall_back"],
+    "reason": "rib_left terminates inside wall_back; the intersection is the joint, not an error"
+  }
+]

@@ -413,7 +413,10 @@ both assumed 3 and both failed, for no reason other than the assumption.
 | **1** on failure | `check_assumptions`, `check_connectivity`, `check_dimensions`, `check_features`, `check_plan`, `check_service_envelope` |
 | **3** on failure | `check_attachment`, `check_bore_reachability`, `check_collisions`, `check_intake`, `check_rules`, `check_subfeature_overlap` |
 | 4 on usage/runtime error | most checkers |
-| 2 = degraded | `check_collisions` only — **treat as not checked, not as pass** |
+| 2 = degraded | **not just `check_collisions`.** Also `check_intake` (no manifest at all),
+`check_subfeature_overlap`, `check_printability`, `motion_sweep` and `doctor`. Always
+**treat as not checked, not as pass** — the meaning is "I could not measure this", which
+is the one verdict that must never be read as success. |
 
 `motion_sweep.py`, `check_margin_provenance.py`, `check_param_context.py`,
 `check_printability.py` and `check_dependencies.py` compute their own codes —

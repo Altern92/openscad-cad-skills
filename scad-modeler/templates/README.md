@@ -2,16 +2,24 @@
 # Templates — what to copy, and when
 
 Every file here is a **template to copy into a project**, not to edit in place.
+
+**`validate_scad.sh` runs from the PROJECT ROOT** -- the directory that contains
+`parts/`, `assembly.scad` and the JSON declarations. Copy these files there, not
+into a `scad/` subdirectory: the gate globs `parts/*.scad` relative to the current
+directory, so a project laid out one level down gets "no files found under
+parts/*.scad" and used to report a green run with nothing checked. It now fails
+loudly instead, and names the `scad/parts/` case if it sees it.
 The JSON one carries no comment header (JSON has no comments), so its passport
 lives here.
 
 | Template | Copy to | Use when | Passport |
 |---|---|---|---|
 | `plan.md` | project root `plan.md` | Any assembly with 3+ parts or genuinely uncertain architecture. Gate: `check_plan.py` — fails without 2+ architecture options and a confirmed `Decision` row. | `applies_to=[plan, architecture-options, decision]` |
-| `layout.scad` | project `scad/layout.scad` | Every multi-part assembly. Holds each part's position in assembly coordinates via `at()`. | `applies_to=[layout, positions, assembly-coordinates]` `units=mm` |
-| `assembly.scad` | project `scad/assembly.scad` | Every multi-part assembly. Carries the guarded `MODE`/`PART` switch that `validate_scad.sh` drives with `-D` to render each part positioned. Without the `is_undef` guard the `-D` is silently overridden and every "part" is the whole assembly — measured on `server_rack_modular_v4`: 136 meaningless collision reports from 17 copies. | `applies_to=[assembly, MODE-switch, PART-dispatch, positioned-parts]` |
-| `part_template.scad` | `scad/parts/<part>.scad` | Every printed part. Local coordinates, ends in an unconditional top-level call (what makes it render standalone — and why `assembly.scad` must `use` it, never `include` it). | `applies_to=[part-file, local-coordinates, EXPECTED_BBOX, EXPECTED_HOLE, trailing-call]` |
+| `layout.scad` | project root (next to `parts/`) | Every multi-part assembly. Holds each part's position in assembly coordinates via `at()`. | `applies_to=[layout, positions, assembly-coordinates]` `units=mm` |
+| `assembly.scad` | project root (next to `parts/`) | Every multi-part assembly. Carries the guarded `MODE`/`PART` switch that `validate_scad.sh` drives with `-D` to render each part positioned. Without the `is_undef` guard the `-D` is silently overridden and every "part" is the whole assembly — measured on `server_rack_modular_v4`: 136 meaningless collision reports from 17 copies. | `applies_to=[assembly, MODE-switch, PART-dispatch, positioned-parts]` |
+| `part_template.scad` | `parts/<part>.scad` | Every printed part. Local coordinates, ends in an unconditional top-level call (what makes it render standalone — and why `assembly.scad` must `use` it, never `include` it). | `applies_to=[part-file, local-coordinates, EXPECTED_BBOX, EXPECTED_HOLE, trailing-call]` |
 | `joints.json` | project root `joints.json` | Declared contacts between separately-exported parts (press fits, snap fits, gear meshes), plus the `motion` block for anything that moves. Consumed by `check_collisions.py` and `motion_sweep.py`. | `applies_to=[declared-contact, press-fit, gear-mesh, motion, derivation, expected_bounds]` |
+| `fusions.json` | project root `fusions.json` | Sub-features that are MEANT to overlap inside one part's `union()` (a boss blending into its tower). Passed to `check_subfeature_overlap.py` as `--exempt` automatically when present. | `applies_to=[intentional-fusion, subfeature-overlap, exempt]` |
 | `bores.json` | project root `bores.json` | Any part with a hole that must be open along its whole path (bearing, shaft, fastener). Gate: `check_bore_reachability.py` — a sealed bore is one connected watertight shell and passes every other check. No file = SKIP. | `applies_to=[bore, reachability, sealed-bore, axis-segment]` `units=mm` |
 | `attachments.json` | project root `attachments.json` | Any part fastened to another. Gate: `check_attachment.py` — a bare panel with no bosses passes connectivity and dimensions while being impossible to fasten. No file = SKIP. | `applies_to=[attachment, fastening, boss, min-material]` `units=mm` |
 | `service_envelope.md` | project root `service_envelope.md` | Parts that need maintenance access, cable routing, or air flow. Gate: `check_service_envelope.py` — fails on a blank field. | `applies_to=[service-envelope, maintenance-access]` |
