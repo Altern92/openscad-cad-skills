@@ -50,7 +50,7 @@ if ! echo "$out" | grep -q "EXPECTED_BODIES: ${reported}"; then
     echo "$out" | tail -1 >&2
     exit 1
 fi
-if ! echo "$out" | grep -q "\.\.\. and .* more components"; then
+if ! echo "$out" | grep -q "\.\.\. and .* more material components"; then
     echo "expected the capped listing to say how many were hidden, got:" >&2
     echo "$out" | tail -3 >&2
     exit 1

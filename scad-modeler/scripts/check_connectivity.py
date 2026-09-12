@@ -108,31 +108,48 @@ def main():
     # mesh that shattered into 3122 slivers was reported as "2 disconnected
     # bodies", and the suggested EXPECTED_BODIES: 2 would have been wrong.
     parts = mesh.split(only_watertight=False)
-    actual = len(parts)
+
+    # Split the components by what they physically ARE, not just how many there
+    # are. trimesh reports a component's volume WITH ITS WINDING SIGN, and an
+    # ENCLOSED CAVITY comes out as a watertight shell with NEGATIVE volume.
+    # Measured on server_rack_modular_v4/scad/parts/back_panel.stl: four
+    # 4.6x1.7x4.6 shells, signed volume -35.972 (= the magnet pocket's own
+    # 35.972 mm^3), each centroid inside the part with 0.65mm of material on
+    # every side. The part is ONE valid solid; those four shells are its
+    # internal cavities. Counting them as "bodies" reported 5 where the truth
+    # is 1, on five separate panel parts -- a standing false FAIL.
+    material, voids, degenerate = [], [], []
+    for p in parts:
+        try:
+            v = float(p.volume)
+        except Exception:
+            degenerate.append(p)
+            continue
+        if v != v:  # NaN
+            degenerate.append(p)
+        elif v > 0:
+            material.append(p)
+        elif v < 0:
+            voids.append(p)
+        else:
+            degenerate.append(p)
+
+    actual = len(material)
 
     if actual != expected:
         print(f"FAIL: {os.path.basename(args.stl)} has {actual} disconnected "
               f"bod{'y' if actual == 1 else 'ies'}, expected {expected}:")
-        for i, part in enumerate(parts[:MAX_BODIES_SHOWN]):
+        for i, part in enumerate(material[:MAX_BODIES_SHOWN]):
             size = part.bounds[1] - part.bounds[0]
             print(f"  - body {i}: bounds {part.bounds.tolist()}, "
                   f"size {size.tolist()}, volume {part.volume if part.is_volume else 'n/a'}")
         if actual > MAX_BODIES_SHOWN:
-            print(f"  - ... and {actual - MAX_BODIES_SHOWN} more components")
-        # Say how many components are actually printable solids. "N bodies" is
-        # not the same finding as "N solids": a raw body_count made a knurled
-        # knob report 2 of 3122 (INCIDENTS.md, 2026-09-12), and four rack
-        # panels report 4 extra "bodies" that are zero-volume 4.6x1.7x4.6
-        # shells left behind by a magnet-pocket difference(), not pieces
-        # anybody would print. The caller needs the split to tell a genuinely
-        # split part from a boolean artifact.
-        solid = sum(1 for p in parts if p.is_volume)
-        if solid != actual:
-            print(f"  - NOTE: only {solid} of {actual} component(s) are valid solids; "
-                  f"the other {actual - solid} are zero-volume/non-manifold shells "
-                  "(a coincident-face or unbounded-pattern boolean artifact, not "
-                  "separate printable pieces -- prefer fixing the boolean over "
-                  "declaring EXPECTED_BODIES)")
+            print(f"  - ... and {actual - MAX_BODIES_SHOWN} more material components")
+        if degenerate:
+            print(f"  - NOTE: {len(degenerate)} further component(s) are degenerate "
+                  "(zero or undefined volume) -- usually an unbounded pattern or a "
+                  "failed boolean, not separate printable pieces; prefer fixing the "
+                  "geometry over declaring EXPECTED_BODIES)")
         print("  -> if this is intentional, declare it: // EXPECTED_BODIES: "
               f"{actual}. If not, something doesn't physically touch what it "
               "should -- check the geometry that changed most recently.")
@@ -140,6 +157,17 @@ def main():
 
     print(f"OK: {os.path.basename(args.stl)} is {actual} connected "
           f"bod{'y' if actual == 1 else 'ies'} (expected {expected}).")
+    if voids:
+        # Not a failure: an enclosed cavity is legitimate geometry (a magnet
+        # pocket, an air chamber, a captured nut). It is reported because a
+        # cavity nobody meant to leave is invisible in every other check and
+        # in the render -- the part looks solid from outside.
+        sizes = sorted(
+            {tuple(round(float(x), 3) for x in (v.bounds[1] - v.bounds[0])) for v in voids}
+        )
+        print(f"     note: {len(voids)} enclosed internal cavity/cavities "
+              f"(size(s) {sizes}) -- verify these are intended (magnet or nut "
+              "pocket, air gap); they cannot be seen from outside.")
     return EXIT_OK
 
 
