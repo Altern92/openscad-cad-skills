@@ -642,31 +642,31 @@ sys.exit(0 if motion else 1)
             # assembly it belongs to, so an 80%-of-assembly-size rule called
             # it "the whole assembly". A part equals the assembly's bbox only
             # if it IS the assembly.
+            # Delegated to stl_extent.py, which reads BOTH STL encodings.
+            # The first inline version assumed a binary STL; OpenSCAD writes
+            # ASCII by default, so it raised on every file -- and the call was
+            # wrapped in "|| echo 0", turning that failure into a silent
+            # "nothing is suspicious". The tripwire then detected nothing at
+            # all and nothing said so, which is the same silent-fallback
+            # mistake this file exists to prevent elsewhere. Caught by
+            # re-measuring the case it was built for: v4 again reported 136
+            # collision pairs at an identical 170.000mm (INCIDENTS.md,
+            # 2026-09-12).
             positioned_bogus=0
-            if [ -s "$BUILD_DIR/assembly.stl" ]; then
-                positioned_bogus=$(python3 -c '
-import struct, sys
-def extent(p):
-    f = open(p, "rb")
-    f.read(80)
-    n = struct.unpack("<I", f.read(4))[0]
-    lo = [1e30] * 3; hi = [-1e30] * 3
-    for _ in range(n):
-        b = f.read(50)
-        for k in range(3):
-            v = struct.unpack_from("<3f", b, 12 + 12 * k)
-            for a in range(3):
-                lo[a] = min(lo[a], v[a]); hi[a] = max(hi[a], v[a])
-    f.close()
-    return [hi[a] - lo[a] for a in range(3)]
-asm = extent(sys.argv[1])
-bogus = 0
-for p in sys.argv[2:]:
-    e = extent(p)
-    if all(abs(e[a] - asm[a]) < 0.01 for a in range(3)):
-        bogus += 1
-print(bogus)
-' "$BUILD_DIR/assembly.stl" ${positioned_stls[@]+"${positioned_stls[@]}"} 2>/dev/null || echo 0)
+            if [ -s "$BUILD_DIR/assembly.stl" ] && [ ${#positioned_stls[@]} -gt 0 ]; then
+                if ! extents=$(python3 "$SCRIPT_DIR/stl_extent.py" "$BUILD_DIR/assembly.stl" ${positioned_stls[@]+"${positioned_stls[@]}"}); then
+                    echo "ERROR: could not measure bounding boxes for the positioned parts (stl_extent.py failed). Refusing to guess whether they are real parts: the collision checks are skipped rather than run on geometry of unknown provenance." >&2
+                    echo "CHECK_RESULT collisions=SKIP"
+                    log_check "collisions" 0 "n/a" "SKIP: stl_extent.py could not read the rendered STLs"
+                    positioned_bogus=-1
+                else
+                    positioned_bogus=$(printf '%s\n' "$extents" | python3 -c '
+import sys
+rows = [l.split() for l in sys.stdin.read().strip().split(chr(10)) if l.strip()]
+asm = [float(x) for x in rows[0]]
+print(sum(1 for r in rows[1:] if all(abs(float(r[a]) - asm[a]) < 0.01 for a in range(3))))
+')
+                fi
             fi
             if [ "$positioned_bogus" -gt 0 ]; then
                 echo "ERROR: $positioned_bogus of ${#positioned_stls[@]} positioned part(s) have exactly the assembly's bounding box -- assembly.scad's MODE/PART switch did not take effect, so every 'part' is a copy of the full assembly. Fix assembly.scad to guard its default (SKILL.md §6): MODE = is_undef(MODE) ? \"assembly\" : MODE; -- a plain MODE = 1; reassigns the variable and defeats -D. Collision checks are skipped: running them on N copies of the assembly produces N*(N-1)/2 meaningless overlaps." >&2

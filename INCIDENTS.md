@@ -1432,3 +1432,13 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 - **Ka recenzentas patvirtino kaip TEISINGA:** visi 6 `success_pattern` sutampa su realiai spausdinamomis eilutėmis (patikrino 44 galimas eilutes); '18 patikru' ir '8-10 SKIP' tikslus; `check_plan`/`motion_sweep`/`doctor`/`check_rules` exit kodai teisingi; R-04 N/A (ne PASS) veikia.
 - **Dvi naujos fixtures:** `rules_no_vacuous_pass` ir `pipeline_empty_run_fails`. Suite: 38 -> **40 passed, 0 failed**.
 - **Pamoka, kuri verte viska:** 'patikrinta' ir 'teisinga' nera tas pats. Radau ir pataisiau 10 dalyku, kuriu **pats neieškojau**, nes tikėjau savo pačio tekstu. Priesiškas recenzentas su įpareigojimu matuoti rado juos per viena paleidima.
+### 2026-09-12 -- Tylus false negative mano pačiame tripwire: inline parseris krito i `|| echo 0`
+- **Where:** `scad-modeler/scripts/validate_scad.sh` -- pozicionuotu daliu patikra; naujas `scripts/stl_extent.py`.
+- **Kaip rasta:** po F1 pataisymo (failo dydis -> bounding box) perbėgau 11 projektu ir pastebejau **prieštaravimą**: `collisions` dabar krito 5 projektuose, o `server_rack_modular_v4` vel rode **136 poras su identišku 'penetration depth 170.000 mm'** -- 17 kopiju parašas.
+- **Tikroji priezastis, dvi dalys:** (1) inline `python3 -c` spejo, kad STL yra **binarinis** (4 baitu trikampiu skaicius 80 offsete). OpenSCAD pagal nutylejima rašo **ASCII** ('solid OpenSCAD_Model'), tad parseris nuskaitė ASCII kaip skaiciu (943009847) ir krito. (2) Kvietimas buvo apvyniotas `2>/dev/null || echo 0` -- tad klaida virto **tyliu 'nieko itartino'**. Tripwire nustojo aptikti bet ka ir niekas nepranešė.
+- **Kodel tai ta pati klase, kuria taisau visa diena:** tyliai praryta klaida, virtusi sekme. Tik si karta -- mano pačio kode, ir būtent tame pataisyme, kuris šalino klaidinga teigiama.
+- **Fix:** atskiras `scripts/stl_extent.py` su testu. Skaito ABIU formatu (ASCII ir binary), o klaidos atveju **grazina ne-nuli** ir sako, ko nepavyko perskaityti -- jokio `|| echo 0`. Vartai dabar: jei matuoti nepavyksta, `collisions=SKIP` su priezastimi, o ne spėjimas.
+- **Patikrinta abiem kryptim:** `server_rack_modular_v4` -- **17/17 pagauta** (`'have exactly the assembly's bounding box'`); `examples/gear_reduction` -- `collisions=PASS`, `mechanics=PASS`, nesuveikia.
+- **Naujas fixture `stl_extent_both_formats`:** renderina ASCII, konvertuoja i binary per trimesh, ir reikalauja, kad **abi** duotu 10x20x30; be to, šiukšliu failas privalo grazinti klaida, o ne skaiciu.
+- **Išmokta:** kai šalini klaidinga teigiama, patikrink, ar naujasis kodas dar **pagauna tikra atvejį**. Aš to nepadariau iškart -- padariau tik todėl, kad perbėgau visus projektus ir pastebejau, kad skaiciai nesueina.
+- **Suite:** 40 -> **41 passed, 0 failed**.
