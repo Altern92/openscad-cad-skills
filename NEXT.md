@@ -1,8 +1,12 @@
-<!-- RAG-passport: file=NEXT.md | skill=all | applies_to=[future-work, roadmap, known-gaps] | version=2026-09-11 | source=07_Pilna_skill_analize + PRES_PO eval -->
-# NEXT — ką daryti toliau (2026-09-11 būklė)
+<!-- RAG-passport: file=NEXT.md | skill=all | applies_to=[future-work, roadmap, known-gaps] | version=2026-09-12 | source=07_Pilna_skill_analize + PRES_PO eval + AB_IRANKIAI -->
+# NEXT — ką daryti toliau (2026-09-12 būklė)
 
-Būsena šiandien: trys skill'ai, 23 pasai, 25 regresijos fixture'iai, 18 R-taisyklių,
-`scad-modeler/SKILL.md` 750 eil. (buvo 971). Testai 25/25.
+Būsena šiandien: trys skill'ai, 23 pasai, **45** regresijos fixture'iai, 18 R-taisyklių,
+`scad-modeler/SKILL.md` **853** eil. Testai **45/45**. Įrankių A/B (11 projektų × 2 versijos):
+`CHECK_RESULT` eilučių **89 → 198**, `COVERAGE` **0/11 → 11/11**.
+
+**Tyrimo medžiaga:** `_wiki/scad/` (8 failai su Mermaid) — 5 standartai, matavimo
+metodai, ir **6 klaidingos išvados su pataisymais**. Skaityti prieš didelį pakeitimą.
 
 **Šis failas — vienintelis sąrašas to, kas žinoma ir nepadaryta.** Kiekvienas
 punktas turi įrodymą, kodėl jis čia. Kai padaromas — ištrinti, ne pažymėti.
@@ -50,6 +54,16 @@ Prieš paleidžiant eval — patikrinti, kad abi versijos turi tą patį failų 
 | **LoRA pilotas** | fine-tune su 258 pavyzdžiais, griežtu eval | jei nori formato/elgesio, ne žinių; **rizika: 44% iš vieno projekto** |
 | **Golden atvejai** | paversti sunkiais eval klausimais iš realių nesėkmių | jei nori matuoti (papildo #1) |
 
+> **2026-09-12 papildymas: ketvirtas kelias — idiomų korpuso kasyba — ATMESTAS.** Recenzentas
+> su arXiv/ACL prieiga rado: (1) jokio šaltinio, kuris pagrįstų teiginį, kad korpusas duoda
+> geresnį kodą; (2) korpuso dydžio slenksčio **nėra**, o BENEVOL 2025 rodo, kad išgauti patternai
+> negeneralizuojasi; (3) mūsų pačių keturių repozitorijų korpuse ieškoto patterno
+> `jazwa/rackstack` neturi nė vieno atvejo; (4) **pavyzdžiai sotėja ties ~6**, o blogi
+> pavyzdžiai **pablogina**. Likę trys keliai lentelėje lieka galioti.
+>
+> Taip pat: **vykdomi patikrinimai yra vienintelė išmatuota svirtis** (59 % teisingumo ir 89 %
+> saugumo problemų ištaisoma gavus pranešimą). Detailai: `_wiki/scad/05_agentu_testai.md`.
+
 **Peržiūros išvados** (iš `04_Kita` analizės): 0 dublikatų, `failure_correction_chains`
 aukščiausia kokybė (48/48 su `root_cause_summary`), bet projekto koncentracija 80%
 top-3, kalba sumaišyta (58/236 su lietuviškais diakritikais), `related_tool_call_id`
@@ -77,8 +91,13 @@ BE renderio. Pigus patikrinimas, bet nėra įrodymo, kad reikalingas — kol kas
 1. **Deklaracijos neparašytos nė viename projekte.** Šablonai dabar yra
    (`templates/bores.json`, `attachments.json`), bet `attachment` SKIP 11/11,
    `bore_reachability` SKIP 10/11. Tai **darbo proceso** klausimas, ne kodas — deklaraciją
-   turi parašyti tas, kas žino, kur varžtas. Svarstyti generatorių: iš `layouts`/
-   `EXPECTED_HOLE` duomenų sugeneruoti juodraštį, žmogui patvirtinti.
+   turi parašyti tas, kas žino, kur varžtas.
+   **Generatoriaus NEBUS:** deklaracija išreiškia **ketinimą** („ši skylė turi būti praeinama"),
+   o iš geometrijos galima sugeneruoti tik **spėjimą**. Sugeneruota deklaracija duotų klaidingą
+   pasitikėjimą arba klaidingus FAIL'us. Sprendimas: palikti žmogui.
+   **2026-09-12 patikrinta:** ant projekto, sukurto **su skill'u**, 5 iš 6 „niekada neįsijungiančių"
+   taisyklių suveikia **PASS** (R-01, R-02, R-06, R-11, R-12). Ankstesnis radinys buvo matuotas
+   neteisingame korpuse — 11 senų projektų. Žr. `_wiki/scad/06_zurnalas.md` klaidą E.
 2. **`assembly.scad` MODE sutartis** — 4-5 projektuose `MODE = 1;` vietoj
    apsaugoto. Šablonas `templates/assembly.scad` dabar yra. Kol nesutvarkyta,
    `collisions` ten nepasileidžia (teisingai — tripwire pagauna).
@@ -120,8 +139,11 @@ BE renderio. Pigus patikrinimas, bet nėra įrodymo, kad reikalingas — kol kas
 # ar golden set'as vis dar nematuoja?
 python3 golden_scad/run_2026-09-11/compare.py golden_scad/run_2026-09-11/pre golden_scad/run_2026-09-11
 
-# ar testai žali?
+# ar testai žali? (turetų buti 45 passed)
 bash scad-modeler/tests/run_all.sh
+
+# ar irankiai tikrai pranesa visas patikras? (turetų buti 198 pries 89)
+bash /tmp/ab.sh && python3 /tmp/ab_analyze.py
 
 # ar pasai vietoje (turetų buti ≥23)?
 grep -rl 'RAG-passport' --include='*.md' --include='*.scad' . | wc -l
@@ -159,3 +181,16 @@ teisingumo prieaugio). Taigi stebėjimas patikimas, bet **priežastis neįrodyta
 Kol to nepadaryta — žinoma, kad kaina kilo, bet ne kodėl, tad negalima jos sumažinti.
 
 **Taip pat:** ankstesnis „−52% failų" teiginys atšauktas (žr. PRES_PO korekciją).
+
+**2026-09-12 papildymas — kūno augimas deterministiškai** (žr. `golden_scad/KOSTAI_2026-09-12.md`):
+
+| | Pradžia | Dabar | Δ |
+|---|---:|---:|---:|
+| **Agentui matoma** (SKILL.md + references) | — | — | **~+2 550 tok (~+5 %/žingsnis)** |
+| `INCIDENTS.md` | 88 647 B | 142 661 B | +54 014 B (**agentui nepasiekiamas**) |
+| Viso | 190 874 B | 253 432 B | +62 558 B (+32,8 %) |
+
+**Skaidymas svarbus:** `INCIDENTS.md` sudaro 13 085 iš 15 639 pridėtų tokenų — ir jis agento
+**nepasiekiamas** (runtime nuotėkis į `~/.dsh/skills/` pašalintas). Tad realus augimas ~**+5 %**
+konteksto per žingsnį. Ankstesnis **+68 % cacheRead** augimas atėjo **ne nuo failų dydžio**, o nuo
+to, kad agentai **skaitė daugiau failų** — ir tą turi matuoti evalas, ne failų sąrašas.

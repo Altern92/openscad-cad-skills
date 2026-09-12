@@ -48,6 +48,47 @@ flowchart TD
     Rules --> Report(["Final report\nBOM · confidence tier · citations"])
 ```
 
+## A check that did not run must not look like one that passed
+
+Every check reports one of **five** outcomes, and each has a different next action:
+
+| Outcome | Means | Next action |
+|---|---|---|
+| `PASS` / `FAIL` | ran; the answer is known | FAIL: fix the model |
+| `not-applicable` | does not apply here (a declaration is absent) | add the declaration if it should apply |
+| `inconclusive` | **ran and could not determine an answer** | fix the checker or its inputs — never read as success |
+| `advisory` | ran, reports, does not gate | read it and judge |
+
+Each run ends with a count, and the two non-success outcomes are called out separately:
+
+```
+COVERAGE: 6 passed, 3 failed, 7 not-applicable, 1 inconclusive, 1 advisory (18 checks reported).
+  1 check(s) RAN AND COULD NOT DETERMINE an answer -- this is the one outcome that must never
+  be read as success. Each one above says why.
+  7 check(s) did not apply to this project -- each names the declaration or file it needs.
+```
+
+This is not decoration. Measured on 11 real projects, the previous two-valued model left
+**10 of 18 checks silent in every single project** — 89 `CHECK_RESULT` lines became 198, and
+0 of 11 runs carried a coverage count before, versus 11 of 11 now. A silent check is
+indistinguishable from a passing one, from a failing one, and from one that does not exist.
+
+In `scad-modeler` the rule gate adds a **COVER** report — which rules never had their
+antecedent fire, and whether they were the majority (`PERVASIVE`). Formal verification pairs
+every `assert` with a `cover` on its antecedent for the same reason: a property whose
+trigger never fires is a verification gap, not a success.
+
+## Regression suite
+
+```bash
+bash scad-modeler/tests/run_all.sh      # 45 fixtures, ~3 min
+```
+
+Each fixture is a self-contained `run_test.sh` that builds a project in a temp dir and
+asserts on the real outcome, including the failures. Two of them exist specifically to prove
+a check **can** fail — a checker that has never been observed failing is indistinguishable
+from one that does not work.
+
 This is the high-level shape; the exact "which check applies to my
 situation right now" decision tree — all ~15 scripts, every trigger
 condition — lives in
