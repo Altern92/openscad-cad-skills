@@ -1385,3 +1385,13 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 - **Pamoka:** 95 SKIP nebuvo vartotojo problema ir ne checker'iu problema. Buvo **darbo eigos** problema: patikros reikalavo įvesties, kurios niekas nepraše.
 - **Nepakanka:** prideti lentele yra butina, ne pakankama. Reikia patikrinti, ar agentas ja vadovaujasi -- t.y. ar projektai po sito turi deklaracijas.
 - **Already promoted to a rule?** Ne -- siuloma: "jei patikra reikalauja įvesties, darbo eiga privalo ta įvesti reikalauti; kitaip patikra egzistuoja tik popieriuje".
+### 2026-09-12 -- Degeneruota geometrija: 28 nanometru briauna sugadina spinduliu matavimus
+- **Where:** `scad-modeler/scripts/check_connectivity.py` -- pridetas degeneruotos geometrijos pranešimas.
+- **Kaip rasta:** `check_printability.py` krito 4/4 realiu daliu. Pries taisydamas slenkscius patikrinau, ar jo skaiciai gali buti tikri. Ant svaraus modelio jis TIKSLUS: vientisas 30 mm kubas -> min 30.000 mm; tusciaviduris su tiksliai 3 mm sienom -> min 3.000 mm.
+- **Tikroji priezastis:** `frame_module.stl` -- watertight, 1 sujungtas kunas, visos turio patikros svaros, ir trumpiausia briauna 0.000028 mm (28 nanometrai), 9 briaunos < 1 mikronas. Ant tokio sliverio spinduliu matavimas nuskaito 0.014 mm siena -- 30x maziau uz bet ka, ka modelis deklaruoja.
+- **Kontroles atvejis:** `base.stl` -- trumpiausia briauna 0.296 mm, nuskaitoma siena 0.252 mm. Sutampa -- ten tikra geometrija, ir `check_printability.py` teisus.
+- **Fix:** `check_connectivity.py` dabar praneša DEGENERATE GEOMETRY su trumpiausia briauna ir skaiciumi, ir pasako, KURIUOS matavimus tai gadina (printability wall/overhang) bei kad sliceris taip pat gali susipainioti. Tai ne verdiktas -- dalis vis tiek yra vienas kunas, ir PASS lieka.
+- **Kodel ne naujas checkeris:** tai mesh vientisumo faktas, o `check_connectivity.py` jau skaido komponentus ir jau turi mesh rankoje. 17-as checkeris butu dar vienas failas, vienas SKIPas ir vienas fixture tam paciam dalykui.
+- **Naujas fixture:** `connectivity_degenerate_edge_note` -- tangentinis cilindru boolean su 0.0005 mm poslinkiu duoda 250 nm briauna. Tikrina tris dalykus: pranešimas yra, jis cituoja briauna, ir SVARUS mesh lieka tylus (kitaip pranešimas tampa triukšmu ir nustoja buti skaitomas). Suite: 35 -> 36 passed, 0 failed.
+- **Ka tai reiskia printability:** jis ne sugedes -- jis teisingas ant svaraus mesho ir bevertis ant sugadinto. Kol modeliai turi sliveriu, jo thin-wall verdiktas negali buti vartais. Irasyta i NEXT.md.
+- **Already promoted to a rule?** Ne -- siuloma: pries tikint spinduliu matavimu, patikrink, ar mesh neturi sub-mikroniniu briaunu.

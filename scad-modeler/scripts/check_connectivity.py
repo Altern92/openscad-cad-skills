@@ -67,6 +67,11 @@ BODIES_RE = re.compile(r'^\s*//\s*EXPECTED_BODIES\s*:\s*([0-9]+)')
 # caller's context, which is its own failure mode).
 MAX_BODIES_SHOWN = 20
 
+# Below this, an edge is a sliver rather than geometry. 1e-3 mm is 1 micron --
+# three orders of magnitude finer than any FDM feature and finer than the
+# resolution a slicer's grid keeps, so anything under it is an artefact.
+DEGENERATE_EDGE_MM = 1e-3
+
 
 def parse_expected_bodies(scad_path):
     try:
@@ -157,6 +162,28 @@ def main():
 
     print(f"OK: {os.path.basename(args.stl)} is {actual} connected "
           f"bod{'y' if actual == 1 else 'ies'} (expected {expected}).")
+
+    # Degenerate geometry, reported because it silently poisons every
+    # ray-based measurement taken on this mesh. Measured 2026-09-12 on
+    # server_rack_modular/scad/build/frame_module.stl: watertight, ONE
+    # connected body, every volume-based check clean -- and a shortest edge of
+    # 0.00003 mm. check_printability.py then read a "0.014 mm wall" off it,
+    # which is 30x below anything the model declares and was reported as a
+    # FAIL. The same part with a healthy mesh (base.stl, shortest edge
+    # 0.296 mm) reads a min wall of 0.252 mm, which matches its geometry.
+    # A mesh with sub-micron edges can also confuse a slicer, so this is worth
+    # naming even where no numeric check has tripped yet.
+    try:
+        min_edge = float(mesh.edges_unique_length.min())
+    except Exception:
+        min_edge = None
+    if min_edge is not None and min_edge < DEGENERATE_EDGE_MM:
+        n_degen = int((mesh.edges_unique_length < DEGENERATE_EDGE_MM).sum())
+        print(f"     note: DEGENERATE GEOMETRY -- shortest edge {min_edge:.6f} mm, "
+              f"{n_degen} edge(s) below {DEGENERATE_EDGE_MM} mm. Measurements that "
+              "cast rays (printability wall/overhang) read nonsense across such a "
+              "sliver, and a slicer may too. Usually a boolean that produced a "
+              "zero-area face; find it before trusting any thin-wall number.")
     if voids:
         # Not a failure: an enclosed cavity is legitimate geometry (a magnet
         # pocket, an air chamber, a captured nut). It is reported because a
