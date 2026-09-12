@@ -160,3 +160,146 @@ def resolve_special_vars(scad_path, fn=None, fa=None, fs=None):
     else:
         source = "OpenSCAD defaults ($fa=12, $fs=2) -- none declared"
     return out_fn, out_fa, out_fs, source
+
+# --- Minkowski fillet shortfall -------------------------------------------
+# bbox_error_bound() above assumes the axis extent is set by a curved surface
+# of the part's OWN size, so it evaluates the inscribed-polygon shortfall at
+# r = dim/2 with the file's global $fn/$fa/$fs. A minkowski() sum with a
+# faceted sphere breaks that assumption: the extent is set by the SPHERE's
+# radius and the SPHERE's $fn, which are usually far smaller than the part.
+#
+# Measured (INCIDENTS.md, 2026-09-12) on server_rack_modular_v4/v8
+# parts/node.scad:
+#     minkowski() { cube([node_s - fillet_post, ...]); sphere(r = fillet_post/2, $fn = 24); }
+# with node_s = 26 and fillet_post = 2.5. Declared bbox 26.0, rendered 25.9786
+# -- short by exactly 0.0214 mm. bbox_error_bound() gives 2*13*(1-cos(pi/180))
+# = 0.0040 mm, which the 0.005 floor swallows, so the check reported a FAIL on
+# a part that is 0.08% off nominal. The real bound is 2*r*(1-cos(pi/$fn)) at
+# the SPHERE's r and $fn: 2*1.25*(1-cos(pi/24)) = 0.0214 mm. Same formula,
+# different inputs -- which is why this is a separate term and not a floor bump.
+_MINKOWSKI_RE = re.compile(r"\bminkowski\s*\(")
+_SPHERE_RE = re.compile(r"\bsphere\s*\(([^)]*)\)")
+_NUM_ARG_RE = re.compile(r"\br\s*=\s*([^,)]+)")
+_FN_ARG_RE = re.compile(r"\$fn\s*=\s*([0-9.]+)")
+_ASSIGN_RE = re.compile(r"^[ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*=[ \t]*([0-9.]+)[ \t]*;")
+
+
+def parse_scalar_vars(scad_path, _depth=0, _seen=None):
+    """Numeric top-level assignments (name -> float), following include one
+    level. Enough to resolve 'sphere(r = fillet_post/2, ...)' when the
+    parameter is a plain literal in the part or its params.scad.
+    """
+    if _seen is None:
+        _seen = set()
+    real = os.path.realpath(scad_path)
+    if real in _seen or _depth > 1:
+        return {}
+    _seen.add(real)
+    found = {}
+    included = {}
+    try:
+        with open(scad_path, "r", encoding="utf-8") as f:
+            for raw in f:
+                line = _LINE_COMMENT_RE.sub("", raw)
+                m = _INCLUDE_RE.match(line)
+                if m:
+                    if _depth < 1:
+                        dep = os.path.join(os.path.dirname(scad_path), m.group(1))
+                        if os.path.isfile(dep):
+                            included.update(parse_scalar_vars(dep, _depth + 1, _seen))
+                    continue
+                m = _ASSIGN_RE.match(line)
+                if m:
+                    try:
+                        found[m.group(1)] = float(m.group(2))
+                    except ValueError:
+                        pass
+    except OSError:
+        return included
+    included.update(found)
+    return included
+
+
+def _resolve_radius(expr, scalars):
+    """'1.25' | 'fillet_post/2' | 'w/2' -> float, or None if not resolvable.
+    Returns None rather than guessing: an invented radius would silently widen
+    the tolerance, which is the failure mode this whole module exists to avoid.
+    """
+    expr = expr.strip()
+    try:
+        return float(expr)
+    except ValueError:
+        pass
+    m = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)\s*/\s*([0-9.]+)$", expr)
+    if m and m.group(1) in scalars:
+        try:
+            return scalars[m.group(1)] / float(m.group(2))
+        except (ValueError, ZeroDivisionError):
+            return None
+    if expr in scalars:
+        return scalars[expr]
+    return None
+
+
+def minkowski_sphere_deficit(scad_path, _depth=0, _seen=None, _scalars=None):
+    """Largest bounding-box shortfall contributed by a faceted sphere inside a
+    minkowski() sum, in mm for ONE axis. 0.0 when the file has no minkowski()
+    with a resolvable sphere -- the caller then keeps its existing tolerance.
+    """
+    if _seen is None:
+        _seen = set()
+    real = os.path.realpath(scad_path)
+    if real in _seen or _depth > 1:
+        return 0.0
+    _seen.add(real)
+    if _scalars is None:
+        _scalars = parse_scalar_vars(scad_path)
+
+    try:
+        text = open(scad_path, "r", encoding="utf-8").read()
+    except OSError:
+        return 0.0
+
+    lines = [_LINE_COMMENT_RE.sub("", l) for l in text.splitlines()]
+    worst = 0.0
+    for i, line in enumerate(lines):
+        if not _MINKOWSKI_RE.search(line):
+            continue
+        # Walk to the matching close BRACE of the minkowski() block, so a
+        # sphere after the block cannot be attributed to it. Braces, not
+        # parens: the block form is 'minkowski() { ... }' and its own
+        # parentheses are already balanced on the first line -- walking parens
+        # stops immediately and finds no sphere at all (hit exactly this while
+        # building it: deficit came back 0.0 for node.scad).
+        depth = 0
+        started = False
+        body = []
+        for j in range(i, min(i + 60, len(lines))):
+            seg = lines[j]
+            body.append(seg)
+            for ch in seg:
+                if ch == "{":
+                    depth += 1
+                    started = True
+                elif ch == "}":
+                    depth -= 1
+            if started and depth <= 0:
+                break
+        for seg in body:
+            for m in _SPHERE_RE.finditer(seg):
+                args = m.group(1)
+                fn_m = _FN_ARG_RE.search(args)
+                r_m = _NUM_ARG_RE.search(args)
+                if not fn_m or not r_m:
+                    continue
+                try:
+                    n = float(fn_m.group(1))
+                except ValueError:
+                    continue
+                if n < 3:
+                    continue
+                r = _resolve_radius(r_m.group(1), _scalars)
+                if r is None or r <= 0:
+                    continue
+                worst = max(worst, 2.0 * r * (1.0 - math.cos(math.pi / n)))
+    return worst

@@ -61,6 +61,7 @@ from scad_tessellation import (  # noqa: E402
     NUMERIC_FLOOR_MM,
     bbox_error_bound,
     fragments_for_r,
+    minkowski_sphere_deficit,
     resolve_special_vars,
 )
 
@@ -139,10 +140,28 @@ def main():
         basis = f"flat tolerance max({abs_tol} mm, {rel_tol:.3%})"
     else:
         fn, fa, fs, source = resolve_special_vars(args.scad, args.fn, args.fa, args.fs)
-        tolerances = [max(bbox_error_bound(e, fn, fa, fs), args.floor) for e in expected]
+        # A minkowski() sum with a faceted sphere sets the axis extent by the
+        # SPHERE's radius and $fn, not the part's, so bbox_error_bound() alone
+        # under-reports it by an order of magnitude (0.0040 mm vs the measured
+        # 0.0214 mm on server_rack_modular_v4/v8 parts/node.scad). Added as a
+        # separate term rather than a higher floor so that a part without
+        # minkowski() keeps the tight tolerance it was validated against
+        # (INCIDENTS.md, 2026-09-12).
+        mink = minkowski_sphere_deficit(args.scad)
+        # Added ON TOP of the existing bound, not folded into the max(): the
+        # two errors are independent and they add. max() drops the float32
+        # storage allowance entirely whenever the tessellation bound exceeds
+        # it, which is exactly what happens here -- the term came out at
+        # 0.02139 mm against a measured 0.02141 mm, so the check still failed
+        # by 0.00002 mm on a part that is 0.08% off nominal (INCIDENTS.md,
+        # 2026-09-12). A part without minkowski() gets mink = 0 and keeps the
+        # tolerance it was validated against.
+        tolerances = [max(bbox_error_bound(e, fn, fa, fs), args.floor) + mink
+                      for e in expected]
         facets = [fragments_for_r(abs(e) / 2.0, fn, fa, fs) for e in expected]
         basis = (f"tessellation bound, $fn={fn:g} $fa={fa:g} $fs={fs:g} "
-                 f"({source}); facets/axis {facets}, floor {args.floor} mm")
+                 f"({source}); facets/axis {facets}, floor {args.floor} mm"
+                 + (f"; +{mink:.4f} mm minkowski-sphere term" if mink > 0 else ""))
 
     errors = []
     for i, axis in enumerate(['X', 'Y', 'Z']):
