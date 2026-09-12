@@ -1239,3 +1239,16 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 - **Naujas fixture:** `tests/fixtures/connectivity_shattered_fail` -- 241 salos, tikrina, kad (a) skaičius sutampa su sąrašu, (b) pasiūlymas atitinka skaičių, (c) ribojimas pasako, kiek paslėpta. Suite: **26 passed, 0 failed** (buvo 25).
 - **Kaip rasta:** ne bandymu, o tuo, kad atsirado **testavimo bazė su tikrais, dideliais modeliais**. 10 lengvų golden atvejų šito niekada nebūtų parodę -- jie neturi nei tūkstančių komponentų, nei degeneruotų sliver'ių.
 - **Already promoted to a rule?** Ne -- siuloma: "checker'is privalo skaičiuoti ir spausdinti iš TO PAČIO šaltinio; verdiktas niekada nesprendžiamas iš kito kintamojo nei sąrašas".
+### 2026-09-12 -- 6 is ~14 patikru tyliai nepaleidziamos: exit 0 atrodo kaip 'viskas patikrinta'
+- **Where:** `scad-modeler/scripts/validate_scad.sh` -- opt-in patikros (bore_reachability, collisions, attachment, subfeature_overlap, printability, features).
+- **Symptom:** paleidus `--all` ant 11 tikru projektu, `server_rack_modular` grazina **exit 0** su 6 PASS + 2 SKIP. Bet `bore_reachability`
+`collisions`
+`attachment`
+`subfeature_overlap`
+`printability` ir `features` **neisveda ne vienos** `CHECK_RESULT` eilutes -- ju net nera sarase.
+- **Root cause:** sios patikros reikalauja deklaraciju failu (`bores.json`, `joints.json`, `attachments.json`). Nera failo -> patikra tyli. Tai **ne SKIP** (SKIP bent matomas), o visiska tyla: kvieciantis kodas (`check_rules.py`) negali atskirti 'nepaleista' nuo 'neegzistuoja'.
+- **Kodel tai incidentas, o ne dizainas:** pacio `validate_scad.sh` komentaras (2026-08-19) sako, kad butent si aklaviete jau buvo fiksuota: "there was no way to tell 'this check failed' from 'this check never ran' from the exit code alone". Ji buvo sutvarkyta `CHECK_RESULT` eilutemis -- bet tik toms patikroms, kurios VISADA paleidziamos. Opt-in patikroms ta pati problema liko.
+- **Praktinis poveikis:** `server_rack_modular`, `server_rack_modular_v3/muse_redesign` ir `cnc_control_enclosure/archive/v1` praejo su exit 0, turedami 5-6 veikiancias patikras is ~14. Vartotojas, pamates 'validacija praejo', neturi kaip suzinoti, kad giliausios patikros nepaleistos.
+- **Ka rado tos patikros, kurios VISADA paleidziamos:** `connectivity=FAIL` **5 is 11 projektu** (chassis, rack_v2, rack_v4, rack_v4/v5, rack_v4/v8) -- patvirtinta nuosekliai, po viena, ne lygiagreciai. Tai pirmas kartas, kai patikros paleistos ant tikro projektu korpuso, o ne ant sintetiniu fixture'u.
+- **Siulomas fix:** kiekviena opt-in patikra privalo isvesti `CHECK_RESULT <name>=SKIP` su priezastimi ('no bores.json'), kai deklaracijos nera. Tada 'validuota' tampa audituojama: skaicius paleistu patikru yra zinomass, o ne spejamas.
+- **Already promoted to a rule?** Ne -- siuloma: "patikra, kurios nepaleidai, turi buti matoma kaip SKIP su priezastimi; tyla nera PASS".
