@@ -118,6 +118,29 @@ calibration profile, PROPOSE printing a `calibration_coupon()` (R-14,
 before committing to the final dimension, on your own initiative — don't
 wait to be asked and don't silently default to an uncalibrated guess.
 
+**Turn every answer above into a declaration. This is not optional.** Those four
+questions are exactly the inputs §7's physical-reality checks need, and a narrative
+that stays prose is checked by nothing:
+
+| The narrative answer | Becomes | Read by |
+|---|---|---|
+| Insertion path | `bores.json` — start/end axis segment per bore | `check_bore_reachability.py` |
+| Shared-part neighbors | `fusions.json`, and `// EXPECTED_BODIES: N` for a part that is meant to be one body | `check_subfeature_overlap.py`, `check_connectivity.py` |
+| Retention | `attachments.json` — where material must exist for the fastener | `check_attachment.py` |
+| Purchased-part fit | `joints.json` — declared contact, `expected_interference_mm`, `derivation` | `check_collisions.py`, `motion_sweep.py` |
+
+Copy the templates from `templates/` into the project root and fill them in;
+`check_collisions.py` prints a paste-ready `joints.json` stub when it finds a
+candidate intentional touch, and it now runs even without a declaration, so the first
+one is cheap to produce.
+
+**A project with parts but no declarations runs 8-10 of its 18 checks as SKIP** and
+still ends with `"All validations passed."` — which is why every run also prints the
+`COVERAGE:` line. Measured 2026-09-12 across 11 real projects: **0 had** `bores.json` or
+`attachments.json`, so the two checks this section credits with closing the gap had
+never once run on real work. The gap was not in the checkers — it was that nothing
+in this workflow ever asked for their input.
+
 This step exists because the failures above were not geometry mistakes —
 the numbers were often internally consistent — they were physical
 assembly steps nobody had described in words before writing the code that

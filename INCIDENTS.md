@@ -1376,3 +1376,12 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 - **Technine detale:** skaiciuojama `log_check()` viduje -- tai vienintelė vieta, pro kurią eina kiekviena patikra. Alternatyva buvo keisti ~30 `echo` vietų ir rinkti masyva; vienas choke point yra ir maziau kodo, ir negali buti praleistas.
 - **Patikrinta:** `server_rack_modular` -- '10 passed, 0 failed, 8 skipped'; `front_swerve_module` -- '8 passed, 0 failed, 10 skipped'. Suite: 35 passed, 0 failed.
 - **Already promoted to a rule?** Ne -- siuloma: "zalias paleidimas su dideliu SKIP skaiciumi nera pilna patikra; abu skaiciai spausdinami kartu".
+### 2026-09-12 -- SAKNIS: skill'o darbo eiga niekada neliepe parasyti deklaraciju
+- **Where:** `scad-modeler/SKILL.md` -- zingsniai §0-§8.
+- **Symptom:** `bores.json` ir `attachments.json` turejo **0 is 11** projektu. `attachment` SKIP 11/11, `bore_reachability` SKIP 10/11, sudėjus 95 SKIP is 198 patikru-paleidimu.
+- **Root cause:** deklaracijos SKILL.md minimos **tik checker'iu lenteleje** -- kaip 'ko reikia patikrai'. Nė viename darbo eigos zingsnyje nera parasyti 'sukurk si faila'. Agentas, atidžiai skaitantis nuo §0 iki §8, niekada nesuzino, kad ju reikia.
+- **Ir tai prieštaravimas skill'o savo tekste:** §0.6 126 eilute sako, kad §7 'closes two of the three with a real automated check (`check_bore_reachability.py`, `check_subfeature_overlap.py`)'. Bet tos patikros neturejo įvesties -- tad **niekada nebuvo paleistos ant tikro darbo**. Teiginys buvo neteisingas nuo parasymo dienos.
+- **Fix:** §0.6 jau reikalauja būtent tu ziniu proza ('Insertion path', 'Shared-part neighbors', 'Retention', 'Purchased-part fit'). Prideta lentelė, kuri kiekviena atsakyma susieja su jo masinine forma: insertion path -> `bores.json`; neighbors -> `fusions.json` + `EXPECTED_BODIES`; retention -> `attachments.json`; purchased-part fit -> `joints.json`. Jokio naujo zingsnio -- tie patys atsakymai, uzrasyti taip, kad juos skaitytu patikra.
+- **Pamoka:** 95 SKIP nebuvo vartotojo problema ir ne checker'iu problema. Buvo **darbo eigos** problema: patikros reikalavo įvesties, kurios niekas nepraše.
+- **Nepakanka:** prideti lentele yra butina, ne pakankama. Reikia patikrinti, ar agentas ja vadovaujasi -- t.y. ar projektai po sito turi deklaracijas.
+- **Already promoted to a rule?** Ne -- siuloma: "jei patikra reikalauja įvesties, darbo eiga privalo ta įvesti reikalauti; kitaip patikra egzistuoja tik popieriuje".
