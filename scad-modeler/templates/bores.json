@@ -1,0 +1,18 @@
+[
+  {
+    "_comment": "Copy to the PROJECT ROOT as bores.json. One entry per bore that must be open along its whole path. consumed by check_bore_reachability.py, wired into validate_scad.sh. Without this file the check reports SKIP -- a sealed bore passes every other check, because a fully enclosed cavity is still one connected watertight shell (INCIDENTS.md, 2026-08-18: a Wishbone A-arm pivot bore was blind and nothing said so).",
+    "name": "bearing_tower_bore",
+    "part": "gearbox_frame",
+    "start": [-40, 10, 10],
+    "end": [10, 10, 10],
+    "step_mm": 0.5
+  },
+  {
+    "_comment": "Fields: name (label used in the failure message), part (matched case-insensitively as a substring of the STL basename, so 'gearbox_frame' matches build/gearbox_frame.stl), start and end (the bore's axis segment IN ASSEMBLY COORDINATES, both ends where the bore is supposed to open), step_mm (sampling pitch along that segment; smaller catches a thinner obstruction, costs more time). Delete these _comment entries and replace the examples.",
+    "name": "output_shaft_bore",
+    "part": "gearbox_frame",
+    "start": [0, 0, 0],
+    "end": [0, 60, 0],
+    "step_mm": 0.5
+  }
+]

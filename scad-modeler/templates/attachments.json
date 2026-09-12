@@ -1,0 +1,18 @@
+[
+  {
+    "_comment": "Copy to the PROJECT ROOT as attachments.json. One entry per place a part is fastened to another part. Consumed by check_attachment.py, wired into validate_scad.sh. Without this file the check reports SKIP -- every other check asks whether a part is CORRECT; none asks whether it has anything on it to attach WITH (INCIDENTS.md, 2026-09-11: side panels had no fastening at all and passed connectivity and dimensions).",
+    "name": "panel_to_post_upper",
+    "part": "side_panel",
+    "at": [4.5, 20, 15],
+    "feature": "m3_boss (stands 6mm off the panel face)",
+    "min_material_mm": 6.0
+  },
+  {
+    "_comment": "Fields: name (label in the failure message), part (case-insensitive substring of the STL basename), at (the point IN ASSEMBLY COORDINATES where material must exist for the fastener), feature (what is supposed to be there, in words -- this is what makes a failure readable), min_material_mm (how much solid material the bore/thread needs around that point; a boss that is present but 1mm thick fails). Add one entry per fastening interface, not one per part. Delete these _comment entries and replace the examples.",
+    "name": "base_to_frame_lower",
+    "part": "base",
+    "at": [20, 100, 2],
+    "feature": "m5_through_hole + nut trap",
+    "min_material_mm": 4.0
+  }
+]
