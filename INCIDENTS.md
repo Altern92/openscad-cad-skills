@@ -1220,3 +1220,12 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 - **Fix:** deliver an interactive path alongside the render -- export STL/3MF and state the viewer/command, so the user rotates the real model instead of trusting selected angles. Candidate: ship an assembly STL by default in the final report, not only on request.
 - **Already promoted to a rule?** Ne -- siuloma: "galutiniame pristatyme VISADA interaktyvus perziuros kelias (STL + viewer), ne vien PNG kampus".
 
+
+### 2026-09-12 -- maintainer files were symlinked into the runtime skills dir and agents read them (eval, 40 paleidimu)
+- **Where:** `~/.dsh/skills/INCIDENTS.md` ir `~/.dsh/skills/requirements.txt` -- abu symlink'ai i skill repo, salia tikru skill katalogu.
+- **Symptom:** POST rankos agentai atidarinejo `INCIDENTS.md` 7/20 paleidimu, `NEXT.md` 3/20, `templates/` 4/20. PRE rankoje -- 0/20 visuose trijuose.
+- **Root cause:** `INCIDENTS.md` (1222 eil., ~22k tokenu) buvo INSTALIUOTAS kaip runtime failas (README.md:116 dokumentuoja `ln -s`). Jis skirtas zmogui-priziuretojui, bet atsidures greta skill'u jis patenka i agento pasiekiamuma. Perskaicius jis lieka cached prefikse ir perskaitomas KIEKVIENA tolesni zingsni.
+- **Kaina:** ne vienas failas, o svertas. Mato 40 paleidimu (20 poru, tas pats atvejis + tas pats run): zingsniai 3.40 -> 4.95 (+46%), cacheRead 166k -> 304k (+83%), VISKO 178 648 -> 338 452 (**+89.5%**, poromis +106%). Skaidymas: **+55% nuo zingsniu, +45% nuo konteksto-per-zingsni** (dydis x zingsniai, todel dauginasi). Koreliacija(zingsniu %, kainos %) = **+0.92**.
+- **Fix:** pašalinti `INCIDENTS.md` ir `requirements.txt` symlink'us is `~/.dsh/skills` ir `~/.claude/skills`. Failai lieka repo; atkūrimas (jei prireikia) -- `ln -s <repo>/claude_skills/INCIDENTS.md ~/.dsh/skills/INCIDENTS.md`. Priziuretojo failai (INCIDENTS, NEXT, tests/, golden_scad/) neturi buti runtime skill kataloge.
+- **Pamoka:** "failu skaitymas" NERA kainos matas (jie gali buti dideli). Kaina = zingsniai x kontekstas-per-zingsni; abu skaitomi is `usage` irasu. Matavimo irankis: `golden_scad/measure.py`.
+- **Already promoted to a rule?** Ne -- siuloma: "runtime skill kataloge tik tai, ka agentas TURI skaityti; priziuretojo artefaktai -- i `research/` ar `_dev/`".
