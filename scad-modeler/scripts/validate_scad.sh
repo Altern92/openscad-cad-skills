@@ -597,7 +597,7 @@ sys.exit(0 if motion else 1)
                         log_check "mechanics" 1 "motion_sweep.py (via validate_scad.sh)" "FAIL"
                     fi
                 fi
-            else
+            elif [ "$positioned_bogus" -eq 0 ]; then
                 echo "WARNING: fewer than 2 parts rendered via MODE=\"part\" -- collisions cannot run. Check that assembly.scad's MODE/PART switch matches SKILL.md §6 and that parts/*.scad basenames match layout.scad's part names." >&2
                 echo "CHECK_RESULT collisions=SKIP"
                 log_check "collisions" 0 "n/a" "SKIP: fewer than 2 positioned parts rendered"
