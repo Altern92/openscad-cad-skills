@@ -118,10 +118,21 @@ def main():
             print(f"  - body {i}: bounds {part.bounds.tolist()}, "
                   f"size {size.tolist()}, volume {part.volume if part.is_volume else 'n/a'}")
         if actual > MAX_BODIES_SHOWN:
-            solid = sum(1 for p in parts if p.is_volume)
-            print(f"  - ... and {actual - MAX_BODIES_SHOWN} more components "
-                  f"({solid}/{actual} are valid solids -- the rest are degenerate "
-                  "slivers, usually an unbounded pattern or a failed boolean)")
+            print(f"  - ... and {actual - MAX_BODIES_SHOWN} more components")
+        # Say how many components are actually printable solids. "N bodies" is
+        # not the same finding as "N solids": a raw body_count made a knurled
+        # knob report 2 of 3122 (INCIDENTS.md, 2026-09-12), and four rack
+        # panels report 4 extra "bodies" that are zero-volume 4.6x1.7x4.6
+        # shells left behind by a magnet-pocket difference(), not pieces
+        # anybody would print. The caller needs the split to tell a genuinely
+        # split part from a boolean artifact.
+        solid = sum(1 for p in parts if p.is_volume)
+        if solid != actual:
+            print(f"  - NOTE: only {solid} of {actual} component(s) are valid solids; "
+                  f"the other {actual - solid} are zero-volume/non-manifold shells "
+                  "(a coincident-face or unbounded-pattern boolean artifact, not "
+                  "separate printable pieces -- prefer fixing the boolean over "
+                  "declaring EXPECTED_BODIES)")
         print("  -> if this is intentional, declare it: // EXPECTED_BODIES: "
               f"{actual}. If not, something doesn't physically touch what it "
               "should -- check the geometry that changed most recently.")
