@@ -62,6 +62,11 @@ except ImportError:
 
 BODIES_RE = re.compile(r'^\s*//\s*EXPECTED_BODIES\s*:\s*([0-9]+)')
 
+# Cap the printed body list: a shattered mesh can have thousands of components
+# and flooding the caller with 3000+ lines buries the verdict (and costs the
+# caller's context, which is its own failure mode).
+MAX_BODIES_SHOWN = 20
+
 
 def parse_expected_bodies(scad_path):
     try:
@@ -98,15 +103,25 @@ def main():
         print(f"ERROR: STL is empty or invalid: {args.stl}", file=sys.stderr)
         return EXIT_USAGE
 
-    actual = mesh.body_count
+    # ONE source of truth: the same list is counted AND printed. Counting with
+    # mesh.body_count while printing mesh.split() let those two disagree -- a
+    # mesh that shattered into 3122 slivers was reported as "2 disconnected
+    # bodies", and the suggested EXPECTED_BODIES: 2 would have been wrong.
+    parts = mesh.split(only_watertight=False)
+    actual = len(parts)
 
     if actual != expected:
         print(f"FAIL: {os.path.basename(args.stl)} has {actual} disconnected "
               f"bod{'y' if actual == 1 else 'ies'}, expected {expected}:")
-        for i, part in enumerate(mesh.split(only_watertight=False)):
+        for i, part in enumerate(parts[:MAX_BODIES_SHOWN]):
             size = part.bounds[1] - part.bounds[0]
             print(f"  - body {i}: bounds {part.bounds.tolist()}, "
                   f"size {size.tolist()}, volume {part.volume if part.is_volume else 'n/a'}")
+        if actual > MAX_BODIES_SHOWN:
+            solid = sum(1 for p in parts if p.is_volume)
+            print(f"  - ... and {actual - MAX_BODIES_SHOWN} more components "
+                  f"({solid}/{actual} are valid solids -- the rest are degenerate "
+                  "slivers, usually an unbounded pattern or a failed boolean)")
         print("  -> if this is intentional, declare it: // EXPECTED_BODIES: "
               f"{actual}. If not, something doesn't physically touch what it "
               "should -- check the geometry that changed most recently.")
