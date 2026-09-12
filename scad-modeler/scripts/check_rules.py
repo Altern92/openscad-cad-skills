@@ -249,12 +249,51 @@ def main():
             manual_ids.append(rid)
     print("-" * 70)
 
+    # --- Cover report -----------------------------------------------------
+    # Formal verification pairs every implication with a COVER PROPERTY on its
+    # antecedent and REQUIRES the cover to hit: "a passing assertion whose
+    # antecedent never fires is a verification gap, not a success"
+    # (Verification Academy; Kupferman & Vardi on vacuity). The same applies
+    # here. A rule that is N/A on every run has verified nothing, and if it ever
+    # starts reporting PASS that PASS would mean nothing either.
+    #
+    # Measured 2026-09-12 across 11 real projects: 6 of the 18 rules have NEVER
+    # had their antecedent fire -- R-01, R-02, R-06, R-11, R-12, R-14 -- because
+    # no project declared what they gate. Each run honestly said "N/A", and the
+    # accumulation was invisible: the rule surface was largely decorative while
+    # every individual report looked correct.
+    exercised = [rid for rid, status, _, _ in results if status in ("PASS", "FAIL", "INCONC")]
+    never = [rid for rid, status, _, _ in results if status == "N/A"]
+    if never:
+        print(f"COVER: {len(exercised)} rule(s) exercised, {len(never)} whose "
+              f"antecedent never fired: {', '.join(never)}")
+        print("  An antecedent that never fires is a verification gap, not a pass -- "
+              "these rules have verified nothing here. If one has never fired on ANY "
+              "project, delete it or fix what it gates: a rule that cannot fire is "
+              "indistinguishable from one that does not work.")
+        print()
+
     if manual_ids:
         print(f"MANUAL rules requiring explicit self-assessment in the §8 report "
               f"(done / skipped / not applicable, with a one-line reason each): "
               f"{', '.join(manual_ids)}")
         print("This is not optional -- a manual rule left unaddressed in the "
               "report is indistinguishable from one nobody checked.")
+
+    # Pervasiveness FIRST, so it prints whether the run passed or failed. ISA 705
+    # ties the disclaimer to evidence you could not obtain, not to the outcome --
+    # a run that both failed a rule AND left most rules unexercised needs to say
+    # both, and the earlier placement put this after the early return.
+    auto_never = [rid for rid in never if rid not in manual_ids]
+    if auto_never and len(auto_never) > len(exercised):
+        print(f"PERVASIVE: {len(auto_never)} automated rule(s) never fired against "
+              f"{len(exercised)} that did. Whatever the outcome below, it says the "
+              "APPLICABLE rules were satisfied, NOT that the design was "
+              "comprehensively checked. State this qualification verbatim in the "
+              "§8 report rather than quoting a single line from this output.")
+        print("  Fixing it is usually one declaration away: each never-fired rule "
+              "names the file it gates. See templates/.")
+        print()
 
     if any_auto_fail:
         print("FAIL: at least one automated rule did not pass (INCONC = the check "
@@ -263,6 +302,27 @@ def main():
               "source and re-run validate_scad.sh --all from the top, then "
               "re-run check_rules.py -- do not hand-edit around a failing gate.")
         return EXIT_FAIL
+
+    # Pervasiveness. ISA 705 (audit) requires more than counting: when evidence
+    # cannot be obtained and the possible effects could be BOTH material AND
+    # pervasive, the auditor must DISCLAIM an opinion rather than give a clean
+    # one. The same shape applies here. If most of the automated rules never had
+    # their antecedent fire, "every applicable automated rule passed" is true and
+    # almost content-free: it describes a rule surface that mostly did not run.
+    #
+    # The threshold is deliberately crude and stated, not tuned: more than half
+    # the automated rules unexercised is the point at which the count stops being
+    # a qualification and starts being the finding. Measured 2026-09-12 on
+    # server_rack_modular_v4: 4 exercised / 8 never fired.
+
+    if never:
+        print(f"OK: every applicable automated rule passed -- but only "
+              f"{len(exercised)} of {len(exercised) + len(never)} automated rules had "
+              "their antecedent fire (COVER above). Cite this FULL output (not a "
+              "paraphrase) in the §8 report, including the manual-rule "
+              "self-assessment, so the reader sees how much of the rule surface "
+              "was actually exercised.")
+        return EXIT_OK
 
     print("OK: every applicable automated rule passed. Cite this FULL output "
           "(not a paraphrase) in the §8 report, including the manual-rule "
