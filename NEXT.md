@@ -72,6 +72,25 @@ BE renderio. Pigus patikrinimas, bet nėra įrodymo, kad reikalingas — kol kas
 
 ---
 
+## 3b. Po 2026-09-12 darbo liko (prioritetas: vidutinis)
+
+1. **Deklaracijos neparašytos nė viename projekte.** Šablonai dabar yra
+   (`templates/bores.json`, `attachments.json`), bet `attachment` SKIP 11/11,
+   `bore_reachability` SKIP 10/11. Tai **darbo proceso** klausimas, ne kodas — deklaraciją
+   turi parašyti tas, kas žino, kur varžtas. Svarstyti generatorių: iš `layouts`/
+   `EXPECTED_HOLE` duomenų sugeneruoti juodraštį, žmogui patvirtinti.
+2. **`assembly.scad` MODE sutartis** — 4-5 projektuose `MODE = 1;` vietoj
+   apsaugoto. Šablonas `templates/assembly.scad` dabar yra. Kol nesutvarkyta,
+   `collisions` ten nepasileidžia (teisingai — tripwire pagauna).
+3. **bbox tolerancija** — `minkowski` narys pridėtas, bet sprendžiami tik
+   paprasti spindulio reiškiniai. Sudėtingesni praleidžiami (tyčia, ne spėjama).
+4. **Kaina nepermatuota po nuotėkio fix'o.** Prieš matavimą: +89,5%. Nuotėkis
+   (`INCIDENTS.md` runtime kataloge) pašalintas, bet **naujo evalo nebuvo**. Be to,
+   skill'as dabar **sąmoningai daro daugiau** (collisions visur, tripwire, coverage),
+   tad kaina tikriausiai kilo — matuoti reikia kartu su padengimu, ne atskirai.
+
+---
+
 ## 4. Techninės skolos likučiai (prioritetas: žemas)
 
 1. **Exit kodų nenuoseklumas** — 6 checker'iai grąžina 1, 6 grąžina 3. Dokumentuota
@@ -83,10 +102,12 @@ BE renderio. Pigus patikrinimas, bet nėra įrodymo, kad reikalingas — kol kas
    atvirai, su cituota literatūra). Užpildyti galima tik **išmatavus** ir įrašius
    pagal esamą formatą (printeris, medžiaga, sluoksnis, ėminys, measured vs reported).
    Nesugalvoti skaičių.
-3. **Fixtures** — 25 iš ~21 skripto, bet ne visi dengiami. Trūksta:
-   `check_intake`, `check_plan`, `check_rules`, `check_service_envelope`,
-   `check_dependencies`, `doctor`, `scad_tessellation`. Pridėti pagal tą patį
-   šabloną (fail + pass pora, su realaus incidento citata).
+3. ~~**Fixtures** — trūksta 8 checker'ių.~~ **BAIGTA 2026-09-12:** visi 8 padengti
+   (`assumptions_critical_open_fail`, `dependencies_change_class`, `intake_no_manifest`,
+   `plan_no_decision_fail`, `rules_gate_fails_unchecked_project`, `service_envelope_blank_fail`,
+   `doctor_machine_report`, `tessellation_minkowski_sphere`). 27 → **35** fixture'ų.
+   Radinys kelyje: `R-04` turėjo `applies: always` + `(PASS|SKIP)` → tuščias projektas
+   gaudavo **vakuuminį PASS**; pridėtas `glob_exists:` detektorius.
 4. **`research/` katalogas** — 6 failai (~40 KB), `.gitignore`intas, bet guli.
    Turi istorinę vertę (kaip daryti skill tyrimus), bet jo turinys išdalintas į
    `references/`, tad dalis dubliuojasi.

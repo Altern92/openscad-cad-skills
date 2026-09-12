@@ -422,6 +422,15 @@ from the unpositioned part file directly.
 
 Emit a BOM via `echo()` at the end of assembly mode (part name, material, quantity).
 
+**Copy `templates/assembly.scad` rather than writing this file from memory.**
+The two guarded lines are not stylistic: a plain `MODE = 1;` (or
+`MODE = "assembly";`) reassigns the variable and silently defeats the `-D` that
+drives the positioned render, so every "part" comes out as the whole assembly.
+Measured on `server_rack_modular_v4`: 17 positioned STLs of ~12.5MB each and
+136 collision reports of `penetration depth 170.000 mm` — all meaningless.
+`validate_scad.sh` now detects this and refuses to run the collision checks, but the
+fix belongs here, in the file.
+
 If a project already uses **NopSCADlib**, don't hand-roll this: its README states
 it has "Python scripts to generate Bills of Materials (BOMs), STL files for all
 the printed parts, DXF files for CNC routed parts in a project and a manual
@@ -487,17 +496,30 @@ Declare expectations in the `.scad` file next to the part's own dimension variab
 // EXPECTED_BBOX: [40, 20, 15]
 // EXPECTED_HOLE: [0, 0, 5, "Z", 8.0]   // axis point, axis, target across-flats Ø
 // EXPECTED_BODIES: 2                    // only if genuinely multi-shell
+// PREVIEW_FILE: renders the 2U and the 1U post 12mm apart for comparison
 ```
 
-Assembly-level declarations live in `joints.json` (contacts + `motion` block),
-`bores.json` (bore axis segments), `attachments.json` (fastener points),
-`fusions.json` (sub-feature exemptions). See
-`templates/joints.json`; the full field set (`expected_bounds`,
-`forbidden_regions`, `derivation`, `multi_region_ok`, `joint_type`) is in
+`PREVIEW_FILE` marks a `parts/` file that renders several variants side by
+side, not one printable part — without it, connectivity and bbox FAIL on every run
+and a real FAIL stops being read. It must **not** be used to silence a file that
+renders two genuinely different printable parts. A file defining `module`(s) and
+instantiating none is recognised automatically as a shared library. Full rules:
 `references/validation.md`.
+
+Assembly-level declarations: `joints.json` (contacts + `motion`), `bores.json`,
+`attachments.json`, `fusions.json`. **Templates for all four are in `templates/`** —
+copy to the project root. A missing one is SKIP naming that template, not a pass;
+without `joints.json` the static collision check still runs and prints a paste-ready
+stub.
 
 Exit codes: `0` pass · `2` **degraded — treat as not checked, not as pass** · `3`
 fail · `4` usage error.
+
+**Read the COVERAGE line, not just the exit code.** Every run ends with
+`COVERAGE: N passed, N failed, N skipped.` A SKIP is not a pass — it names what it
+needs, and a green run with a large SKIP count has verified less than it looks
+(8-10 of 18 checks were SKIP on the real projects measured 2026-09-12, before any
+declaration existed).
 
 ### Two rules about failures
 
