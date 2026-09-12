@@ -66,6 +66,17 @@ check_openscad() {
 # CHECK_RESULT connectivity= line).
 PART_CONNECTIVITY_FAIL=0
 
+# Per-check coverage counters (added 2026-09-12, INCIDENTS.md). 4 checkers were
+# never invoked by this script and 3 more ran silently, so "All validations
+# passed." could be printed while most of the check surface had not executed --
+# a project with exit 0 was not an auditable statement. Every check below now
+# emits a CHECK_RESULT line even when it did not run, so the caller can count
+# what actually happened instead of assuming it.
+DIM_DECLARED=0
+DIM_FAIL=0
+FEAT_DECLARED=0
+FEAT_FAIL=0
+
 validate_file() {
     local scad="$1"
     local stl="$2"
@@ -107,7 +118,11 @@ validate_file() {
     # *looks* right but is subtly the wrong size (wrong -D override, a units
     # slip, a parameter that didn't thread through correctly).
     if grep -q '^[[:space:]]*//[[:space:]]*EXPECTED_BBOX' "$scad"; then
-        python3 "$SCRIPT_DIR/check_dimensions.py" --stl "$stl" --scad "$scad" || this_failed=1
+        DIM_DECLARED=$((DIM_DECLARED + 1))
+        if ! python3 "$SCRIPT_DIR/check_dimensions.py" --stl "$stl" --scad "$scad"; then
+            this_failed=1
+            DIM_FAIL=1
+        fi
     fi
 
     # Feature check: a bbox is nearly blind to inscribed-polygon undersizing,
@@ -115,7 +130,11 @@ validate_file() {
     # `// EXPECTED_HOLE: [x, y, z, "Z", d]` gets its bores measured
     # flat-to-flat instead.
     if grep -q '^[[:space:]]*//[[:space:]]*EXPECTED_HOLE' "$scad"; then
-        python3 "$SCRIPT_DIR/check_features.py" --stl "$stl" --scad "$scad" || this_failed=1
+        FEAT_DECLARED=$((FEAT_DECLARED + 1))
+        if ! python3 "$SCRIPT_DIR/check_features.py" --stl "$stl" --scad "$scad"; then
+            this_failed=1
+            FEAT_FAIL=1
+        fi
     fi
 
     return $this_failed
@@ -308,6 +327,11 @@ if [[ "$MODE" == "--all" ]]; then
             echo "CHECK_RESULT bore_reachability=SKIP"
             log_check "bore_reachability" 0 "n/a" "SKIP: bores.json present but no built STLs"
         fi
+    else
+        # Absent declaration used to mean NO line at all -- indistinguishable
+        # from "this check does not exist" (INCIDENTS.md, 2026-09-12).
+        echo "CHECK_RESULT bore_reachability=SKIP"
+        log_check "bore_reachability" 0 "n/a" "SKIP: no bores.json in project root"
     fi
 
     # Attachment-point check: opt-in via a project-root attachments.json
@@ -335,6 +359,9 @@ if [[ "$MODE" == "--all" ]]; then
             echo "CHECK_RESULT attachment=SKIP"
             log_check "attachment" 0 "n/a" "SKIP: attachments.json present but no built STLs"
         fi
+    else
+        echo "CHECK_RESULT attachment=SKIP"
+        log_check "attachment" 0 "n/a" "SKIP: no attachments.json in project root"
     fi
 
     # Mechanics auto-trigger: opt-in via joints.json declaring a non-empty
@@ -406,7 +433,65 @@ sys.exit(0 if motion else 1)
     if [ "$mechanics_ran" -eq 0 ]; then
         echo "CHECK_RESULT mechanics=SKIP"
         log_check "mechanics" 0 "n/a" "SKIP: no joints.json motion declared"
+        # collisions is folded into the mechanics block above, so it only ever
+        # reported when motion was declared. Name it explicitly either way.
+        echo "CHECK_RESULT collisions=SKIP"
+        log_check "collisions" 0 "n/a" "SKIP: no joints.json motion declared (static collision needs positioned parts)"
     fi
+
+    # dimensions/features are opt-in PER PART (// EXPECTED_BBOX / EXPECTED_HOLE),
+    # and previously said nothing when no part declared them. Same silent-gap
+    # class as above.
+    if [ "$DIM_DECLARED" -eq 0 ]; then
+        echo "CHECK_RESULT dimensions=SKIP"
+        log_check "dimensions" 0 "n/a" "SKIP: no part declares // EXPECTED_BBOX"
+    elif [ "$DIM_FAIL" -eq 0 ]; then
+        echo "CHECK_RESULT dimensions=PASS"
+        log_check "dimensions" 0 "validate_scad.sh --all" "PASS ($DIM_DECLARED part(s) declared)"
+    else
+        echo "CHECK_RESULT dimensions=FAIL"
+        log_check "dimensions" 1 "validate_scad.sh --all" "FAIL: see check_dimensions.py output above"
+    fi
+
+    if [ "$FEAT_DECLARED" -eq 0 ]; then
+        echo "CHECK_RESULT features=SKIP"
+        log_check "features" 0 "n/a" "SKIP: no part declares // EXPECTED_HOLE"
+    elif [ "$FEAT_FAIL" -eq 0 ]; then
+        echo "CHECK_RESULT features=PASS"
+        log_check "features" 0 "validate_scad.sh --all" "PASS ($FEAT_DECLARED part(s) declared)"
+    else
+        echo "CHECK_RESULT features=FAIL"
+        log_check "features" 1 "validate_scad.sh --all" "FAIL: see check_features.py output above"
+    fi
+
+    # --- Checkers that exist in scripts/ but are NOT gates here -------------
+    # Named explicitly so the absence of a check is a written statement rather
+    # than an omission nobody can see (INCIDENTS.md, 2026-09-12). Each one is
+    # deliberately NOT wired as a pass/fail gate, with the reason recorded:
+    #
+    # printability   -- runs on any STL, but on 2026-09-12 it FAILED 4/4 real
+    #                   parts of server_rack_modular (overhang area > 0 on any
+    #                   FDM part with a fillet or a hole; minimum wall read
+    #                   0.014mm, a degenerate-sliver measurement, not a wall).
+    #                   As a gate it would fail every project, which is noise,
+    #                   not signal. Needs threshold work first.
+    # subfeature_overlap -- expects SOLO exports of named sub-modules (each
+    #                   sub-feature its own STL, before union()). Handed whole
+    #                   part STLs it compares parts that share an origin and
+    #                   reports meaningless overlap (measured: 196779 mm^3
+    #                   between base.stl and frame_module.stl, which are simply
+    #                   not in the same coordinate space).
+    # intake         -- opt-in Stage 0 manifest; no manifest = nothing to check.
+    # dependencies   -- change-propagation engine, run on demand with --change;
+    #                   it answers "what must be recomputed", it is not a gate.
+    echo "CHECK_RESULT printability=SKIP"
+    log_check "printability" 0 "n/a" "SKIP: not a gate -- fails 4/4 real parts, needs threshold work (INCIDENTS.md 2026-09-12)"
+    echo "CHECK_RESULT subfeature_overlap=SKIP"
+    log_check "subfeature_overlap" 0 "n/a" "SKIP: needs solo sub-module STLs (before union); whole-part STLs give false positives"
+    echo "CHECK_RESULT intake=SKIP"
+    log_check "intake" 0 "n/a" "SKIP: no Stage-0 intake manifest declared"
+    echo "CHECK_RESULT dependencies=SKIP"
+    log_check "dependencies" 0 "n/a" "SKIP: on-demand analysis (--change), not a gate"
 else
     scad="parts/$MODE.scad"
     if [ ! -f "$scad" ]; then
