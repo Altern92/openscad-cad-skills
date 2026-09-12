@@ -43,7 +43,22 @@ OVERALL_FAIL=0
 # appends one JSON line per CHECK_RESULT to a machine-local log (see
 # scripts/validation_log.py for why and where). Never blocks or fails the
 # actual validation run -- stderr/exit are swallowed.
+# Coverage counters. log_check() is the single place every check already
+# reports through, so counting here covers all of them without touching 30
+# call sites. "validate_scad_all" is the run's own verdict, not a check, and
+# is excluded. A run that passed while half the surface was SKIP is a
+# different claim from one that passed with everything exercised
+# (INCIDENTS.md, 2026-09-12) -- and until now nothing told them apart.
+CHK_PASS=0
+CHK_FAIL=0
+CHK_SKIP=0
 log_check() {
+    if [ "$1" != "validate_scad_all" ]; then
+        case "$4" in
+            SKIP:*) CHK_SKIP=$((CHK_SKIP + 1)) ;;
+            *) if [ "$2" -eq 0 ]; then CHK_PASS=$((CHK_PASS + 1)); else CHK_FAIL=$((CHK_FAIL + 1)); fi ;;
+        esac
+    fi
     python3 "$SCRIPT_DIR/validation_log.py" --checker "$1" --exit "$2" \
         --command "$3" --summary "$4" --project "$PWD" >/dev/null 2>&1 || true
 }
@@ -431,7 +446,7 @@ if [[ "$MODE" == "--all" ]]; then
         # Absent declaration used to mean NO line at all -- indistinguishable
         # from "this check does not exist" (INCIDENTS.md, 2026-09-12).
         echo "CHECK_RESULT bore_reachability=SKIP"
-        log_check "bore_reachability" 0 "n/a" "SKIP: no bores.json in project root"
+        log_check "bore_reachability" 0 "n/a" "SKIP: no bores.json -- copy templates/bores.json to the project root and fill it in; until then no bore is checked for reachability"
     fi
 
     # Attachment-point check: opt-in via a project-root attachments.json
@@ -461,7 +476,7 @@ if [[ "$MODE" == "--all" ]]; then
         fi
     else
         echo "CHECK_RESULT attachment=SKIP"
-        log_check "attachment" 0 "n/a" "SKIP: no attachments.json in project root"
+        log_check "attachment" 0 "n/a" "SKIP: no attachments.json -- copy templates/attachments.json to the project root and fill it in; until then no part is checked for having anything to fasten WITH"
     fi
 
     # Mechanics auto-trigger: opt-in via joints.json declaring a non-empty
@@ -652,11 +667,11 @@ sys.exit(0 if motion else 1)
     # dependencies   -- change-propagation engine, run on demand with --change;
     #                   it answers "what must be recomputed", it is not a gate.
     echo "CHECK_RESULT printability=SKIP"
-    log_check "printability" 0 "n/a" "SKIP: not a gate -- fails 4/4 real parts, needs threshold work (INCIDENTS.md 2026-09-12)"
+    log_check "printability" 0 "n/a" "SKIP: not a gate -- fails 4/4 real parts, needs threshold work first (run scripts/check_printability.py --stl <stl> manually)"
     echo "CHECK_RESULT subfeature_overlap=SKIP"
     log_check "subfeature_overlap" 0 "n/a" "SKIP: needs solo sub-module STLs (before union); whole-part STLs give false positives"
     echo "CHECK_RESULT intake=SKIP"
-    log_check "intake" 0 "n/a" "SKIP: no Stage-0 intake manifest declared"
+    log_check "intake" 0 "n/a" "SKIP: no design_manifest.json -- the Stage-0 requirement spec was never produced; see references/intake_and_analysis.md"
     echo "CHECK_RESULT dependencies=SKIP"
     log_check "dependencies" 0 "n/a" "SKIP: on-demand analysis (--change), not a gate"
 else
@@ -666,6 +681,13 @@ else
         exit 1
     fi
     validate_file "$scad" "$BUILD_DIR/$MODE.stl" || OVERALL_FAIL=1
+fi
+
+if [[ "$MODE" == "--all" ]]; then
+    echo "COVERAGE: $CHK_PASS passed, $CHK_FAIL failed, $CHK_SKIP skipped ($((CHK_PASS + CHK_FAIL + CHK_SKIP)) checks reported)."
+    if [ "$CHK_SKIP" -gt 0 ]; then
+        echo "  $CHK_SKIP check(s) did NOT run -- each SKIP above names what it needs. A green run with a large SKIP count has verified less than it looks."
+    fi
 fi
 
 if [ "$OVERALL_FAIL" -eq 0 ]; then

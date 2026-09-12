@@ -1366,3 +1366,13 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 - **8 fixture'ai, visi praeina.** Vertingiausi ne 'laimingi keliai', o kontraktai: `check_intake` grazina **2** (manifesto nera) vs **3** (specas blogas) -- tas skirtumas nores validate_scad.sh kvieciantysis; `check_rules` -- **3** (taisyklė neivykdyta) vs **4** (checker'is paleistas blogai); `doctor` -- 0/2/3. `tessellation_minkowski_sphere` fiksuoja 0.021388 = 2*1.25*(1-cos(pi/24)), t.y. tikra ismatuota paklaida, ne isgalvota.
 - **Suite:** 27 -> **35 passed, 0 failed**.
 - **Already promoted to a rule?** Ne -- siuloma: "tureti testa kiekvienam checker'iui; o taisykle be ivykdomo vartu yra N/A, niekada PASS".
+### 2026-09-12 -- SKIP be instrukcijos: 8-10 patikru neivyksta ir niekas nesako, ka daryti
+- **Where:** `scad-modeler/scripts/validate_scad.sh` -- `attachment`, `bore_reachability`, `intake`, `printability` SKIP pranesimai.
+- **Symptom:** `attachment` buvo SKIP **11/11** projektu, `intake` 11/11, `bore_reachability` 10/11. Pranesimas sakydavo tik ko truksta ('no bores.json in project root'), ne ka daryti.
+- **Root cause:** sablonas `templates/bores.json` ir `templates/attachments.json` **neegzistavo isvis** -- buvo tik `joints.json`. Patikros buvo parašytos ir istestuotos, bet niekas negalejo žinoti, kaip paruosti jų įvesti.
+- **Fix (du):** (1) abu sablonai sukurti ir iregistruoti `templates/README.md` su laukų paaiskinimais. (2) SKIP pranesimai dabar nurodo konkretu sablona ir pasekme: `'SKIP: no bores.json -- copy templates/bores.json to the project root and fill it in; until then no bore is checked for reachability'`.
+- **Ir skaiciai isvestyje, ne tik log'e:** paleidimo pabaigoje dabar spausdinama `'COVERAGE: N passed, N failed, N skipped (N checks reported).'` ir, jei SKIP > 0, `'  N check(s) did NOT run -- each SKIP above names what it needs. A green run with a large SKIP count has verified less than it looks.'`.
+- **Kodel tai svarbu:** `'All validations passed.'` ir `'COVERAGE: 8 passed, 0 failed, 10 skipped'` yra **skirtingi teiginiai**, ir dabar jie visada spausdinami kartu. Anksciau zalią paleidima galejai perskaityti kaip pilną patikra.
+- **Technine detale:** skaiciuojama `log_check()` viduje -- tai vienintelė vieta, pro kurią eina kiekviena patikra. Alternatyva buvo keisti ~30 `echo` vietų ir rinkti masyva; vienas choke point yra ir maziau kodo, ir negali buti praleistas.
+- **Patikrinta:** `server_rack_modular` -- '10 passed, 0 failed, 8 skipped'; `front_swerve_module` -- '8 passed, 0 failed, 10 skipped'. Suite: 35 passed, 0 failed.
+- **Already promoted to a rule?** Ne -- siuloma: "zalias paleidimas su dideliu SKIP skaiciumi nera pilna patikra; abu skaiciai spausdinami kartu".
