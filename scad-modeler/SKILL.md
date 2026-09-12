@@ -12,6 +12,28 @@ gear pair doesn't mesh, not just "the pocket is 2mm too small."
 
 **Not sure which skill to load, or where a fact lives? See `../references/retrieval.md` — the routing table (skill choice, passport format, abstention).**
 
+## You are not done until these two commands have run
+
+```
+bash scripts/validate_scad.sh --all          # from the project root
+python3 scripts/check_rules.py --project-dir .
+```
+
+Then paste BOTH outputs into your final report. Everything below explains *why*;
+this box is the *what*, and it is first because it is the one thing that must not be
+skipped.
+
+**Measured, 2026-09-12.** An agent was given a precise part spec. It declared its
+dimensions correctly, then ran ONE checker by hand (`check_bore_reachability.py`, twice),
+and delivered a part that `check_connectivity.py` would have failed instantly as *3
+disconnected bodies*. It never ran `validate_scad.sh --all` and never ran
+`check_rules.py`. Both were already marked mandatory — at lines 466 and 600 of an
+830-line document, which is where a mandatory step goes to be skipped.
+
+A part is not finished because you believe it is right. It is finished when the
+pipeline has run and you have quoted what it said.
+
+---
 ## 0. Before anything else: read project facts
 
 Check the project's design docs (`CLAUDE.md` under Claude Code, `AGENTS.md`, or a
