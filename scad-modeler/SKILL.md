@@ -307,6 +307,27 @@ one machine that folder once held a single stray `gears.scad`, `include
 `git clone https://github.com/BelfrySCAD/BOSL2.git` into the library directory
 doctor names.
 
+**Every number that came from a spec, a brief, or a calculation goes into the file as
+a DECLARATION — not just as code.** Mandatory for any part whose size, or whose
+fit-critical round features, were *specified* rather than chosen here:
+
+```openscad
+// EXPECTED_BBOX: [33.595, 33.595, 46]        // the spec's numbers, verbatim
+// EXPECTED_HOLE: [0, 0, 5.5, "Z", 5.2]       // one per specified bore
+```
+
+Then `check_dimensions.py` and `check_features.py` verify the RENDERED part against
+them on every run, and a deviation is caught by code instead of by eye.
+
+Why this is not optional: those two checks run ONLY when a part declares them, and
+measured 2026-09-12 nothing declared them unless told to. Four recreation attempts were
+given a spec with the exact numbers written out; three produced parts that violated them
+(Z at 10 instead of 46; Y at 38.8 instead of 33.6; X at 61 instead of 7), and **no arm's
+tooling caught a single one** — the numbers were in the prompt and nowhere in the model.
+A spec that lives only in prose is not checked by anything.
+
+The rule in one line: **if a number came from outside, it becomes a declaration.**
+
 ## 4.5. Purchased hardware — position it too, not just its cavity
 
 A bearing, motor, or screw's *cavity* gets checked (`EXPECTED_HOLE`), but
