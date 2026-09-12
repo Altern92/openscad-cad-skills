@@ -54,8 +54,15 @@ if [ "$rcode" -eq 0 ]; then
     echo "$rout" | grep "R-09" >&2
     rm -rf "$proj"; exit 1
 fi
-echo "$rout" | grep -qE "\[FAIL[^]]*\] R-09" || {
-    echo "expected R-09 to be FAIL when the sweep could not run, got:" >&2
+# INCONC, not FAIL. The check RAN and could not determine an answer, which is
+# a third outcome: FAIL means fix the model, INCONC means fix the checker or its
+# inputs (here: add assembly.scad). Reporting INCONC as FAIL is the two-valued
+# collapse the adversarial cross-field review flagged -- SARIF separates
+# notApplicable from open, TTCN-3 makes inconc and none first-class verdicts,
+# ISA 705 wants a DISCLAIMER rather than an adverse opinion. Either way it must
+# make the run non-green, which the exit-code check above already asserts.
+echo "$rout" | grep -qE "\[(FAIL|INCONC)[^]]*\] R-09" || {
+    echo "expected R-09 to be FAIL or INCONC when the sweep could not run, got:" >&2
     echo "$rout" | grep "R-09" >&2
     rm -rf "$proj"; exit 1; }
 

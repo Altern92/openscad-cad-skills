@@ -41,12 +41,25 @@ different parts' sub-features reports meaningless overlap (measured: 196779 mm³
 between `base.stl` and `frame_module.stl` that way).
 | `check_dependencies.py` | **no** — on-demand analysis (`--change`), not a gate |
 
-**Every row above now emits a `CHECK_RESULT` line on every run**, including the
-ones that do not run: the unwired checkers report `SKIP` with the reason. Before
-2026-09-12 they printed nothing at all, so a project could exit 0 with most of the
-check surface absent and no way to tell "this check passed" from "this check does
-not exist". Counting the `CHECK_RESULT` lines is now a real coverage measure —
-on 11 real projects the run went from 8 reported checks to 17, and making
+**Every row above emits a `CHECK_RESULT` line on every run**, including the ones that
+do not run. The status vocabulary is **five-valued, not a boolean**, following
+SARIF's `result.kind` (pass / fail / notApplicable, plus `open` for "could not
+determine"), TTCN-3's five-value `verdicttype` (`inconc` and `none` are
+verdicts, not annotations) and pytest's exit 6 for "no tests collected":
+
+| Status | Meaning |
+|---|---|
+| `PASS` / `FAIL` | ran; the answer is known |
+| `SKIP` | does not apply to this project — the reason names the missing declaration or file |
+| `INCONCLUSIVE` | **ran and could not determine an answer**: assembly.scad's MODE switch broken, fewer than 2 positioned parts, STLs unreadable |
+| `ADVISORY` | ran and reports, but is not a gate |
+
+An `INCONCLUSIVE` must never be read as success and must never be collapsed into
+either `SKIP` or `FAIL` — the next action differs: fix the checker or its inputs,
+not the model. `check_rules.py` reports it as its own `[INCONC]` verdict and keeps the
+run non-green. Before 2026-09-12 all three non-passing cases printed as one `SKIP`,
+and `check_printability.py` — which RUNS and flagged 4 of 4 real parts — carried that
+label, which is a false statement about the tool.
 `check_dimensions.py` report surfaced **3 previously invisible bbox failures**
 (`nas_post`, `post`, `side_panel` in `server_rack_modular_v4`) that had been
 firing silently on every run.

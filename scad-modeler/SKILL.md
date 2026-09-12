@@ -544,13 +544,24 @@ only ever returns `0` or `1`** — it is a bundle, so read its `CHECK_RESULT` an
 `COVERAGE` lines rather than its exit code.
 
 **Read the COVERAGE line, not just the exit code.** Every run ends with
-`COVERAGE: N passed, N failed, N skipped.` A SKIP is not a pass — it names what it
-needs, and a green run with a large SKIP count has verified less than it looks
-(8-10 of 18 checks were SKIP on the real projects measured 2026-09-12, before any
-declaration existed).
+`COVERAGE: N passed, N failed, N not-applicable, N inconclusive, N advisory.`
 
-### Two rules about failures
+**Five outcomes, not two**, and the distinctions are load-bearing:
 
+| Outcome | Means | Next action |
+|---|---|---|
+| `PASS` / `FAIL` | ran, answer is known | FAIL: fix the model |
+| `not-applicable` | does not apply here (a declaration is absent) | add the declaration if it should apply |
+| `inconclusive` | **ran and could not determine an answer** | fix the checker or its inputs, never read as success |
+| `advisory` | ran, reports, does not gate | read it and judge |
+
+A `SKIP` is not a pass. `INCONCLUSIVE` is the one outcome that must never be
+read as success: it is the difference between "I looked and it is fine" and
+"I could not look". SARIF separates `notApplicable` from `open`, TTCN-3 makes
+`inconc` and `none` first-class verdicts, and pytest exits 6 rather than 0 when
+nothing was collected: the same three-way split. Measured 2026-09-12 on 11 real
+projects, 7-11 of 18 checks were not-applicable because the declarations did not
+exist yet.
 1. **Fix any failure at the source** (wrong parameter, wrong layout position) — do not
    loosen an `assert()`, a tolerance, or a collision threshold to make it go away.
 2. **After any geometry fix, re-run the whole cycle, not just the check you were

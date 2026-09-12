@@ -52,10 +52,21 @@ OVERALL_FAIL=0
 CHK_PASS=0
 CHK_FAIL=0
 CHK_SKIP=0
+CHK_INC=0
+CHK_ADV=0
 log_check() {
     if [ "$1" != "validate_scad_all" ]; then
+        # Four outcomes, not two. A check that ran and could not determine an
+        # answer is NOT the same as one that does not apply, and neither is a
+        # success. SARIF result.kind names three of these (pass / fail /
+        # notApplicable) and adds open for "could not determine"; TTCN-3 makes
+        # inconc and none first-class verdicts; pytest exits 6 rather than 0
+        # when nothing was collected. Collapsing them hides exactly the case
+        # that matters (adversarial cross-field review, 2026-09-12).
         case "$4" in
             SKIP:*) CHK_SKIP=$((CHK_SKIP + 1)) ;;
+            INCONCLUSIVE:*) CHK_INC=$((CHK_INC + 1)) ;;
+            ADVISORY:*) CHK_ADV=$((CHK_ADV + 1)) ;;
             *) if [ "$2" -eq 0 ]; then CHK_PASS=$((CHK_PASS + 1)); else CHK_FAIL=$((CHK_FAIL + 1)); fi ;;
         esac
     fi
@@ -581,6 +592,7 @@ if [[ "$MODE" == "--all" ]]; then
     # assembly.scad's MODE="part"/PART="<name>" switch (SKILL.md §6) before
     # calling either check.
     mechanics_ran=0
+    mechanics_reported=0
     # The positioned render is gated on assembly.scad, NOT on joints.json.
     # Joints.json is a declaration of what is MEANT to touch; collisions do not
     # need it to FIND an overlap -- check_collisions.py takes --expected-contacts
@@ -656,8 +668,8 @@ sys.exit(0 if motion else 1)
             if [ -s "$BUILD_DIR/assembly.stl" ] && [ ${#positioned_stls[@]} -gt 0 ]; then
                 if ! extents=$(python3 "$SCRIPT_DIR/stl_extent.py" "$BUILD_DIR/assembly.stl" ${positioned_stls[@]+"${positioned_stls[@]}"}); then
                     echo "ERROR: could not measure bounding boxes for the positioned parts (stl_extent.py failed). Refusing to guess whether they are real parts: the collision checks are skipped rather than run on geometry of unknown provenance." >&2
-                    echo "CHECK_RESULT collisions=SKIP"
-                    log_check "collisions" 0 "n/a" "SKIP: stl_extent.py could not read the rendered STLs"
+                    echo "CHECK_RESULT collisions=INCONCLUSIVE"
+                    log_check "collisions" 0 "INCONCLUSIVE" "INCONCLUSIVE: stl_extent.py could not read the rendered STLs"
                     positioned_bogus=-1
                 else
                     positioned_bogus=$(printf '%s\n' "$extents" | python3 -c '
@@ -670,8 +682,8 @@ print(sum(1 for r in rows[1:] if all(abs(float(r[a]) - asm[a]) < 0.01 for a in r
             fi
             if [ "$positioned_bogus" -gt 0 ]; then
                 echo "ERROR: $positioned_bogus of ${#positioned_stls[@]} positioned part(s) have exactly the assembly's bounding box -- assembly.scad's MODE/PART switch did not take effect, so every 'part' is a copy of the full assembly. Fix assembly.scad to guard its default (SKILL.md §6): MODE = is_undef(MODE) ? \"assembly\" : MODE; -- a plain MODE = 1; reassigns the variable and defeats -D. Collision checks are skipped: running them on N copies of the assembly produces N*(N-1)/2 meaningless overlaps." >&2
-                echo "CHECK_RESULT collisions=SKIP"
-                log_check "collisions" 0 "n/a" "SKIP: assembly.scad MODE/PART switch not working ($positioned_bogus part(s) sized as the whole assembly)"
+                echo "CHECK_RESULT collisions=INCONCLUSIVE"
+                log_check "collisions" 0 "INCONCLUSIVE" "INCONCLUSIVE: assembly.scad MODE/PART switch not working ($positioned_bogus part(s) sized as the whole assembly)"
                 echo "CHECK_RESULT mechanics=FAIL"
                 OVERALL_FAIL=1
                 log_check "mechanics" 1 "validate_scad.sh --all" "FAIL: positioned render produced the whole assembly, not parts"
@@ -706,8 +718,8 @@ print(sum(1 for r in rows[1:] if all(abs(float(r[a]) - asm[a]) < 0.01 for a in r
                 fi
             elif [ "$positioned_bogus" -eq 0 ]; then
                 echo "WARNING: fewer than 2 parts rendered via MODE=\"part\" -- collisions cannot run. Check that assembly.scad's MODE/PART switch matches SKILL.md §6 and that parts/*.scad basenames match layout.scad's part names." >&2
-                echo "CHECK_RESULT collisions=SKIP"
-                log_check "collisions" 0 "n/a" "SKIP: fewer than 2 positioned parts rendered"
+                echo "CHECK_RESULT collisions=INCONCLUSIVE"
+                log_check "collisions" 0 "INCONCLUSIVE" "INCONCLUSIVE: fewer than 2 positioned parts rendered"
                 if [ "$has_motion" = "yes" ]; then
                     echo "CHECK_RESULT mechanics=FAIL"
                     OVERALL_FAIL=1
@@ -716,15 +728,20 @@ print(sum(1 for r in rows[1:] if all(abs(float(r[a]) - asm[a]) < 0.01 for a in r
             fi
         }
     fi
-    if [ "$mechanics_ran" -eq 0 ]; then
+    if [ "$mechanics_ran" -eq 0 ] && [ "${mechanics_reported:-0}" -eq 0 ]; then
         # collisions is NOT skipped here any more: it runs on positioned parts
         # whenever assembly.scad exists, declaration or not. Only the dynamic
         # sweep needs a motion block.
         echo "CHECK_RESULT mechanics=SKIP"
         # Two different causes, and they were reported with one sentence.
         if [ -f joints.json ] && [ ! -f assembly.scad ]; then
-            echo "  -> joints.json declares motion but there is no assembly.scad, so positioned parts cannot be rendered and the sweep was NOT run. R-09 in rules_manifest.yaml treats this as a failure for exactly that reason."
-            log_check "mechanics" 0 "n/a" "SKIP: joints.json declares motion but assembly.scad is missing -- positioned parts cannot be rendered"
+            # The check APPLIES (motion is declared) but cannot be carried out.
+            # That is INCONCLUSIVE, not "not applicable": the next action is to
+            # add assembly.scad, not to conclude the sweep was unnecessary.
+            echo "CHECK_RESULT mechanics=INCONCLUSIVE"
+            echo "  -> joints.json declares motion but there is no assembly.scad, so positioned parts cannot be rendered and the sweep was NOT run."
+            log_check "mechanics" 0 "INCONCLUSIVE" "INCONCLUSIVE: joints.json declares motion but assembly.scad is missing -- positioned parts cannot be rendered"
+            mechanics_reported=1
         else
             log_check "mechanics" 0 "n/a" "SKIP: no joints.json motion declared"
         fi
@@ -776,8 +793,20 @@ print(sum(1 for r in rows[1:] if all(abs(float(r[a]) - asm[a]) < 0.01 for a in r
     # intake         -- opt-in Stage 0 manifest; no manifest = nothing to check.
     # dependencies   -- change-propagation engine, run on demand with --change;
     #                   it answers "what must be recomputed", it is not a gate.
-    echo "CHECK_RESULT printability=SKIP"
-    log_check "printability" 0 "n/a" "SKIP: not a gate -- fails 4/4 real parts, needs threshold work first (run scripts/check_printability.py --stl <stl> manually)"
+    # ADVISORY, not SKIP. This checker RAN -- it examined 4 of 4 real parts and
+    # found something in every one. Calling that SKIP ("did not run / cannot
+    # determine") is a false statement about the tool and it hides the finding
+    # from whoever maintains this next. Found by the adversarial cross-field
+    # review, 2026-09-12.
+    #
+    # The rule for a noisy check is a false-positive BUDGET, not suppression:
+    # Google Tricorder requires <=10% effective false positives for an advisory
+    # check and ZERO for a blocking one; where a check could not meet that they
+    # fixed the root cause or DELETED it, and their stated lesson is that
+    # suppression "resulted in hidden bugs". Measured FP rate here is 4/4 = 100%,
+    # past the >50% "not worth integrating" line, so it stays advisory and reports.
+    echo "CHECK_RESULT printability=ADVISORY"
+    log_check "printability" 0 "ADVISORY" "ADVISORY: runs and reports, does not gate -- measured 4/4 real parts flagged (~100% FP), past the >50% 'not worth integrating' line. Run scripts/check_printability.py --stl <stl> directly and judge each finding."
 
     echo "CHECK_RESULT intake=SKIP"
     # The reason must be true. It said "no design_manifest.json" unconditionally,
@@ -837,14 +866,21 @@ else
 fi
 
 if [[ "$MODE" == "--all" ]]; then
-    echo "COVERAGE: $CHK_PASS passed, $CHK_FAIL failed, $CHK_SKIP skipped ($((CHK_PASS + CHK_FAIL + CHK_SKIP)) checks reported)."
+    # Report every outcome separately. "N skipped" used to fold together
+    # "does not apply here", "ran but could not determine", and "ran but is not
+    # a gate" -- three different facts with three different next actions
+    # (adversarial cross-field review, 2026-09-12).
+    echo "COVERAGE: $CHK_PASS passed, $CHK_FAIL failed, $CHK_SKIP not-applicable, $CHK_INC inconclusive, $CHK_ADV advisory ($((CHK_PASS + CHK_FAIL + CHK_SKIP + CHK_INC + CHK_ADV)) checks reported)."
+    if [ "$CHK_INC" -gt 0 ]; then
+        echo "  $CHK_INC check(s) RAN AND COULD NOT DETERMINE an answer -- this is the one outcome that must never be read as success. Each one above says why."
+    fi
     if [ "$CHK_SKIP" -gt 0 ]; then
-        echo "  $CHK_SKIP check(s) did NOT run -- each SKIP above names what it needs. A green run with a large SKIP count has verified less than it looks."
+        echo "  $CHK_SKIP check(s) did not apply to this project -- each names the declaration or file it needs."
     fi
 fi
 
 if [[ "$MODE" != "--all" ]]; then
-    echo "COVERAGE: $CHK_PASS passed, $CHK_FAIL failed, $CHK_SKIP skipped ($((CHK_PASS + CHK_FAIL + CHK_SKIP)) checks reported, single-part mode)."
+    echo "COVERAGE: $CHK_PASS passed, $CHK_FAIL failed, $CHK_SKIP not-applicable, $CHK_INC inconclusive, $CHK_ADV advisory ($((CHK_PASS + CHK_FAIL + CHK_SKIP + CHK_INC + CHK_ADV)) checks reported, single-part mode)."
 fi
 
 if [ "$OVERALL_FAIL" -eq 0 ]; then

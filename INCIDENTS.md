@@ -1442,3 +1442,17 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 - **Naujas fixture `stl_extent_both_formats`:** renderina ASCII, konvertuoja i binary per trimesh, ir reikalauja, kad **abi** duotu 10x20x30; be to, šiukšliu failas privalo grazinti klaida, o ne skaiciu.
 - **Išmokta:** kai šalini klaidinga teigiama, patikrink, ar naujasis kodas dar **pagauna tikra atvejį**. Aš to nepadariau iškart -- padariau tik todėl, kad perbėgau visus projektus ir pastebejau, kad skaiciai nesueina.
 - **Suite:** 40 -> **41 passed, 0 failed**.
+### 2026-09-12 -- Penki verdiktai vietoj dvieju: printability buvo PAVADINTAS SKIP, nors IVYKO
+- **Where:** `scad-modeler/scripts/validate_scad.sh`, `check_rules.py`.
+- **Kaip rasta:** priešiškas tarpdisciplininis recenzentas, paprašytas patikrinti, ar kitos sritys jau išsprendė šias problemas.
+- **Kas buvo neteisinga:** `printability` suveikė **4/4** realiose dalyse ir kiekvienoje ką nors rado. Aš jį pavadinau `SKIP`, o SKIP reiškia 'nepaleista / negaliu nustatyti'. Tai **neteisingas teiginys apie įrankį** ir jis paslepia radinį nuo būsimo prižiūrėtojo.
+- **Standartas, kurio nesilaikiau:** `SKIP` suliejo tris skirtingus dalykus -- 'netaikoma', 'paleista, bet negalėjau išmatuoti' ir 'paleista, bet ne vartai'. Jie turi tris skirtingus veiksmus. SARIF `result.kind` skiria `notApplicable` nuo `open`; TTCN-3 `verdicttype` turi penkias reikšmes (`inconc` ir `none` yra verdiktai, ne anotacijos); pytest tuščiam paleidimui grąžina **6**, ne 0.
+- **Klaidingo žymėjimo kaina:** Google Tricorder patirtis -- jie **pašalino** vartotojo lygio derinimą, sutaisė šaknis ir **IŠJUNGĖ** HTML linterį visiškai. Jų užrašyta pamoka: slopinimas 'sukėlė paslėptų bug'ų'.
+- **Fix, penki verdiktai:** `PASS` / `FAIL` / `SKIP` (netaikoma) / `INCONCLUSIVE` (paleista, negalėjau nustatyti) / `ADVISORY` (paleista, ne vartai).
+  - `printability` -> **ADVISORY** (jis įvyko; FP dalis 4/4 = ~100 %, tai **virš** literatūros >50 % 'neverta integruoti' ribos, tad jis praneša, bet neblokuoja)
+  - trys `collisions` atvejai ir `mechanics` be `assembly.scad` -> **INCONCLUSIVE**
+  - `check_rules.py` -> naujas `[INCONC]` verdiktas; jis **ne** `FAIL` (FAIL = taisyk modelį, INCONC = taisyk checker'į ar jo įvestį) ir paleidimas lieka ne-žalias
+  - COVERAGE eilutė: `'COVERAGE: 6 passed, 3 failed, 7 not-applicable, 1 inconclusive, 1 advisory (18 checks reported).'`
+- **Kodėl INCONCLUSIVE niekada neturi virsti FAIL:** tai būtų trijų reikšmių problemos suliejimas į dvi -- tą patį, ką recenzentas jau buvo radęs P2 sprendime. Netinkama patikra, pranešanti FAIL, yra **klaidingas teigiamas**.
+- **Patikrinta:** `server_rack_modular_v4` -- `collisions=INCONCLUSIVE` (MODE sulaužytas), `mechanics=FAIL` (sutarties pažeidimas), `printability=ADVISORY`. Suite: **41 passed, 0 failed**.
+- **Kas liko nepadaryta iš recenzento sąrašo:** (a) pervasiveness taisyklė -- kurie SKIP'ai užteršia verdiktą (ISA 705); (b) cover-property analogas -- ar kiekvienos taisyklės antecedentas kada nors įvyko (6 niekada); (c) neigiamas įrodymas -- ar patikra apskritai gali nepavykti.

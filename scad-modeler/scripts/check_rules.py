@@ -211,6 +211,23 @@ def main():
             # specific marker instead, ignoring the process exit code
             # entirely for the verdict.
             passed = re.search(success_pattern, output) is not None
+            # A check that RAN AND COULD NOT DETERMINE an answer is a third
+            # outcome, not a failure. Reporting it as FAIL is the two-valued
+            # collapse the adversarial cross-field review flagged: SARIF
+            # result.kind separates notApplicable from open, TTCN-3 makes
+            # inconc and none first-class verdicts, ISA 705 requires a
+            # DISCLAIMER rather than an adverse opinion, and pytest exits 6
+            # (not 1) when nothing was collected. The distinction matters
+            # because the next action differs: FAIL means fix the model,
+            # INCONCLUSIVE means fix the checker or its inputs.
+            chk = re.search(r"CHECK_RESULT ([a-z_]+)=", success_pattern)
+            if not passed and chk is not None:
+                if re.search(
+                    r"CHECK_RESULT %s=INCONCLUSIVE" % re.escape(chk.group(1)), output
+                ):
+                    results.append((r["id"], "INCONC", r["rule"], tail))
+                    any_auto_fail = True
+                    continue
         else:
             passed = code == 0
         if passed:
@@ -225,7 +242,7 @@ def main():
     manual_ids = []
     for rid, status, rule_text, tail in results:
         print(f"[{status:6}] {rid}: {rule_text}")
-        if status == "FAIL" and tail:
+        if status in ("FAIL", "INCONC") and tail:
             for line in tail.splitlines():
                 print(f"           {line}")
         if status == "MANUAL":
@@ -240,7 +257,9 @@ def main():
               "report is indistinguishable from one nobody checked.")
 
     if any_auto_fail:
-        print("FAIL: at least one automated rule did not pass. Fix at the "
+        print("FAIL: at least one automated rule did not pass (INCONC = the check "
+              "ran and could not determine an answer -- fix the checker or its "
+              "inputs; FAIL = fix the model). Fix at the "
               "source and re-run validate_scad.sh --all from the top, then "
               "re-run check_rules.py -- do not hand-edit around a failing gate.")
         return EXIT_FAIL
