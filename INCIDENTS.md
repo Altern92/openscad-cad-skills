@@ -1252,3 +1252,19 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 - **Ka rado tos patikros, kurios VISADA paleidziamos:** `connectivity=FAIL` **5 is 11 projektu** (chassis, rack_v2, rack_v4, rack_v4/v5, rack_v4/v8) -- patvirtinta nuosekliai, po viena, ne lygiagreciai. Tai pirmas kartas, kai patikros paleistos ant tikro projektu korpuso, o ne ant sintetiniu fixture'u.
 - **Siulomas fix:** kiekviena opt-in patikra privalo isvesti `CHECK_RESULT <name>=SKIP` su priezastimi ('no bores.json'), kai deklaracijos nera. Tada 'validuota' tampa audituojama: skaicius paleistu patikru yra zinomass, o ne spejamas.
 - **Already promoted to a rule?** Ne -- siuloma: "patikra, kurios nepaleidai, turi buti matoma kaip SKIP su priezastimi; tyla nera PASS".
+### 2026-09-12 -- ADDENDUM prie tyliu patikru iraso: tikslus skaicius -- 4 checker'iai NEKVIECIAMI IS VISO
+- **Where:** `scad-modeler/scripts/validate_scad.sh` -- kvieciami 12 is 16 checker'iu.
+- **Tikslus radinys:** `validate_scad.sh` **nekviecia** `check_dependencies.py`, `check_intake.py`, `check_printability.py`, `check_subfeature_overlap.py`. Ju niekada nepaleidzia jokia projekto validacija.
+- **Ir tai, kas kvieciama, bet tyli:** ant `server_rack_modular` (exit 0) log'e yra **0 paminejimu** zodziu collision, printability, subfeature, feature, intake. `check_collisions.py` ir `check_features.py` yra skripte (po 3 ir 1 kvietima), bet siame projekte neisvede nieko -- ne OK, ne SKIP, ne FAIL.
+- **Is ko sudarytas 'validacija praejo':** 6 `CHECK_RESULT`=PASS + 2 SKIP. `check_dimensions.py` **suveike** (mato 'OK: base.stl bbox ... within'), bet **neisveda** `CHECK_RESULT` eilutes -- tad kvieciantis kodas jo verdikto nemato.
+- **Skripto `CHECK_RESULT` zodynas is viso 10 vardu:** analytic_bounds, assumptions, attachment, bore_reachability, connectivity, margin_provenance, mechanics, param_context, plan, service_envelope. `dimensions`
+`collisions`
+`printability`
+`subfeature_overlap`
+`features`
+`intake`
+`dependencies` -- ne vieno is ju.
+- **Kodel tai svarbu:** `SKILL.md` ir `rules_manifest.yaml` apraso 18 taisykliu. Jei 4 checker'iai nekvieciami, o 3 tyli, tai '18 taisykliu laikomasi' negali buti tikrinama kodu -- tik teigiama.
+- **Fix (tas pats kaip pries tai):** kiekvienas checker'is privalo isvesti `CHECK_RESULT <name>=SKIP <priezastis>`, kai jo ivesties nera. Nepaleistas checker'is turi buti matomas kaip SKIP, o ne tiketis, kad niekas nepastebes.
+- **Ka tai reiskia testavimo bazei:** matuoti reikia ne 'pass/fail', o **kiek patikru paleista**. Be to 'validuota' nera audituojamas teiginys. Siuo metu `measure.py` matuotų kaina, bet ne patikru padengima -- tai antras matas, kuri reikia prideti.
+- **Already promoted to a rule?** Ne -- siuloma: "validacijos ataskaita privalo isvardinti VISUS checker'ius su jų statusu (PASS/FAIL/SKIP+priezastis); tylejimas = neatitikimas".
