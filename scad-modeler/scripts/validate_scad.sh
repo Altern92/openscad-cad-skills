@@ -482,9 +482,19 @@ if [[ "$MODE" == "--all" ]]; then
     # assembly.scad's MODE="part"/PART="<name>" switch (SKILL.md §6) before
     # calling either check.
     mechanics_ran=0
-    if [ -f joints.json ] && [ -f assembly.scad ]; then
+    # The positioned render is gated on assembly.scad, NOT on joints.json.
+    # Joints.json is a declaration of what is MEANT to touch; collisions do not
+    # need it to FIND an overlap -- check_collisions.py takes --expected-contacts
+    # as optional and, without it, reports unintended interference plus a
+    # paste-ready stub. Gating the whole block on joints.json was a
+    # chicken-and-egg: the check that would have produced the first declaration
+    # never ran because the declaration did not exist (INCIDENTS.md, 2026-09-12).
+    if [ -f assembly.scad ]; then
         has_motion=$(python3 -c "
 import json, sys
+import os
+if not os.path.isfile('joints.json'):
+    sys.exit(1)
 try:
     d = json.load(open('joints.json'))
 except Exception:
@@ -494,7 +504,9 @@ sys.exit(0 if motion else 1)
 " && echo yes || echo no)
         if [ "$has_motion" = "yes" ]; then
             mechanics_ran=1
-            echo "--- Mechanics: joints.json declares motion -- rendering positioned parts for static+dynamic checks ---"
+        fi
+        {
+            echo "--- Rendering positioned parts (assembly coordinates) for the collisions check ---"
             mkdir -p "$BUILD_DIR/positioned"
             shopt -s nullglob
             positioned_stls=()
@@ -508,35 +520,86 @@ sys.exit(0 if motion else 1)
                 fi
             done
             shopt -u nullglob
-            if [ ${#positioned_stls[@]} -ge 2 ]; then
-                mech_fail=0
-                python3 "$SCRIPT_DIR/check_collisions.py" --expected-contacts joints.json \
-                    ${positioned_stls[@]+"${positioned_stls[@]}"} || mech_fail=1
-                python3 "$SCRIPT_DIR/motion_sweep.py" --joints joints.json \
-                    ${positioned_stls[@]+"${positioned_stls[@]}"} || mech_fail=1
-                if [ "$mech_fail" -eq 0 ]; then
-                    echo "CHECK_RESULT mechanics=PASS"
-                    log_check "mechanics" 0 "check_collisions.py + motion_sweep.py (via validate_scad.sh)" "PASS"
-                else
-                    echo "CHECK_RESULT mechanics=FAIL"
-                    OVERALL_FAIL=1
-                    log_check "mechanics" 1 "check_collisions.py + motion_sweep.py (via validate_scad.sh)" "FAIL"
-                fi
-            else
-                echo "WARNING: joints.json declares motion but fewer than 2 parts rendered via MODE=\"part\" -- skipping mechanics checks. Check that assembly.scad's MODE/PART switch matches SKILL.md §6 and that parts/*.scad basenames match layout.scad's part names." >&2
+
+            # A positioned part is supposed to be ONE part sitting in assembly
+            # coordinates (SKILL.md 6: -D 'MODE="part"' -D 'PART="name"').
+            # That only works if assembly.scad guards its own default, with
+            #   MODE = is_undef(MODE) ? "assembly" : MODE;
+            # A plain `MODE = 1;` REASSIGNS the variable and defeats -D
+            # entirely, so every "part" render silently produces the WHOLE
+            # ASSEMBLY. Measured on server_rack_modular_v4 (2026-09-12): 17
+            # positioned STLs of ~12.5MB each, every pair then reporting
+            # "penetration depth 170.000 mm" -- 136 meaningless collisions out
+            # of 17 identical copies. Collisions on garbage are worse than no
+            # collisions, because they look like a result.
+            #
+            # Tripwire: an STL's byte size is 84 + 50*triangles, so a positioned
+            # part at >= 80% of the full assembly's size is not a part. This has
+            # to run BEFORE any checker consumes them.
+            positioned_bogus=0
+            if [ -s "$BUILD_DIR/assembly.stl" ]; then
+                asm_sz=$(wc -c < "$BUILD_DIR/assembly.stl" | tr -d ' ')
+                for pstl in ${positioned_stls[@]+"${positioned_stls[@]}"}; do
+                    p_sz=$(wc -c < "$pstl" | tr -d ' ')
+                    if [ "$p_sz" -ge $((asm_sz * 8 / 10)) ]; then
+                        positioned_bogus=$((positioned_bogus + 1))
+                    fi
+                done
+            fi
+            if [ "$positioned_bogus" -gt 0 ]; then
+                echo "ERROR: $positioned_bogus of ${#positioned_stls[@]} positioned part(s) are as large as the whole assembly -- assembly.scad's MODE/PART switch did not take effect, so every 'part' is a copy of the full assembly. Fix assembly.scad to guard its default (SKILL.md §6): MODE = is_undef(MODE) ? \"assembly\" : MODE; -- a plain MODE = 1; reassigns the variable and defeats -D. Collision checks are skipped: running them on N copies of the assembly produces N*(N-1)/2 meaningless overlaps." >&2
+                echo "CHECK_RESULT collisions=SKIP"
+                log_check "collisions" 0 "n/a" "SKIP: assembly.scad MODE/PART switch not working ($positioned_bogus part(s) sized as the whole assembly)"
                 echo "CHECK_RESULT mechanics=FAIL"
                 OVERALL_FAIL=1
-                log_check "mechanics" 1 "validate_scad.sh --all" "FAIL: fewer than 2 positioned parts rendered"
+                log_check "mechanics" 1 "validate_scad.sh --all" "FAIL: positioned render produced the whole assembly, not parts"
+                mechanics_ran=1
             fi
-        fi
+
+            if [ ${#positioned_stls[@]} -ge 2 ] && [ "$positioned_bogus" -eq 0 ]; then
+                # Static collisions ALWAYS run on positioned parts. The
+                # declaration is optional: without it check_collisions.py still
+                # finds unintended interference and prints a stub to paste.
+                contacts_arg=""
+                [ -f joints.json ] && contacts_arg="--expected-contacts joints.json"
+                if python3 "$SCRIPT_DIR/check_collisions.py" $contacts_arg \
+                    ${positioned_stls[@]+"${positioned_stls[@]}"} ; then
+                    echo "CHECK_RESULT collisions=PASS"
+                    log_check "collisions" 0 "check_collisions.py (via validate_scad.sh)" "PASS"
+                else
+                    echo "CHECK_RESULT collisions=FAIL"
+                    OVERALL_FAIL=1
+                    log_check "collisions" 1 "check_collisions.py (via validate_scad.sh)" "FAIL"
+                fi
+                if [ "$has_motion" = "yes" ]; then
+                    if python3 "$SCRIPT_DIR/motion_sweep.py" --joints joints.json \
+                        ${positioned_stls[@]+"${positioned_stls[@]}"} ; then
+                        echo "CHECK_RESULT mechanics=PASS"
+                        log_check "mechanics" 0 "motion_sweep.py (via validate_scad.sh)" "PASS"
+                    else
+                        echo "CHECK_RESULT mechanics=FAIL"
+                        OVERALL_FAIL=1
+                        log_check "mechanics" 1 "motion_sweep.py (via validate_scad.sh)" "FAIL"
+                    fi
+                fi
+            else
+                echo "WARNING: fewer than 2 parts rendered via MODE=\"part\" -- collisions cannot run. Check that assembly.scad's MODE/PART switch matches SKILL.md §6 and that parts/*.scad basenames match layout.scad's part names." >&2
+                echo "CHECK_RESULT collisions=SKIP"
+                log_check "collisions" 0 "n/a" "SKIP: fewer than 2 positioned parts rendered"
+                if [ "$has_motion" = "yes" ]; then
+                    echo "CHECK_RESULT mechanics=FAIL"
+                    OVERALL_FAIL=1
+                    log_check "mechanics" 1 "validate_scad.sh --all" "FAIL: fewer than 2 positioned parts rendered"
+                fi
+            fi
+        }
     fi
     if [ "$mechanics_ran" -eq 0 ]; then
+        # collisions is NOT skipped here any more: it runs on positioned parts
+        # whenever assembly.scad exists, declaration or not. Only the dynamic
+        # sweep needs a motion block.
         echo "CHECK_RESULT mechanics=SKIP"
         log_check "mechanics" 0 "n/a" "SKIP: no joints.json motion declared"
-        # collisions is folded into the mechanics block above, so it only ever
-        # reported when motion was declared. Name it explicitly either way.
-        echo "CHECK_RESULT collisions=SKIP"
-        log_check "collisions" 0 "n/a" "SKIP: no joints.json motion declared (static collision needs positioned parts)"
     fi
 
     # dimensions/features are opt-in PER PART (// EXPECTED_BBOX / EXPECTED_HOLE),

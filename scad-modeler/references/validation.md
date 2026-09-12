@@ -22,7 +22,7 @@ manual.
 | `check_connectivity.py` | yes, always |
 | `check_dimensions.py` (EXPECTED_BBOX) | yes, opt-in by declaration |
 | `check_features.py` (EXPECTED_HOLE) | yes, opt-in by declaration |
-| `check_collisions.py` | yes, 3+ parts |
+| `check_collisions.py` | yes, whenever `assembly.scad` exists (declaration optional — was gated on `joints.json`, a chicken-and-egg) |
 | `motion_sweep.py` | yes, when motion declared |
 | `check_bore_reachability.py` | yes, opt-in by bores.json |
 | `check_attachment.py` | yes, opt-in by attachments.json |
