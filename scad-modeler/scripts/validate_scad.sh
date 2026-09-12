@@ -479,6 +479,71 @@ if [[ "$MODE" == "--all" ]]; then
         log_check "attachment" 0 "n/a" "SKIP: no attachments.json -- copy templates/attachments.json to the project root and fill it in; until then no part is checked for having anything to fasten WITH"
     fi
 
+    # Sub-feature overlap: opt-in via a `// SUBFEATURES: a, b, c` line in a part
+    # file (2+ names). Each named sub-feature is rendered SOLO through the part
+    # file's own guarded SUBFEATURE switch (see templates/part_template.scad)
+    # and compared before union(). Once union()ed the overlap is invisible:
+    # union() of two overlapping solids is still one valid watertight single-
+    # body shell, so connectivity and dimensions both stay clean -- real
+    # incident, a bearing tower overlapped a motor cradle by 419mm3 inside one
+    # part (INCIDENTS.md, 2026-08-19).
+    #
+    # Run PER PART, never across parts: each part's sub-features live in that
+    # part's LOCAL coordinates, so comparing sub-features of two different
+    # parts would compare two unrelated origins and report meaningless overlap
+    # (measured: 196779 mm3 between base.stl and frame_module.stl that way).
+    SUBFEAT_PARTS=0
+    SUBFEAT_STLS=0
+    SUBFEAT_FAIL=0
+    for scad in ${parts[@]+"${parts[@]}"}; do
+        sf_line=$(grep -m1 '^[[:space:]]*//[[:space:]]*SUBFEATURES:' "$scad" || true)
+        [ -n "$sf_line" ] || continue
+        sf_names=$(printf '%s' "$sf_line" | sed 's/^[^:]*://' | tr ',' ' ')
+        sf_n=0
+        for x in $sf_names; do sf_n=$((sf_n + 1)); done
+        [ "$sf_n" -ge 2 ] || continue
+        SUBFEAT_PARTS=$((SUBFEAT_PARTS + 1))
+        sf_base=$(basename "$scad" .scad)
+        mkdir -p "$BUILD_DIR/subfeatures"
+        sf_stls=()
+        for x in $sf_names; do
+            sf_out="$BUILD_DIR/subfeatures/${sf_base}__${x}.stl"
+            if $OPENSCAD --backend="$BACKEND" --hardwarnings \
+                -D "SUBFEATURE=\"$x\"" -o "$sf_out" "$scad" >/dev/null 2>&1 \
+                && [ -s "$sf_out" ]; then
+                sf_stls+=("$sf_out")
+            else
+                echo "WARNING: $sf_base declares // SUBFEATURES but sub-feature '$x' did not render solo -- check the SUBFEATURE dispatch in the part file." >&2
+            fi
+        done
+        if [ ${#sf_stls[@]} -ge 2 ]; then
+            SUBFEAT_STLS=$((SUBFEAT_STLS + ${#sf_stls[@]}))
+            if ! python3 "$SCRIPT_DIR/check_subfeature_overlap.py" ${sf_stls[@]+"${sf_stls[@]}"}; then
+                SUBFEAT_FAIL=1
+            fi
+        fi
+    done
+    # The reason goes on STDOUT as well as to the log: a bare SKIP line tells a
+    # reader that something did not run but not how to make it run, which is
+    # how this check sat unused across every project (INCIDENTS.md,
+    # 2026-09-12).
+    if [ "$SUBFEAT_PARTS" -eq 0 ]; then
+        echo "CHECK_RESULT subfeature_overlap=SKIP"
+        echo "  -> no part declares '// SUBFEATURES: a, b, c' (2+ names), so no sub-feature was compared. Add the line and give each name its own module; see templates/part_template.scad. Until then an overlap inside one part's own union() is invisible to every other check."
+        log_check "subfeature_overlap" 0 "n/a" "SKIP: no part declares // SUBFEATURES with 2+ names -- see templates/part_template.scad"
+    elif [ "$SUBFEAT_STLS" -lt 2 ]; then
+        echo "CHECK_RESULT subfeature_overlap=SKIP"
+        echo "  -> SUBFEATURES declared but fewer than 2 sub-features rendered solo -- check the guarded SUBFEATURE dispatch in the part file (templates/part_template.scad)."
+        log_check "subfeature_overlap" 0 "n/a" "SKIP: SUBFEATURES declared but fewer than 2 sub-features rendered solo"
+    elif [ "$SUBFEAT_FAIL" -eq 0 ]; then
+        echo "CHECK_RESULT subfeature_overlap=PASS"
+        log_check "subfeature_overlap" 0 "check_subfeature_overlap.py (via validate_scad.sh)" "PASS ($SUBFEAT_PARTS part(s), $SUBFEAT_STLS sub-feature STL(s))"
+    else
+        echo "CHECK_RESULT subfeature_overlap=FAIL"
+        OVERALL_FAIL=1
+        log_check "subfeature_overlap" 1 "check_subfeature_overlap.py (via validate_scad.sh)" "FAIL"
+    fi
+
     # Mechanics auto-trigger: opt-in via joints.json declaring a non-empty
     # "motion" array (motion_sweep.py's own documented convention -- see its
     # docstring, NOT design_manifest.json.motion, which two of this skill's
@@ -657,19 +722,15 @@ sys.exit(0 if motion else 1)
     #                   0.014mm, a degenerate-sliver measurement, not a wall).
     #                   As a gate it would fail every project, which is noise,
     #                   not signal. Needs threshold work first.
-    # subfeature_overlap -- expects SOLO exports of named sub-modules (each
-    #                   sub-feature its own STL, before union()). Handed whole
-    #                   part STLs it compares parts that share an origin and
-    #                   reports meaningless overlap (measured: 196779 mm^3
-    #                   between base.stl and frame_module.stl, which are simply
-    #                   not in the same coordinate space).
+    # subfeature_overlap -- IS wired (see the // SUBFEATURES block above); it
+    #                   reports SKIP from there when no part declares names,
+    #                   which is the honest verdict rather than a second line.
     # intake         -- opt-in Stage 0 manifest; no manifest = nothing to check.
     # dependencies   -- change-propagation engine, run on demand with --change;
     #                   it answers "what must be recomputed", it is not a gate.
     echo "CHECK_RESULT printability=SKIP"
     log_check "printability" 0 "n/a" "SKIP: not a gate -- fails 4/4 real parts, needs threshold work first (run scripts/check_printability.py --stl <stl> manually)"
-    echo "CHECK_RESULT subfeature_overlap=SKIP"
-    log_check "subfeature_overlap" 0 "n/a" "SKIP: needs solo sub-module STLs (before union); whole-part STLs give false positives"
+
     echo "CHECK_RESULT intake=SKIP"
     log_check "intake" 0 "n/a" "SKIP: no design_manifest.json -- the Stage-0 requirement spec was never produced; see references/intake_and_analysis.md"
     echo "CHECK_RESULT dependencies=SKIP"

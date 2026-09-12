@@ -26,9 +26,19 @@ manual.
 | `motion_sweep.py` | yes, when motion declared |
 | `check_bore_reachability.py` | yes, opt-in by bores.json |
 | `check_attachment.py` | yes, opt-in by attachments.json |
-| `check_subfeature_overlap.py` | **no** — manual, needs solo sub-feature STLs |
+| `check_subfeature_overlap.py` | yes, opt-in via `// SUBFEATURES: a, b, c` (2+ names) — renders each solo through the part file's guarded `SUBFEATURE` switch, per part |
 | `check_printability.py` | **no** — manual, standalone |
 | `check_intake.py` | **no** — Stage-0 manifest only |
+
+**`check_subfeature_overlap.py` was written and tested but never fed.** It needs the
+sub-features exported SOLO, before `union()`, and nothing in the workflow produced such
+exports — so it reported SKIP in every project (0 of 11 declared the input) while
+this file listed it as "manual". The template and `validate_scad.sh` now produce them: add
+`// SUBFEATURES: a, b, c` to a part file, give each name its own module and a guarded
+`SUBFEATURE` dispatch, and the check runs per part. Run it PER PART, never across
+parts — sub-features live in their part's local coordinates, so comparing two
+different parts' sub-features reports meaningless overlap (measured: 196779 mm³
+between `base.stl` and `frame_module.stl` that way).
 | `check_dependencies.py` | **no** — on-demand analysis (`--change`), not a gate |
 
 **Every row above now emits a `CHECK_RESULT` line on every run**, including the

@@ -39,6 +39,18 @@ wall = 3;
 // Do NOT translate()/rotate() the whole part here -- that's
 // layout.scad's job via at("<part_name>") in assembly.scad.
 // ------------------------------------------------------------
+// Example sub-features -- delete both (plus the SUBFEATURES: line and the two
+// dispatch entries above) if this part has no internal sub-feature sharing its
+// union(). As written they overlap slightly, so the overlap check has
+// something to say when the template is used untouched.
+module tower_main() {
+    cuboid([10, 10, part_height]);
+}
+
+module motor_cradle() {
+    translate([0, 0, part_height / 2]) cuboid([14, 6, 6]);
+}
+
 module part_geometry() {
     difference() {
         cuboid([part_length, part_width, part_height]) {
@@ -53,4 +65,39 @@ module part_geometry() {
 // Always render unconditionally when this file runs standalone --
 // $preview is the only real OpenSCAD mode flag (true in F5/quick-preview,
 // false in F6/full render); there is no separate "$render" variable.
-part_geometry();
+// ------------------------------------------------------------
+// Named sub-features, for the overlap check.
+//
+// check_subfeature_overlap.py compares sub-features of ONE printed part
+// against each other BEFORE union(). Once union()ed and exported the overlap
+// is invisible: union() of two overlapping solids is still one valid,
+// watertight, single-body shell, so check_collisions.py (separate STLs only)
+// and check_connectivity.py both stay clean. Real incident (INCIDENTS.md
+// 2026-08-19): a bearing tower overlapped an unrelated motor-mounting cradle
+// inside the same part by 419mm3 and survived several rounds of green
+// validation.
+//
+// List every sub-feature sharing this part's union() below, and give each one
+// its own module. validate_scad.sh renders each SOLO (through the SUBFEATURE
+// switch) and runs the overlap check on the set. Fewer than two names =
+// nothing to compare = the check is skipped, so list them only when they
+// genuinely share one union(); sub-features that are already separate printed
+// parts belong in layout.scad instead.
+//
+// SUBFEATURES: tower_main, motor_cradle
+//
+// The switch is guarded exactly like assembly.scad's MODE/PART: a plain
+// SUBFEATURE = something; would reassign the variable and silently defeat -D.
+SUBFEATURE = is_undef(SUBFEATURE) ? "" : SUBFEATURE;
+
+module subfeature_by_name(name) {
+    if (name == "tower_main") tower_main();
+    else if (name == "motor_cradle") motor_cradle();
+    else assert(false, str(
+        "Unknown sub-feature '", name, "' in this part file. The name must ",
+        "match both its module here and the // SUBFEATURES: line above."
+    ));
+}
+
+if (SUBFEATURE != "") subfeature_by_name(SUBFEATURE);
+else part_geometry();
