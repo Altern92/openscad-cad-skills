@@ -76,12 +76,36 @@ DIM_DECLARED=0
 DIM_FAIL=0
 FEAT_DECLARED=0
 FEAT_FAIL=0
+PREVIEW_COUNT=0
 
 validate_file() {
     local scad="$1"
     local stl="$2"
     local this_failed=0
     echo "--- Validating $scad -> $stl ---"
+
+    # A preview file renders several variants side by side so a human can
+    # compare them; it is NOT one printable part. Its bbox is the bounding box
+    # of the whole arrangement and its "bodies" are the loose variants -- so
+    # connectivity, EXPECTED_BBOX and EXPECTED_HOLE are all meaningless on it,
+    # and running them anyway produced a standing false FAIL on every run
+    # (INCIDENTS.md, 2026-09-12: post.scad renders a 2U and a 1U post 12mm
+    # apart, 47.979 x 17.979 x 96.389 against a declared 18 x 18 x 88.9, and
+    # reported "2 disconnected bodies"). A check that cries wolf every run is
+    # how a FAIL gets trained into background noise, so declare the file and
+    # the geometry checks below step aside -- but the render above still runs,
+    # and a preview that stops compiling is still an error.
+    #
+    # Same opt-in shape as the three markers already in use (EXPECTED_BBOX,
+    # EXPECTED_HOLE, EXPECTED_BODIES): an explicit written statement in the
+    # part file, never a silent guess.
+    local is_preview=0
+    if grep -q '^[[:space:]]*//[[:space:]]*PREVIEW_FILE' "$scad"; then
+        is_preview=1
+        PREVIEW_COUNT=$((PREVIEW_COUNT + 1))
+        echo "SKIP: $scad declares PREVIEW_FILE -- geometry checks (connectivity/bbox/features) do not apply to a multi-variant preview."
+    fi
+
     mkdir -p "$(dirname "$stl")"
     if ! "$OPENSCAD" --backend="$BACKEND" \
         --hardwarnings \
@@ -106,7 +130,7 @@ validate_file() {
     # the legs' contact with the disc they were supposed to hold up, and
     # nothing checked for it because no check looked for it). Declare
     # `// EXPECTED_BODIES: N` in the part file for the rare intentional case.
-    if [[ "$scad" == parts/* ]]; then
+    if [[ "$scad" == parts/* ]] && [ "$is_preview" -eq 0 ]; then
         if ! python3 "$SCRIPT_DIR/check_connectivity.py" --stl "$stl" --scad "$scad"; then
             PART_CONNECTIVITY_FAIL=1
             this_failed=1
@@ -117,7 +141,7 @@ validate_file() {
     # `// EXPECTED_BBOX: [x, y, z]` -- catches a part that renders fine and
     # *looks* right but is subtly the wrong size (wrong -D override, a units
     # slip, a parameter that didn't thread through correctly).
-    if grep -q '^[[:space:]]*//[[:space:]]*EXPECTED_BBOX' "$scad"; then
+    if [ "$is_preview" -eq 0 ] && grep -q '^[[:space:]]*//[[:space:]]*EXPECTED_BBOX' "$scad"; then
         DIM_DECLARED=$((DIM_DECLARED + 1))
         if ! python3 "$SCRIPT_DIR/check_dimensions.py" --stl "$stl" --scad "$scad"; then
             this_failed=1
@@ -129,7 +153,7 @@ validate_file() {
     # which is what actually makes a bore too tight. Any part declaring
     # `// EXPECTED_HOLE: [x, y, z, "Z", d]` gets its bores measured
     # flat-to-flat instead.
-    if grep -q '^[[:space:]]*//[[:space:]]*EXPECTED_HOLE' "$scad"; then
+    if [ "$is_preview" -eq 0 ] && grep -q '^[[:space:]]*//[[:space:]]*EXPECTED_HOLE' "$scad"; then
         FEAT_DECLARED=$((FEAT_DECLARED + 1))
         if ! python3 "$SCRIPT_DIR/check_features.py" --stl "$stl" --scad "$scad"; then
             this_failed=1
@@ -298,7 +322,7 @@ if [[ "$MODE" == "--all" ]]; then
         log_check "connectivity" 0 "validate_scad.sh --all" "SKIP: no parts/*.scad"
     elif [ "$PART_CONNECTIVITY_FAIL" -eq 0 ]; then
         echo "CHECK_RESULT connectivity=PASS"
-        log_check "connectivity" 0 "validate_scad.sh --all" "PASS (${#parts[@]} part(s))"
+        log_check "connectivity" 0 "validate_scad.sh --all" "PASS (${#parts[@]} part(s), $PREVIEW_COUNT preview file(s) excluded)"
     else
         echo "CHECK_RESULT connectivity=FAIL"
         log_check "connectivity" 1 "validate_scad.sh --all" "FAIL: see part-level check_connectivity.py output above"
@@ -442,6 +466,10 @@ sys.exit(0 if motion else 1)
     # dimensions/features are opt-in PER PART (// EXPECTED_BBOX / EXPECTED_HOLE),
     # and previously said nothing when no part declared them. Same silent-gap
     # class as above.
+    if [ "$PREVIEW_COUNT" -gt 0 ]; then
+        echo "INFO: $PREVIEW_COUNT file(s) declared PREVIEW_FILE -- connectivity/bbox/features skipped for those, by declaration."
+    fi
+
     if [ "$DIM_DECLARED" -eq 0 ]; then
         echo "CHECK_RESULT dimensions=SKIP"
         log_check "dimensions" 0 "n/a" "SKIP: no part declares // EXPECTED_BBOX"

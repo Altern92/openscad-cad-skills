@@ -28,6 +28,18 @@ manual.
 | `check_attachment.py` | yes, opt-in by attachments.json |
 | `check_subfeature_overlap.py` | **no** — manual, needs solo sub-feature STLs |
 | `check_printability.py` | **no** — manual, standalone |
+| `check_intake.py` | **no** — Stage-0 manifest only |
+| `check_dependencies.py` | **no** — on-demand analysis (`--change`), not a gate |
+
+**Every row above now emits a `CHECK_RESULT` line on every run**, including the
+ones that do not run: the unwired checkers report `SKIP` with the reason. Before
+2026-09-12 they printed nothing at all, so a project could exit 0 with most of the
+check surface absent and no way to tell "this check passed" from "this check does
+not exist". Counting the `CHECK_RESULT` lines is now a real coverage measure —
+on 11 real projects the run went from 8 reported checks to 17, and making
+`check_dimensions.py` report surfaced **3 previously invisible bbox failures**
+(`nas_post`, `post`, `side_panel` in `server_rack_modular_v4`) that had been
+firing silently on every run.
 | load / strength | **not checked at all** (needs datasheet + material properties) |
 
 ---
@@ -80,6 +92,42 @@ box and every other check still passes clean (`INCIDENTS.md`, 2026-08-19).
 `scripts/check_connectivity.py` catches this via `trimesh`'s connected-body
 count; declare `// EXPECTED_BODIES: N` only for the rare part that's
 genuinely meant to be more than one disconnected solid in one STL.
+
+**Read the valid-solid split, not just the body count.** `check_connectivity.py`
+reports how many components are actually printable solids, because "N bodies" is
+not the same finding as "N solids". Two real cases: a knurled knob whose pattern
+never merged reports **3122** components of which only **48** have volume; four
+rack panels report **5** components of which **1** is a solid and the other four
+are zero-volume `4.6×1.7×4.6` shells left behind by a magnet-pocket
+`difference()`. In both the raw count alone is misleading — the first looks
+like a 2-body part if you ask the wrong property, and the second looks like a
+genuinely split part when it is a boolean artifact. **Fix the boolean rather than
+declaring `EXPECTED_BODIES`** when the extras are degenerate shells
+(`INCIDENTS.md`, 2026-09-12).
+
+### `// PREVIEW_FILE` — for a file that is not a printable part
+
+A file under `parts/` that renders several variants **side by side** for a human
+to compare is not one printed part: its bounding box is the box of the whole
+arrangement and its "bodies" are the loose variants. Running the geometry checks
+on it anyway produces a standing false FAIL on every run — and a check that cries
+wolf every run is how a real FAIL gets trained into background noise.
+
+```openscad
+// PREVIEW_FILE: renders the 2U and the 1U post 12mm apart for comparison
+```
+
+With that line, `validate_scad.sh` skips connectivity, `EXPECTED_BBOX` and
+`EXPECTED_HOLE` for that file and counts it in the run's
+`INFO: N file(s) declared PREVIEW_FILE` line. The **render still runs** — a
+preview that stops compiling is still an error. Measured on
+`server_rack_modular_v4`: 16 FAIL lines → 13, and v8: 5 → 3, with every
+remaining FAIL a real one (`INCIDENTS.md`, 2026-09-12).
+
+Do **not** use it to silence a genuine multi-part file. If a file renders two
+*different* printable parts (e.g. `nas_bay.scad` renders `nas_floor()` and
+`nas_deck()`), that is a structural question — split the file or declare
+`EXPECTED_BODIES` — not a preview.
 
 It also runs a **bounding-box check** on any part that declares one, catching
 the failure mode visual inspection alone misses: a part that renders and
