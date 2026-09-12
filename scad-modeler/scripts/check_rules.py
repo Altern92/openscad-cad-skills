@@ -92,6 +92,22 @@ def evaluate_applies(expr, project_dir):
     if expr.startswith("file_exists:"):
         candidates = expr[len("file_exists:"):].split(",")
         return any(os.path.isfile(os.path.join(project_dir, c.strip())) for c in candidates)
+    if expr.startswith("glob_exists:"):
+        # file_exists cannot express "there is anything to check". Without it a
+        # rule that is only meaningful when the project HAS geometry had to be
+        # declared "always", and then its gate -- which correctly reports SKIP
+        # when there is nothing to render -- was read as a PASS. An empty
+        # directory therefore came back with
+        #   [PASS  ] R-04: Connectivity: every printed part renders as one connected body
+        # for a project containing no parts at all (INCIDENTS.md, 2026-09-12).
+        # A vacuous PASS is the one verdict worse than a FAIL: it asserts a
+        # check ran when nothing was examined.
+        patterns = expr[len("glob_exists:"):].split(",")
+        import glob as _glob
+        return any(
+            _glob.glob(os.path.join(project_dir, p.strip()))
+            for p in patterns
+        )
     if expr.startswith("json_true:"):
         rest = expr[len("json_true:"):]
         if "#" not in rest:

@@ -50,10 +50,16 @@ rules:
 
   - id: R-04
     rule: "Connectivity (§7): every printed part renders as one connected body (or declares EXPECTED_BODIES)"
-    applies: "always"
+    # 'always' was wrong: with no parts to render the gate correctly reports
+    #   CHECK_RESULT connectivity=SKIP
+    # and the old success_pattern read SKIP as success, so an EMPTY project
+    # directory scored a PASS on the connectivity rule (INCIDENTS.md,
+    # 2026-09-12). A rule that cannot be exercised is N/A, not PASS -- and a
+    # vacuous PASS is worse than a FAIL because it claims work that never ran.
+    applies: "glob_exists:parts/*.scad,assembly.scad"
     kind: auto
     gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
-    success_pattern: "CHECK_RESULT connectivity=(PASS|SKIP)"
+    success_pattern: "CHECK_RESULT connectivity=PASS"
 
   - id: R-13
     rule: "Analytic pre-flight (§7): every assert() in params.scad passes, evaluated before any part is rendered -- catches purely algebraic defects (e.g. r1+r2 > center_distance) for near-zero cost instead of discovering them via a full mesh-based validation round"
