@@ -43,15 +43,23 @@ user to repeat facts that are already written down. If a needed fact is missing,
 once rather than guessing — a wrong bearing bore or shaft diameter is not something a
 render will catch; it only shows up when the part doesn't fit.
 
-Also read `../INCIDENTS.md` now, not after something breaks. A bug logged
-there and never re-read before writing similar geometry is a bug that will
-recur — confirmed: the same "margin measured to a tower's center instead
-of its edge" mistake was made on three separate towers in one project
-before it was actually generalized, and a wall-clearance formula repeated
-the identical reasoning error a session later even though an earlier
-instance of it was already logged. Logging a root cause is not the same
-as having fixed the reasoning that produced it; only actually reading the
-log before writing the next similar feature closes that gap.
+**Read `../INCIDENTS.md` now — its `## Index` first, then the entries that match
+what you are about to build.** Not after something breaks. A bug logged there
+and never re-read before writing similar geometry is a bug that will recur —
+confirmed: the same "margin measured to a tower's center instead of its edge"
+mistake was made on three separate towers in one project before it was actually
+generalized, and a wall-clearance formula repeated the identical reasoning error
+a session later even though an earlier instance of it was already logged. Logging
+a root cause is not the same as having fixed the reasoning that produced it; only
+actually reading the log before writing the next similar feature closes that gap.
+
+**Read the index, not the file.** The index is ~130 lines and lists all 94 entries
+by date with the line number of each — the file itself is 1 500. Opening the whole
+log to find the three entries that matter pays 20k tokens for 200 tokens of value,
+and measured on 2026-09-12 that cost is real (see `golden_scad/KOSTAI`; context files
+run +20% with no correctness gain, arXiv 2602.11988). `grep -n <term> INCIDENTS.md` works
+too. Every line number in the index was verified against the file it points at —
+an index that lies is worse than no index.
 
 **New designs only** — before §0.5, run the intake/analysis stage: turn the
 user's brief (plus info gathered from other AIs) into
