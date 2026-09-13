@@ -907,6 +907,48 @@ if [[ "$MODE" != "--all" ]]; then
     echo "COVERAGE: $CHK_PASS passed, $CHK_FAIL failed, $CHK_SKIP not-applicable, $CHK_INC inconclusive, $CHK_ADV advisory ($((CHK_PASS + CHK_FAIL + CHK_SKIP + CHK_INC + CHK_ADV)) checks reported, single-part mode)."
 fi
 
+# --- leave a trace, and name the next command --------------------------------
+#
+# Two problems this closes, both measured 2026-09-12.
+#
+# 1. A run left no evidence it had happened. Opening a project could not tell
+#    you whether it had ever been validated, or when -- the only record was a
+#    central log in the home directory that nothing in the project pointed at.
+#    A stale result and a fresh one looked identical.
+#
+# 2. The next command was documented 600 lines into SKILL.md, and an agent
+#    skipped it: it ran one checker by hand, declared success, and shipped a
+#    part that check_connectivity.py would have failed instantly. A reminder in
+#    the last line of output is read; a reminder in §8 is remembered, or not.
+mkdir -p "$BUILD_DIR" 2>/dev/null || true
+if [ -d "$BUILD_DIR" ] && [ -w "$BUILD_DIR" ]; then
+    state="$BUILD_DIR/.validation_state.json"
+    {
+        printf '{"when":"%s","mode":"%s","verdict":"%s",' \
+            "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$MODE" \
+            "$([ "$OVERALL_FAIL" -eq 0 ] && echo PASS || echo FAIL)"
+        printf '"coverage":{"passed":%d,"failed":%d,"not_applicable":%d,"inconclusive":%d,"advisory":%d},' \
+            "$CHK_PASS" "$CHK_FAIL" "$CHK_SKIP" "$CHK_INC" "$CHK_ADV"
+        printf '"sources":{'
+        first=1
+        for f in params.scad layout.scad assembly.scad parts/*.scad; do
+            [ -f "$f" ] || continue
+            h=$(shasum -a 256 "$f" 2>/dev/null | cut -d" " -f1)
+            [ -n "$h" ] || continue
+            [ "$first" -eq 1 ] || printf ','
+            first=0
+            printf '"%s":"%s"' "$f" "$h"
+        done
+        printf '}}\n'
+    } > "$state" 2>/dev/null || rm -f "$state"
+fi
+
+echo
+echo "NEXT: python3 $SCRIPT_DIR/check_rules.py --project-dir ."
+echo "      This re-runs the pipeline above and reports every rule's verdict (including"
+echo "      MANUAL ones you must self-assess). It is not optional: a result nobody"
+echo "      re-ran is a result nobody checked."
+
 if [ "$OVERALL_FAIL" -eq 0 ]; then
     echo "All validations passed."
     log_check "validate_scad_all" 0 "validate_scad.sh $MODE" "all checks passed"

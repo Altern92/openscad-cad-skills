@@ -41,6 +41,14 @@ different parts' sub-features reports meaningless overlap (measured: 196779 mm³
 between `base.stl` and `frame_module.stl` that way).
 | `check_dependencies.py` | **no** — on-demand analysis (`--change`), not a gate |
 
+**Every `--all` run writes `build/.validation_state.json`** — when it ran, the verdict, the five
+coverage counts, and a SHA-256 per source file. Two things depend on it: a validated
+project and a never-validated one were previously indistinguishable by inspection, and a
+digest per source is what separates "this was validated" from "this was validated before
+someone edited params.scad". The run also names its own next command in the last line of
+output, because that instruction lived 600 lines into SKILL.md and was skipped.
+Regression: `tests/fixtures/run_leaves_trace/`.
+
 **Every row above emits a `CHECK_RESULT` line on every run**, including the ones that
 do not run. The status vocabulary is **five-valued, not a boolean**, following
 SARIF's `result.kind` (pass / fail / notApplicable, plus `open` for "could not
