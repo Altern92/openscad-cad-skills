@@ -46,6 +46,35 @@ lessons. Copy a pattern, not the file.
 | 4 · bent duct via segmented `hull()` | a tube changes direction |
 | 5 · hole calibration coupon | a press fit matters and no calibration profile exists |
 
+**`openscad-organic/references/organic-patterns.scad`** — 4 patterns, and the best-labelled
+file in the library: each carries a `CHUNK:` line with `applies_to=[limb, tentacle, tail]`
+style tags, so you can search by what you are making rather than by what it is called.
+
+| Pattern | Use when |
+|---|---|
+| hull_chain | a limb, tentacle or tail made of joints between ball centres |
+| skinned_body | a torso or body from circular cross-sections stacked bottom to top |
+| swept_limb | an arm, leg or horn following a bezier path |
+| detail_on_surface | an eye, rivet or scale sunk ~30% into the surface |
+
+**One caveat the file states itself:** do not `use <BOSL2/std.scad>` in the same file as
+these — BOSL2 overrides `translate()` and breaks the `pts[i]` indexing the hull chain
+relies on. Include BOSL2 in *your* file, alongside this one.
+
+---
+
+## The whole set
+
+| Source | What | Count |
+|---|---|---|
+| `examples/gear_reduction/` | a complete assembly that validates clean | 1 project, 102 lines |
+| `patterns.scad` | mechanical fragments | 6 |
+| `organic-patterns.scad` | organic fragments | 4 |
+
+**Ten fragments and one project.** That is deliberately small: the evidence says gains
+saturate around six examples and that irrelevant ones actively hurt, so this index
+grows only when something is genuinely the answer to "copy this for that".
+
 ---
 
 ## Your own past projects
