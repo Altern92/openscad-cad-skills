@@ -14,6 +14,18 @@ gates have actually been run and passed.
 and drop a tier. Dropping is normal; overclaiming is not recoverable, because the
 user finds out by printing.
 
+**How to know whether a gate ran** (added 2026-09-12): every check reports one of
+five outcomes — `PASS`, `FAIL`, `not-applicable`, `inconclusive` (ran and could not
+determine an answer) or `advisory` (ran, does not gate) — and the run ends with a
+`COVERAGE:` line counting all five. **An `inconclusive` is not a gate that passed**, and
+neither is a `not-applicable` you did not expect. Read the count before claiming a tier:
+a run whose gates were mostly `not-applicable` has verified far less than the tier name
+suggests. Detail: `scad-modeler/references/validation_decision_tree.md` · `validation.md`.
+
+> Before 2026-09-12 this was unanswerable by inspection: ten of the eighteen checks
+> emitted **nothing at all**, so „did not run“ was indistinguishable from „passed“ and from
+> „does not exist“. A tier claim then rested on the model remembering what it had run.
+
 ---
 
 ## Tier 1 — Concept part

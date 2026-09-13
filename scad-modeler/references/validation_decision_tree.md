@@ -1,14 +1,34 @@
-<!-- RAG-passport: file=references/validation_decision_tree.md | skill=scad-modeler | applies_to=[which-check, validation, navigation] | version=2026-09-11 | source=06_RAG_taisykles (T2) -->
-# Validation decision tree — v2 (2026-08-19)
+<!-- RAG-passport: file=references/validation_decision_tree.md | skill=scad-modeler | applies_to=[which-check, validation, navigation] | version=2026-09-12 | source=06_RAG_taisykles (T2) + AB_IRANKIAI -->
+# Validation decision tree — v3 (2026-09-12)
 
 Quick-reference for "which check applies to my situation right now" — the
-skill has ~12 scripts with different triggers (mandatory, opt-in by
-file/comment, manual-only), plus two new process stages (intake/analysis and
-rules-enforcement). This diagram is a **navigation aid, not the authoritative
-source**: the prose in SKILL.md (with its incident citations) and the
-referenced documents below are what to trust if this ever drifts out of sync —
-check this file's date against the section headers it maps if in doubt, since
-nothing regenerates it automatically (2026-08-19).
+skill has **17 scripts** emitting **18 declared checks**, with different triggers
+(mandatory, opt-in by file/comment, advisory), plus two process stages
+(intake/analysis and rules-enforcement). This diagram is a **navigation aid, not
+the authoritative source**: the prose in SKILL.md (with its incident citations)
+and the referenced documents below are what to trust if this ever drifts out of
+sync — check this file's date against the section headers it maps if in doubt,
+since nothing regenerates it automatically.
+
+**v3 was corrected against the running code, not against the v2 prose.** Diffing
+this file against what `validate_scad.sh --all` actually emits found four
+errors, all fixed here:
+
+| Error | Was | Is |
+|---|---|---|
+| `collisions` and `subfeature_overlap` | MANUAL, "validate_scad.sh does NOT run these" | **both run automatically** in the bundle |
+| `analytic_bounds`, `margin_provenance`, `param_context`, `printability`, `render`, `mechanics` | not mentioned at all | present, all emitting `CHECK_RESULT` |
+| Verdict model | absent | **five outcomes** |
+| Script count | ~12 | **17** |
+
+**How to re-verify (do it after any checker change):**
+
+```bash
+cd <project> && bash <skill>/scripts/validate_scad.sh --all \
+  | grep -oE '^CHECK_RESULT [a-z_]+=' | sed 's/CHECK_RESULT //; s/=//' | sort -u
+```
+
+Compare that list against the diagram. If they differ, the diagram is wrong.
 
 v2 changes (this revision): added **Stage 0 intake** (brief → requirements
 spec, `check_intake.py` gate, built+tested 2026-08-19) and **Stage 0.5
@@ -58,6 +78,10 @@ flowchart TD
     OptIn -->|"part has\n// EXPECTED_HOLE"| Features["check_features.py"]
     OptIn -->|"project has\nbores.json"| BoreCheck["check_bore_reachability.py"]
     OptIn -->|"project has\nattachments.json"| AttachCheck["check_attachment.py"]
+    OptIn -->|"part declares\n// SUBFEATURES"| SubfeatAuto["check_subfeature_overlap.py --\nAUTOMATIC since 2026-09-12"]
+    OptIn -->|"assembly.scad\nrenders 2+ positioned parts"| CollAuto["check_collisions.py --\nAUTOMATIC since 2026-09-12"]
+
+    Validate --> AlsoAlways["Also runs unconditionally, no declaration:\nplan · analytic_bounds · margin_provenance ·\nparam_context · render · printability (ADVISORY) ·\nintake · dependencies · service_envelope · assumptions"]
 
     Validate --> Motion{"joints.json has a\nnon-empty #quot;motion#quot; array? --\nsomething moves, see\nmotion_sweep.py's own\ndocstring for the schema"}
     Motion -- yes --> Mechanics["MECHANICS -- built + tested 2026-08-19:\nrenders each part positioned via\nassembly.scad MODE=#quot;part#quot;, then\ncheck_collisions.py (static precondition),\nthen motion_sweep.py (sweep) --\nboth AUTOMATIC, not situational"]
@@ -68,7 +92,7 @@ flowchart TD
     AllPass -- no --> FixSource["Fix at the source,\nre-run validate_scad.sh --all\nfrom the top -- not just\nthe one check that failed"]
     FixSource -. "retry: whole chain, not\njust the failed check" .-> Validate
 
-    AllPass -- yes --> Situational["Situational MANUAL checks -- validate_scad.sh\ndoes NOT run these -- motion is no longer here,\nit auto-triggers above. NOT exclusive: check\nEVERY condition below independently, run ALL\nthat apply, in this order -- each downstream\ncheck assumes the upstream one is already clean"]
+    AllPass -- yes --> Situational["CORRECTED 2026-09-12: this node used to list check_subfeature_overlap.py and check_collisions.py as MANUAL. That was FALSE -- both now emit CHECK_RESULT from the bundle itself. What remains manual is the MODEL work: reading the verdicts and fixing at the source"]
     Situational -->|"1. part has 2+ named\nsub-modules sharing\none union?"| Subfeature["check_subfeature_overlap.py --\nexport sub-modules solo first,\ndeclare fusions with --exempt"]
     Situational -->|"2. assembly has 3+ positioned\nparts and does NOT move --\nif it moves, already covered above"| Collisions["check_collisions.py --\ndeclare press fits etc.\nin joints.json"]
 
@@ -86,6 +110,25 @@ not a mistake — it's the "fix at the source, re-run the whole thing from the t
 everywhere (SKILL.md §7, `INCIDENTS.md`), not a one-shot linear pipeline. A design can fail validation, get
 fixed, and needs the *entire* chain re-run, not just the one check that failed — so the diagram loops back on
 purpose. Everything else in the graph is a DAG (no other cycles).
+
+## The verdict model (added 2026-09-12)
+
+Every check in the diagram reports one of **five** outcomes, not a boolean. Each has
+a different next action, which is why the distinction is load-bearing:
+
+| Outcome | Means | Next action |
+|---|---|---|
+| `PASS` / `FAIL` | ran; the answer is known | FAIL: fix the model |
+| `not-applicable` | does not apply here | add the declaration if it should apply |
+| `inconclusive` | **ran and could not determine an answer** | fix the checker or its inputs |
+| `advisory` | ran, reports, does not gate | read it and judge |
+
+Each run ends with `COVERAGE: N passed, N failed, N not-applicable, N inconclusive, N advisory`.
+`check_rules.py` adds a **COVER** report naming rules whose antecedent never fired
+(and **PERVASIVE** when those are the majority). Before 2026-09-12, ten of the eighteen
+checks emitted nothing at all on a real project, so a reader could not tell „did not run“
+from „passed“ from „does not exist“. Measured on 11 projects: 89 `CHECK_RESULT`
+lines became 198, and 0 of 11 runs carried a coverage count versus 11 of 11.
 
 ## Notes on the new stages
 
