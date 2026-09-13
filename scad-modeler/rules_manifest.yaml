@@ -66,7 +66,11 @@ rules:
     applies: "file_exists:params.scad"
     kind: auto
     gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
-    success_pattern: "CHECK_RESULT analytic_bounds=(PASS|SKIP)"
+    # SKIP removed 2026-09-12 (latent, not active). analytic_bounds emits SKIP only
+    # when params.scad is absent -- and `applies` above already makes the rule N/A
+    # in exactly that case, so SKIP is unreachable here. Leaving it accepted would
+    # reinstate a vacuous pass the day the gate changes, silently.
+    success_pattern: "CHECK_RESULT analytic_bounds=PASS"
 
   - id: R-05
     rule: "After ANY change, the whole validate_scad.sh --all is re-run from the top, not just the one check that failed"
@@ -133,7 +137,9 @@ rules:
     applies: "file_exists:params.scad"
     kind: auto
     gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
-    success_pattern: "CHECK_RESULT margin_provenance=(PASS|SKIP)"
+    # SKIP removed 2026-09-12, same reasoning as R-13: unreachable while `applies`
+    # guards on params.scad, accepted would be a latent vacuous pass.
+    success_pattern: "CHECK_RESULT margin_provenance=PASS"
 
   - id: R-16
     rule: "Parameter context manifest (2026-08-19 Phase-2 Pattern 3, opt-in via use_param() declarations): a params.scad value consumed for a hardware-fit purpose in 2+ contexts has each context's own assert() verifying it in the file that declared that context -- catches one context being verified while a different, incompatible context on the same shared value goes unchecked (e.g. one shaft diameter feeding two different bearing bores)"
@@ -147,7 +153,13 @@ rules:
     applies: "file_exists:attachments.json"
     kind: auto
     gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
-    success_pattern: "CHECK_RESULT attachment=(PASS|SKIP)"
+    # SKIP removed 2026-09-12. attachments.json present with no built STLs used to
+    # emit SKIP, which this pattern read as success -- so a project that declared
+    # fastening points but rendered nothing scored R-18 PASS having checked
+    # nothing. That state is now INCONCLUSIVE, and an absent file makes the rule
+    # N/A via `applies`, so PASS is the only remaining outcome and it means the
+    # points were actually examined.
+    success_pattern: "CHECK_RESULT attachment=PASS"
 
   - id: R-17
     rule: "FDM printability (§7): each printed part was checked with check_printability.py for unsupported overhang and thin walls -- manual because it is new, not yet wired into validate_scad.sh --all, and its wall-thickness reading has a confirmed edge-case limitation (a solid, sharply-tapered feature's edge can produce a spuriously short reading) that needs a human/agent read of the result, not a bare pass/fail"

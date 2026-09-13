@@ -493,8 +493,15 @@ if [[ "$MODE" == "--all" ]]; then
                 log_check "attachment" 1 "check_attachment.py --attachments attachments.json (via validate_scad.sh)" "FAIL"
             fi
         else
-            echo "CHECK_RESULT attachment=SKIP"
-            log_check "attachment" 0 "n/a" "SKIP: attachments.json present but no built STLs"
+            # INCONCLUSIVE, not SKIP. The declaration EXISTS and names real
+            # fastening points, so the check applies -- it simply could not run
+            # because nothing was rendered. Calling this "not applicable" let
+            # R-18 report PASS for a project whose attachments were never
+            # examined: the same vacuous pass already fixed for R-04 and R-09
+            # (found 2026-09-12 by simulating every check value against every
+            # success_pattern, after three rules kept accepting SKIP).
+            echo "CHECK_RESULT attachment=INCONCLUSIVE"
+            log_check "attachment" 0 "INCONCLUSIVE" "INCONCLUSIVE: attachments.json present but no built STLs -- the declared points were never examined"
         fi
     else
         echo "CHECK_RESULT attachment=SKIP"

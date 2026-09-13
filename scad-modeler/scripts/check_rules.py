@@ -210,24 +210,44 @@ def main():
             # 2026-08-19). Search the gate's own output for this rule's
             # specific marker instead, ignoring the process exit code
             # entirely for the verdict.
-            passed = re.search(success_pattern, output) is not None
-            # A check that RAN AND COULD NOT DETERMINE an answer is a third
-            # outcome, not a failure. Reporting it as FAIL is the two-valued
-            # collapse the adversarial cross-field review flagged: SARIF
-            # result.kind separates notApplicable from open, TTCN-3 makes
-            # inconc and none first-class verdicts, ISA 705 requires a
-            # DISCLAIMER rather than an adverse opinion, and pytest exits 6
-            # (not 1) when nothing was collected. The distinction matters
-            # because the next action differs: FAIL means fix the model,
-            # INCONCLUSIVE means fix the checker or its inputs.
+            # Read the check's ACTUAL value rather than inferring it from
+            # whether success_pattern matched. Inferring left the schema open:
+            # simulating all five values against all five patterns showed
+            # ADVISORY collapsing to FAIL everywhere (a check that ran and
+            # deliberately does not gate reported as a failure), and INCONCLUSIVE
+            # only recognised because a second regex happened to agree.
+            #
+            # success_pattern keeps its job -- it declares what this rule counts
+            # as success -- and the value decides everything else:
+            #
+            #   matched by the pattern -> PASS
+            #   INCONCLUSIVE           -> INCONC (ran; could not determine)
+            #   ADVISORY               -> ADVISORY (ran; not a gate, never a
+            #                             failure -- but also never a pass)
+            #   anything else          -> FAIL, including a value the pattern
+            #                             declines to accept and a check that
+            #                             emitted no line at all
             chk = re.search(r"CHECK_RESULT ([a-z_]+)=", success_pattern)
-            if not passed and chk is not None:
-                if re.search(
-                    r"CHECK_RESULT %s=INCONCLUSIVE" % re.escape(chk.group(1)), output
-                ):
-                    results.append((r["id"], "INCONC", r["rule"], tail))
-                    any_auto_fail = True
-                    continue
+            actual = None
+            if chk is not None:
+                hit = re.search(
+                    r"CHECK_RESULT %s=(\w+)" % re.escape(chk.group(1)), output
+                )
+                actual = hit.group(1) if hit else None
+
+            if re.search(success_pattern, output):
+                results.append((r["id"], "PASS", r["rule"], tail))
+                continue
+            if actual == "INCONCLUSIVE":
+                results.append((r["id"], "INCONC", r["rule"], tail))
+                any_auto_fail = True
+                continue
+            if actual == "ADVISORY":
+                results.append((r["id"], "ADVISORY", r["rule"], tail))
+                continue
+            results.append((r["id"], "FAIL", r["rule"], tail))
+            any_auto_fail = True
+            continue
         else:
             passed = code == 0
         if passed:
@@ -242,7 +262,7 @@ def main():
     manual_ids = []
     for rid, status, rule_text, tail in results:
         print(f"[{status:6}] {rid}: {rule_text}")
-        if status in ("FAIL", "INCONC") and tail:
+        if status in ("FAIL", "INCONC", "ADVISORY") and tail:
             for line in tail.splitlines():
                 print(f"           {line}")
         if status == "MANUAL":
@@ -262,7 +282,10 @@ def main():
     # no project declared what they gate. Each run honestly said "N/A", and the
     # accumulation was invisible: the rule surface was largely decorative while
     # every individual report looked correct.
-    exercised = [rid for rid, status, _, _ in results if status in ("PASS", "FAIL", "INCONC")]
+    # ADVISORY counts as exercised: the check RAN. Only N/A means the antecedent
+    # never fired, which is what COVER is measuring.
+    exercised = [rid for rid, status, _, _ in results
+                 if status in ("PASS", "FAIL", "INCONC", "ADVISORY")]
     never = [rid for rid, status, _, _ in results if status == "N/A"]
     if never:
         print(f"COVER: {len(exercised)} rule(s) exercised, {len(never)} whose "
