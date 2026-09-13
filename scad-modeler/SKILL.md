@@ -311,6 +311,10 @@ under the installed OpenSCAD.)
 
 ## 4. Part files — local coordinates, no assembly-level transforms
 
+**Before writing your first part, open `references/examples.md` and `examples/gear_reduction/`.**
+102 lines, validates clean, and shows the file layout, the `at()` lookup and the MODE
+switch as working code. Copying beats reconstructing.
+
 One file per part. Each part is modeled around its own sensible local origin (a
 bearing bore center, a mounting face) — never `translate()`/`rotate()` the whole
 part inside its own file; that's `layout.scad`'s job via `at()`. State the local
@@ -651,6 +655,11 @@ pass, not something to analyze now; just log it accurately.
 
 ## Reference files
 
+- `references/examples.md` — **what to copy, and from where.** A working 102-line
+  project that validates clean (18 checks, 11 pass), the six patterns in
+  `patterns.scad` and when each applies, and how to mine sibling projects.
+  Read it **before writing geometry**, not after: the file layout, the `at()` pattern
+  and the MODE switch are cheaper to copy than to reconstruct from the prose here.
 - `../references/retrieval.md` — routing table: which skill to load, passport format, abstention rule.
 
 - `references/validation.md` — **full detail behind §7**: every gate's reasoning,
