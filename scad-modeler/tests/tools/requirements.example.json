@@ -1,0 +1,6 @@
+{
+  "_comment": "Format for check_req.py. Copy, edit the numbers to match YOUR spec, and grade a run_dir against it. bbox tolerances are +-max(0.5mm, 2%); 'bodies' is the required connected-component count; 'hole' means the part must carry a // EXPECTED_HOLE declaration.",
+  "jackshaft":    {"bbox": [33.595, 33.595, 46.0], "bodies": 1, "hole": true},
+  "motor_mount":  {"bbox": [7.0, 78.0, 52.48],      "bodies": 1, "hole": false},
+  "upright":      {"bbox": [38.0, 58.0, 88.0],      "bodies": 1, "hole": true}
+}
