@@ -1600,3 +1600,15 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 - **Fix:** motion deklaracija tikrinama atskirai (python inline, tas pats pattern kaip `has_motion`); SKIP spausdinamas tik `else` sakoje.
 - **Patikrinta:** to paties agento projekte -- `mechanics=SKIP`, `COVERAGE: 12 passed, 0 failed, 4 not-applicable, 0 inconclusive`.
 - **Naujas fixture `mechanics_empty_motion_is_skip`:** reikalauja SKIP, draudzia INCONCLUSIVE, ir tikrina, kad COVERAGE skaiciuoja kaip not-applicable. Suite: 44 -> **45 passed**.
+
+### 2026-09-16 -- Big_CNC: trys NEMA23 vienetai vietoj dviejų + skylės 4.3 nuo krašto + suplėšytas assembly.stl
+
+- **Where:** Big_CNC/motor_mounts, `drive_unit.scad` + `add_side_clean.py` + `nema23_belt_bracket.scad`.
+- **Symptom (vartotojo nuotraukos):** (1) mašinoje TRYS NEMA23 laikikliai vietoj dviejų (X gale du); (2) skylės per arti plokštės krašto; (3) suplėšyti trikampiai aplink Y laikiklį (`inc_y.png`: ilgi spygliai, suplėšyta plokštuma).
+- **Kas ivyko (3 šaknys):**
+  1. `drive_unit.scad` gale liko nuogas `drive_unit();` kvietimas BE `motor_side` (default `[1,0]`). `validate_scad.sh` renderina TĄ failą standalone → defaultinis X-vienetas (variklis +X) patenka į `build/` ir į diagnostiką kaip trečias kūnas. `assembly.scad` kvietimai teisingi (`[1,0]`/`[0,-1]`), bet failo uodegos kvietimas — spąstai kitam skaitytojui ir checker'iui.
+  2. Skylės 4.3 nuo krašto: `motor_pocket`/`motor_slots` skaičiuoti senam 120×155 statmenui, o plokštė perrašyta į 180×80 gulsčią BE skylių perskaičiavimo. Boss Ø38.5 ties (0,-85) atsidūrė 4.3 nuo 80-pločio krašto (reikia ≥8 alu). Patikra to negaudo — nėra krašto-atstumo assert'o.
+  3. Suplėšytas assembly: `add_side_clean.py` trynimo dėžutė `oldY` (X -426..-304, Y -54..-42, Z -161..91) apėmė ir MAŠINOS FK12 zoną (ne tik senus laikiklius). `update_faces(~mask)` ištrynė mašinos trikampius; bendros viršūnės ištempė kaimynus į spyglius. Tas pats mechanizmas kaip X-riserių incidentas (šoninės plokštės), tik kitoje vietoje.
+- **Kodėl ivyko:** (a) failo-uodegos kvietimas niekada neperžiūrėtas pereinant prie parametrinio `motor_side`; (b) plokštės resize be dependent-features perbraukimo (choice-tree C2 įvertintas kaip 'tik dalis', bet skylės — dependent); (c) trynimas dėžute be išankstinio turinio audito (kas dėžutėje priklauso mašinai?).
+- **Fix:** (1) pašalinti nuogą `drive_unit();` arba duoti jam explicit `motor_side`; (2) `motor_pocket`/`motor_slots` perrišti prie `motor_side` + assert krašto-atstumui ≥8; (3) `assembly.stl` atstatytas iš `STL/_seni/assembly_A_with_risers.stl` vienu švariu ėjimu (X pastūmimas + riseriai, BE laikiklių): 1 304 824 trikampiai, galinė siena 6740/6740 identiška; (4) trynimo taisyklė: dėžutė pirma — `inspect` (kas viduje?), tik tada `update_faces`.
+- **Kaip uzkirsti kelia:** (a) draudimas: joks `parts/*.scad` negali baigtis nuogu kvietimu su defaultu, jei modulis turi parametrus — checker'is arba peržiūros punktas; (b) `params.scad` assert'as: `min_edge_distance` kiekvienai kiaurymių grupei; (c) `add_*.py` privalomas `inspect` žingsnis (surašyti, kas dėžutėje) prieš `update_faces` — įrašyti į projekto darbotvarkę kaip vartus.
