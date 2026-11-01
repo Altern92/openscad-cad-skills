@@ -19,6 +19,11 @@ bash scripts/validate_scad.sh --all          # from the project root
 python3 scripts/check_rules.py --project-dir .
 ```
 
+If `validate_scad.sh` prints `CHECK_RESULT env=FAIL` (exit 5), the machine is missing
+a Python module, OpenSCAD, or a library the project includes, and nothing it could
+report would be about the geometry. Stop there: show the user the `ENV_FAIL:` lines
+and their fix (usually `bash scripts/setup_env.sh`), and report no PASS/FAIL.
+
 Then paste BOTH outputs into your final report. Everything below explains *why*;
 this box is the *what*, and it is first because it is the one thing that must not be
 skipped.
@@ -620,8 +625,9 @@ Exit codes differ per script, so check the one you are calling: the individual
 checkers use `0` pass · `2` **degraded — treat as not checked, not as pass** · `3`
 fail · `4` usage error (see the table in `references/validation.md`, and
 `check_intake.py` is the odd one: `2` means no manifest at all). **`validate_scad.sh` itself
-only ever returns `0` or `1`** — it is a bundle, so read its `CHECK_RESULT` and
-`COVERAGE` lines rather than its exit code.
+returns `0` or `1`, or exit 5 when the env gate failed** (`CHECK_RESULT env=FAIL`, nothing
+else ran) — it is a bundle, so read its `CHECK_RESULT` and `COVERAGE` lines rather than
+its exit code.
 
 **Read the COVERAGE line, not just the exit code.** Every run ends with
 `COVERAGE: N passed, N failed, N not-applicable, N inconclusive, N advisory.`

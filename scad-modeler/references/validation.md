@@ -16,6 +16,7 @@ manual.
 
 | Gate | Wired into `validate_scad.sh --all`? |
 |---|---|
+| `env_gate.py` (Python modules, OpenSCAD, included libraries; `env=FAIL` → exit 5, nothing else runs) | yes, always first |
 | Analytic pre-flight (`assert()` in params.scad) | yes |
 | `check_assumptions.py` (calculations.md Criticality) | yes, opt-in by file |
 | `check_service_envelope.py` | yes, opt-in by file |

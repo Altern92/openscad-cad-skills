@@ -309,11 +309,16 @@ installed, find them in the `scad-modeler` skill's `scripts/` directory (the sib
 `scad-modeler/scripts/` in this repo, or wherever that skill is installed):
 
 ```bash
-python3 .../scripts/doctor.py            # what this machine can actually do
-python3 .../scripts/check_dimensions.py --stl build/part.stl --scad part.scad
-python3 .../scripts/check_features.py   --stl build/part.stl --scad part.scad
-python3 .../scripts/check_printability.py --stl build/part.stl  # FDM overhang + thin-wall (added 2026-08-22)
+PY=$(bash .../scripts/resolve_python.sh --print)   # the interpreter that has trimesh & co.
+$PY .../scripts/env_gate.py --project-dir .        # must print CHECK_RESULT env=PASS
+$PY .../scripts/check_dimensions.py --stl build/part.stl --scad part.scad
+$PY .../scripts/check_features.py   --stl build/part.stl --scad part.scad
+$PY .../scripts/check_printability.py --stl build/part.stl  # FDM overhang + thin-wall (added 2026-08-22)
 ```
+
+If the gate prints `CHECK_RESULT env=FAIL`, stop and show the user its `ENV_FAIL:` lines
+and fix (usually `bash .../scripts/setup_env.sh`); a checker run without those modules
+exits 4, which says nothing about the part. `$PY .../scripts/doctor.py` gives the full report.
 
 Declare what they should verify, in the `.scad` file itself:
 
