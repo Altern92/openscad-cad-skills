@@ -21,6 +21,14 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export SCAD_MODELER_SCRIPTS="$SCRIPT_DIR/../scripts"
 
+# Same interpreter and env gate as validate_scad.sh (P1, 2026-11-01): without the
+# mesh libraries this suite reported 32 "failed" checkers that were all one missing module.
+. "$SCAD_MODELER_SCRIPTS/resolve_python.sh"
+gate_dir=$(mktemp -d)   # empty project: gate checks modules + OpenSCAD only
+python3 "$SCAD_MODELER_SCRIPTS/env_gate.py" --project-dir "$gate_dir"; gate_rc=$?
+rmdir "$gate_dir"
+[ "$gate_rc" -eq 0 ] || exit 5
+
 pass=0
 fail=0
 failed_names=()
