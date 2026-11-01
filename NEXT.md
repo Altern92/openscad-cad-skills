@@ -16,7 +16,7 @@ punktas turi įrodymą, kodėl jis čia. Kai padaromas — ištrinti, ne pažym�
 ## 0. DARBŲ EILĖ nuo 2026-11-01 (vystymas Mac mini, `~/Github/Claude_Code_SCAD_Skill`)
 
 Tyrimas: Obsidian `Research/Runs/2026/2026-11-01-openscad-skill-tobulinimas-pagal-incidentus.md`.
-Kiekvienas punktas per `feature-loop`: AC → vartotojo patvirtinimas → TDD → `tests/run_all.sh` 48+/48+.
+Kiekvienas punktas per `feature-loop`: AC → vartotojo patvirtinimas → TDD → `tests/run_all.sh` visi žali (57/57 2026-11-01), ir dev repo, ir per `~/.claude/skills`.
 Baigus punktą: pažymėti `[x]` su commit'u, ne trinti (ši eilė istorijai).
 
 - [x] **P1 Aplinkos vartai.** ✅ 2026-11-01 (bc43025, f110a8f, cf562ea, 524c649: `env_gate.py`, `resolve_python.sh`, `setup_env.sh`, venv `~/.local/share/scad-modeler/venv`, exit 5). Skill'as randa `.venv` (`~/Github/Claude_Code_SCAD_Skill/.venv`) ir `openscad`; jei trūksta — STOP su instrukcija, ne tęsti be patikrų. Įrodymas: MBP 32/48 patikrų exit 4 (2026-11-01).
@@ -28,6 +28,9 @@ Baigus punktą: pažymėti `[x]` su commit'u, ne trinti (ši eilė istorijai).
 - [ ] **P6 `openscad-organic` patikros:** siluetų IoU su referencine nuotrauka, proporcijų lentelė iš šaltinio prieš modeliavimą.
 - [ ] **P7 Golden set v2:** ≥30 sunkių atvejų su spąstais + cost-of-pass (žr. §1, §6).
 - [ ] **P8 Sprendimas dėl 258 mokymo pavyzdžių** (§2) — vartotojo.
+- [x] **P9 Stop gate** (Uber MCP Gateway principas „deterministinis sprendimas kiekvienam kvietimui“; vault `Research/Runs/2026/2026-10-31-mcp-gateway-agentbus.md`). ✅ 2026-11-01 (0d8b5e5): `hooks/scad_stop_gate.py` – sesija, kurioje Edit/Write keitė `.scad`, nesibaigia, kol `build/.validation_state.json` neturi to failo dabartinio sha256. Įjungta mini `~/.claude/settings.json` (Stop). Ribotumas: `.scad`, sukurtas per Bash, nematomas.
+- [x] **P10 Vienas validacijos kelias.** ✅ 2026-11-01 (6feff84): `validate_scad.sh part.scad` vienai detalei už `parts/` ribų; `openscad-cad` nebemoko leisti checker'ių rankomis.
+- [x] **P11 Dokumentacija = kodas.** ✅ 2026-11-01 (431d749 + pataisa po incidento): `skill_docs_match_code` fixture – SKILL.md/references minimi skriptai ir flag'ai egzistuoja kode.
 
 ## 1. Golden set'as nematuoja — perrašyti (prioritetas: aukštas)
 

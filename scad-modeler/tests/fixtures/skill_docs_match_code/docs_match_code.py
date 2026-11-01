@@ -6,10 +6,13 @@ check for our SKILL.md + references. Usage: docs_match_code.py REPO_ROOT"""
 import glob, os, re, sys
 
 root = sys.argv[1]
-docs = glob.glob(os.path.join(root, "*", "SKILL.md")) + glob.glob(os.path.join(root, "*", "references", "*.md"))
+# Only this repo's skills: installed, ROOT is the shared skills dir with dozens of others.
+SKILLS = ("openscad-cad", "scad-modeler", "openscad-organic", "insert-from-photo")
+dirs = [os.path.join(root, s) for s in SKILLS if os.path.isdir(os.path.join(root, s))]
+docs = [p for d in dirs for p in [os.path.join(d, "SKILL.md")] + glob.glob(os.path.join(d, "references", "*.md")) if os.path.isfile(p)]
 code = {}
-for p in glob.glob(os.path.join(root, "**", "*.py"), recursive=True) + glob.glob(os.path.join(root, "**", "*.sh"), recursive=True):
-    if "/.git/" not in p:
+for d in dirs:
+    for p in glob.glob(os.path.join(d, "**", "*.py"), recursive=True) + glob.glob(os.path.join(d, "**", "*.sh"), recursive=True):
         code.setdefault(os.path.basename(p), p)
 for p in glob.glob(os.path.join(root, "scad-modeler", "scripts", "*")):  # the canonical copy wins
     code[os.path.basename(p)] = p
