@@ -172,6 +172,23 @@ CASES = [
     ("unknown_part_in_dispatch", "assembly dispatch", sub("assembly.scad", 'if (n == "base") base();', 'if (n == "bse") base();'), "collisions"),
     ("critical_assumption_open", "unverified input", put("calculations.md",
         "## Decisions log\n\n| Decision | Value | Basis | Criticality | Status |\n|---|---|---|---|---|\n| bolt load | 200 N | guess | Critical | open |\n"), "assumptions"),
+    # P8 (2026-11-01): real failures from the training records / SSD sweep, one case each
+    ("standoff_caps_hole", "SSD board_shelf: standoffs after difference()", seq(
+        sub("parts/base.scad", "base();\n", "base();\nfor (x = [10, 30]) translate([x, 10, plate_t]) cylinder(d = 7, h = 3);\n"),
+        sub("parts/base.scad", "[40, 20, 5]", "[40, 20, 8]")), "topology"),
+    ("pocket_not_through", "chain-20 / board_shelf: centered cut at z=-1", seq(
+        sub("parts/base.scad", "for (x = [10, 30])", "translate([20, 10, -1]) cube([6, 6, plate_t + 2], center = true);\n        for (x = [10, 30])"),
+        sub("parts/base.scad", "THROUGH_HOLES: 2", "THROUGH_HOLES: 3")), "topology"),
+    ("louver_slots_merged", "cnc_v2_fc_louver: pitch < slot length", seq(
+        sub("parts/cover.scad", "for (x = [10, 30])", "for (i = [0:2]) translate([14 + i * 4, 3, -1]) cube([6, 2, cover_t + 2]);\n        for (x = [10, 30])"),
+        sub("parts/cover.scad", "THROUGH_HOLES: 2", "THROUGH_HOLES: 5")), "topology"),
+    ("peg_narrows_hole", "fc-004: feature blocks part of a hole", seq(
+        sub("parts/base.scad", "// SENSITIVE_TO", '// EXPECTED_HOLE: [30, 10, 2.5, "Z", 4.0]\n// SENSITIVE_TO'),
+        sub("parts/base.scad", "base();\n", "base();\ntranslate([30.5, 8, 0]) cube([2, 4, plate_t]);\n")), "features"),
+    ("negative_height_cube", "chain-19: cube with z_hi < z_lo", seq(
+        sub("parts/base.scad", "base();\n", "base();\ntranslate([0, 0, plate_t]) cube([5, 5, -2]);\n")), "render"),
+    ("missing_mirrored_part", "chain-25: mirrored half never built", put("acceptance.json", json.dumps(
+        {"parts": {"base": {"bbox": [40, 20, 5], "through_holes": 2}, "base_mirror": {"bbox": [40, 20, 5], "through_holes": 2}}})), "acceptance"),
     # controls: must stay green
     ("ctl_no_joint_excused", "control", seq(put("parts/clip.scad", "// NO_JOINT: spare, ships loose\n" + THIRD), put("plan.md", PLAN3)), None),
     ("ctl_blind_hole_declared", "control", seq(sub("parts/base.scad", "for (x = [10, 30]) translate([x, 10, -1]) cylinder(d = hole_d, h = plate_t + 2);",
@@ -182,6 +199,8 @@ CASES = [
         "start": [10, 10, -0.95], "end": [10, 10, 5.95], "step_mm": 0.25}])), None),
     ("ctl_attachment_on_material", "control", put("attachments.json", json.dumps([{"name": "a1", "part": "base", "to": "cover",
         "at": [5, 5, 2.5], "feature": "m3 thread", "min_material_mm": 1}])), None),
+    ("ctl_hole_declared_true", "control", sub("parts/base.scad", "// SENSITIVE_TO", '// EXPECTED_HOLE: [30, 10, 2.5, "Z", 4.0]\n// SENSITIVE_TO'), None),
+    ("ctl_stale_stl_in_build", "control (chain-03)", put("build/base.stl", "solid stale\nendsolid stale\n"), None),
     ("ctl_no_bbox_with_reason", "control", sub("parts/cover.scad", "// EXPECTED_BBOX: [40, 20, 2]", "// NO_BBOX: lid size follows the plate, checked there"), None),
 ]
 

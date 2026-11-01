@@ -53,9 +53,11 @@ Declare a genuinely same-direction mesh (internal/planetary) with
 `"joint_type": "internal_gear_mesh"` instead of `"gear_mesh"` to opt out.
 For a `prismatic` driver, `ratio` is millimetres per degree of sweep parameter.
 
-Parts named in `contacts` keep their exemption here: a press fit is expected to
-overlap and is not reported, at any position. Parts not listed as drivers are
-static.
+Parts named in `contacts` are swept too, but may overlap by up to the top of their
+`expected_interference_mm` range (0.05 mm when none is given) at every position,
+measured as the P16 bounded depth. A declared hinge therefore no longer hides a lid
+that swings into its box (before 2026-11-01 such a pair was skipped and the sweep
+passed with 0 positions checked). Parts not listed as drivers are static.
 
 GEAR PERIODICITY
 ----------------
@@ -118,13 +120,25 @@ def match_part(paths, name):
     return None
 
 
-def is_declared(contacts, a, b):
+def declared_entry(contacts, a, b):
     a, b = os.path.basename(a).lower(), os.path.basename(b).lower()
     for e in contacts:
         n1, n2 = (str(x).lower() for x in e["pair"])
         if (n1 in a and n2 in b) or (n1 in b and n2 in a):
-            return True
-    return False
+            return e
+    return None
+
+
+def is_declared(contacts, a, b):
+    return declared_entry(contacts, a, b) is not None
+
+
+def allowed_depth(entry):
+    """Overlap a declared contact may show at any sweep position: the top of its
+    expected_interference_mm range (P8 agent eval, 2026-11-01). Before, a declared pair
+    was never swept, so a hinged lid swinging INTO its box passed with 0 positions checked."""
+    rng = entry.get("expected_interference_mm") if entry else None
+    return float(rng[1]) + 0.01 if rng else 0.05
 
 
 def transform_for(driver, t):
@@ -244,8 +258,8 @@ class Pairwise:
     """One FCL manager per pair, so a pair can be measured or skipped
     individually -- trimesh's internal check has no per-pair exemption."""
 
-    def __init__(self, meshes, pairs):
-        self.mgr, self.pairs = {}, pairs
+    def __init__(self, meshes, pairs, allow=None):
+        self.mgr, self.pairs, self.meshes, self.allow = {}, pairs, meshes, allow or {}
         for a, b in pairs:
             m = CollisionManager()
             m.add_object(a, meshes[a])
@@ -260,6 +274,10 @@ class Pairwise:
                 if name in transforms:
                     m.set_transform(name, transforms[name])
             if m.in_collision_internal():
+                if (a, b) in self.allow and self.depth(a, b, transforms) <= self.allow[(a, b)]:
+                    if 0.0 < worst:
+                        worst, worst_pair = 0.0, (a, b)
+                    continue
                 colliding.append((a, b))
                 worst, worst_pair = -1.0, (a, b)
                 continue
@@ -267,6 +285,17 @@ class Pairwise:
             if d < worst:
                 worst, worst_pair = d, (a, b)
         return worst, worst_pair, colliding
+
+    def depth(self, a, b, transforms):
+        """Penetration of a declared pair, bounded by the boolean intersection (P16)."""
+        from check_collisions import bounded_depth
+        ma, mb = self.meshes[a].copy(), self.meshes[b].copy()
+        for name, mesh in ((a, ma), (b, mb)):
+            if name in transforms:
+                mesh.apply_transform(transforms[name])
+        _, data = self.mgr[(a, b)].in_collision_internal(return_data=True)
+        fcl = max((c.depth for c in data), default=0.0)
+        return bounded_depth(fcl, ma, mb)
 
 
 def run_motion(motion, meshes, paths, contacts, step_override, verbose=True):
@@ -281,7 +310,9 @@ def run_motion(motion, meshes, paths, contacts, step_override, verbose=True):
 
     moving = {d["_path"] for d in drivers}
     pairs = [(a, b) for a, b in itertools.combinations(sorted(meshes), 2)
-             if (a in moving or b in moving) and not is_declared(contacts, a, b)]
+             if a in moving or b in moving]
+    allow = {(a, b): allowed_depth(declared_entry(contacts, a, b))
+             for a, b in pairs if is_declared(contacts, a, b)}
     if not pairs:
         print(f"  '{motion.get('id', 'motion')}': nothing to check -- every pair "
               f"involving a moving part is a declared contact.")
@@ -299,7 +330,7 @@ def run_motion(motion, meshes, paths, contacts, step_override, verbose=True):
                   f"{hi - lo:.0f}deg (teeth {z}) -- one tooth pitch repeats")
         hi = lo + period
 
-    engine = Pairwise(meshes, pairs)
+    engine = Pairwise(meshes, pairs, allow)
 
     def sample(t):
         tf = {d["_path"]: transform_for(d, t) for d in drivers}

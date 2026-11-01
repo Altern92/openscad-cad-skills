@@ -793,7 +793,8 @@ sys.exit(0 if motion else 1)
             # collision pairs at an identical 170.000mm (INCIDENTS.md,
             # 2026-09-12).
             positioned_bogus=0
-            if [ -s "$BUILD_DIR/assembly.stl" ] && [ ${#positioned_stls[@]} -gt 0 ]; then
+            # 2+ parts only: a one-part assembly IS its part's bbox (P8 agent eval, 2026-11-01)
+            if [ -s "$BUILD_DIR/assembly.stl" ] && [ ${#positioned_stls[@]} -gt 1 ]; then
                 if ! extents=$(python3 "$SCRIPT_DIR/stl_extent.py" "$BUILD_DIR/assembly.stl" ${positioned_stls[@]+"${positioned_stls[@]}"}); then
                     echo "ERROR: could not measure bounding boxes for the positioned parts (stl_extent.py failed). Refusing to guess whether they are real parts: the collision checks are skipped rather than run on geometry of unknown provenance." >&2
                     echo "CHECK_RESULT collisions=INCONCLUSIVE"
@@ -844,6 +845,11 @@ print(sum(1 for r in rows[1:] if all(abs(float(r[a]) - asm[a]) < 0.01 for a in r
                         log_check "mechanics" 1 "motion_sweep.py (via validate_scad.sh)" "FAIL"
                     fi
                 fi
+            elif [ "$positioned_bogus" -eq 0 ] && [ "$has_motion" != "yes" ] && \
+                 [ "$(grep -L '^[[:space:]]*//[[:space:]]*PREVIEW_FILE' parts/*.scad 2>/dev/null | wc -l)" -le 1 ]; then
+                # one printable part: nothing to collide with (P8 agent eval, 2026-11-01)
+                echo "CHECK_RESULT collisions=SKIP"
+                log_check "collisions" 0 "n/a" "SKIP: one printable part, no pair to check"
             elif [ "$positioned_bogus" -eq 0 ]; then
                 echo "WARNING: fewer than 2 parts rendered via MODE=\"part\" -- collisions cannot run. Check that assembly.scad's MODE/PART switch matches SKILL.md §6 and that parts/*.scad basenames match layout.scad's part names." >&2
                 echo "CHECK_RESULT collisions=INCONCLUSIVE"
