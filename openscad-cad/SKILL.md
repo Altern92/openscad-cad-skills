@@ -332,13 +332,22 @@ Declare what they should verify, in the `.scad` file itself:
 ```openscad
 // EXPECTED_BBOX: [40, 20, 15]
 // EXPECTED_HOLE: [0, 0, 5, "Z", 8.0]
+// EXPECTED_THROUGH_HOLES: 1
 ```
 
 The `dimensions` check compares the exported STL's bounding box, with the
 tolerance derived from `$fa`/`$fs` rather than a flat guess. The `features` check
 slices the mesh and measures a bore flat-to-flat — the dimension a shaft actually
-binds on, which a bounding box cannot see. Both report `SKIP` when nothing is
-declared, so adding a declaration is the whole cost.
+binds on, which a bounding box cannot see. The `topology` check counts holes that go
+all the way through (mesh genus), so a bore sealed by a thin skin fails. All three
+report `SKIP` when nothing is declared, so adding a declaration is the whole cost.
+The same run lints the source: a rounded standard (`44.5` for 1U's 44.45) or a numeric
+default that another call computes fails `scad_lint`.
+
+Measuring an STL yourself (a quick extent, a sanity number)? Use
+`scripts/stl_extent.py` from scad-modeler, never an inline parser: OpenSCAD writes ASCII
+STL by default, and a binary-only parser read its header as a triangle count and
+silently returned nothing (INCIDENTS.md 2026-09-08).
 
 `check_printability.py` (added 2026-08-22) checks something neither of the
 above does: whether the resulting geometry can actually be printed on FDM,

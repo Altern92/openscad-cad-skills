@@ -353,6 +353,7 @@ fit-critical round features, were *specified* rather than chosen here:
 ```openscad
 // EXPECTED_BBOX: [33.595, 33.595, 46]        // the spec's numbers, verbatim
 // EXPECTED_HOLE: [0, 0, 5.5, "Z", 5.2]       // one per specified bore
+// EXPECTED_THROUGH_HOLES: 4                   // bores that must go all the way through
 ```
 
 Then `check_dimensions.py` and `check_features.py` verify the RENDERED part against
@@ -546,6 +547,8 @@ In execution order, with the failure each one exists to catch:
 | `check_connectivity.py` | A printed part that renders as more than one disconnected solid — a fix to one collision silently breaking contact elsewhere. Default on, no declaration needed; `// EXPECTED_BODIES: N` only for a part genuinely meant to be N shells. |
 | `check_dimensions.py` | A part that renders and *looks* right but is the wrong size. Opt-in via `// EXPECTED_BBOX: [40, 20, 15]`. Tolerance is derived from the part's own facet resolution, not fixed. |
 | `check_features.py` | A round fit-critical feature being undersized **across flats** (the dimension a shaft binds on) — invisible to the bbox. Opt-in via `// EXPECTED_HOLE: [0, 0, 5, "Z", 8.0]`. |
+| `check_topology.py` | A bore that is blind or sealed by a thin skin (B class, 16/95 incidents) — bbox, connectivity and `EXPECTED_HOLE` slices all miss it. Counts through-holes as mesh genus = (2·components − χ)/2. Opt-in via `// EXPECTED_THROUGH_HOLES: N`. Genus counts *handles*: a through-slot or ring counts 1, two crossing bores can count more — declare the topological number. |
+| `check_scad_lint.py` | Static, always on. (1) A module argument with a numeric default that one call computes while another call omits it (beam `len = 211` vs computed 216.5) — make it `undef` + `assert`. (2) A rounded standard in a variable named for it: 1U 44.45, inch 25.4, 19" panel 482.6, EIA hole pitch 15.875. |
 | `check_collisions.py` | Unintended interference / insufficient clearance between separately-exported parts. Reports three verdicts: unintended interference (fail), candidate intentional touch (fail + paste-ready `joints.json` stub), near miss (non-fatal note), declared contact (range-checked). |
 | `motion_sweep.py` | A static pose that is clear at 0° and clashes at 37°. Needs a `motion` block in `joints.json` — axis, origin, `ratio` per driver. **Meshing external gears need opposite, nonzero ratio signs.** Sampling, not proof. |
 | `check_bore_reachability.py` | A bore that is a fully enclosed internal cavity — `body_count==1` and `is_watertight==True` both stay clean while the part is unassemblable. Needs a project-root `bores.json`; picked up automatically once that file exists. |
@@ -605,6 +608,7 @@ Declare expectations in the `.scad` file next to the part's own dimension variab
 // EXPECTED_BBOX: [40, 20, 15]
 // EXPECTED_HOLE: [0, 0, 5, "Z", 8.0]   // axis point, axis, target across-flats Ø
 // EXPECTED_BODIES: 2                    // only if genuinely multi-shell
+// EXPECTED_THROUGH_HOLES: 2             // topological through-holes (check_topology.py)
 // PREVIEW_FILE: renders the 2U and the 1U post 12mm apart for comparison
 ```
 

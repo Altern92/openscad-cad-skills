@@ -74,6 +74,9 @@ check always fails."
 |---|---|
 | `margin_provenance_fail` / `_pass` | `check_margin_provenance.py` catches the real `jackshaft_bearing_wall_at_diff` incident shape (INCIDENTS.md, 2026-08-18) and passes once fixed |
 | `param_context_fail` / `_pass` | `check_param_context.py` catches the real `axle_d` incident shape (INCIDENTS.md, 2026-08-18) and passes once fixed |
+| `scad_lint_computed_default_fail` / `scad_lint_rounded_standard_fail` / `scad_lint_clean_pass` | `check_scad_lint.py` (P2): beam `len = 211` computed by one call and omitted by another (INCIDENTS.md 2026-09-04), 1U 44.5 vs 44.45 (2026-08-23), and no false fire on comments, strings, exact values or fully-passed defaults |
+| `topology_sealed_hole_fail` / `topology_cases` | `check_topology.py` (P12): a bore sealed by a 0.4 mm skin fails; matching count passes; no declaration SKIPs; an open mesh fails |
+| `validate_lint_topology_wired` | both checks report `CHECK_RESULT` lines and set the verdict in single-file and `--all` mode |
 | `printability_overhang_fail` | `check_printability.py` flags a genuinely steep (77°) overhang |
 | `printability_wall_fail` | `check_printability.py` flags a genuinely thin (0.3mm) wall |
 | `collisions_candidate_touch` | `check_collisions.py` classifies an undeclared, exactly-touching pair as CANDIDATE INTENTIONAL TOUCH (Phase-2 Pattern 2), with a stub printed |

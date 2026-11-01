@@ -105,6 +105,8 @@ DIM_DECLARED=0
 DIM_FAIL=0
 FEAT_DECLARED=0
 FEAT_FAIL=0
+TOPO_DECLARED=0
+TOPO_FAIL=0
 PREVIEW_COUNT=0
 RENDER_FAIL=0
 RENDER_FAILED_FILES=""
@@ -244,6 +246,16 @@ validate_file() {
         fi
     fi
 
+    # Through-hole count from topology (P12): a blind or skin-sealed bore passes
+    # every check above. Opt-in via `// EXPECTED_THROUGH_HOLES: N`.
+    if [ "$is_preview" -eq 0 ] && grep -q '^[[:space:]]*//[[:space:]]*EXPECTED_THROUGH_HOLES' "$scad"; then
+        TOPO_DECLARED=$((TOPO_DECLARED + 1))
+        if ! python3 "$SCRIPT_DIR/check_topology.py" --stl "$stl" --scad "$scad"; then
+            this_failed=1
+            TOPO_FAIL=1
+        fi
+    fi
+
     return $this_failed
 }
 
@@ -330,6 +342,18 @@ else
     echo "CHECK_RESULT param_context=FAIL"
     OVERALL_FAIL=1
     log_check "param_context" 1 "check_param_context.py --project-dir ." "FAIL"
+fi
+
+# Static lint (P2): a numeric default that one caller computes and another
+# omits (beam 211 vs 216.5), and rounded standard constants (1U 44.5 vs 44.45).
+lint_extra=(); [[ "$MODE" == *.scad ]] && lint_extra=(--scad "$MODE")
+if python3 "$SCRIPT_DIR/check_scad_lint.py" --project-dir . ${lint_extra[@]+"${lint_extra[@]}"}; then
+    echo "CHECK_RESULT scad_lint=PASS"
+    log_check "scad_lint" 0 "check_scad_lint.py --project-dir ." "PASS"
+else
+    echo "CHECK_RESULT scad_lint=FAIL"
+    OVERALL_FAIL=1
+    log_check "scad_lint" 1 "check_scad_lint.py --project-dir ." "FAIL"
 fi
 
 # Project-level checks (run once, not per part) -- both opt-in by existence,
@@ -807,6 +831,17 @@ sys.exit(0 if motion else 1)
         log_check "features" 1 "validate_scad.sh --all" "FAIL: see check_features.py output above"
     fi
 
+    if [ "$TOPO_DECLARED" -eq 0 ]; then
+        echo "CHECK_RESULT topology=SKIP"
+        log_check "topology" 0 "n/a" "SKIP: no part declares // EXPECTED_THROUGH_HOLES"
+    elif [ "$TOPO_FAIL" -eq 0 ]; then
+        echo "CHECK_RESULT topology=PASS"
+        log_check "topology" 0 "validate_scad.sh --all" "PASS ($TOPO_DECLARED part(s) declared)"
+    else
+        echo "CHECK_RESULT topology=FAIL"
+        log_check "topology" 1 "validate_scad.sh --all" "FAIL: see check_topology.py output above"
+    fi
+
     # --- Checkers that exist in scripts/ but are NOT gates here -------------
     # Named explicitly so the absence of a check is a written statement rather
     # than an omission nobody can see (INCIDENTS.md, 2026-09-12). Each one is
@@ -892,6 +927,16 @@ else
     else
         echo "CHECK_RESULT features=FAIL"
         log_check "features" 1 "validate_scad.sh $MODE" "FAIL"
+    fi
+    if [ "$TOPO_DECLARED" -eq 0 ]; then
+        echo "CHECK_RESULT topology=SKIP"
+        log_check "topology" 0 "n/a" "SKIP: no // EXPECTED_THROUGH_HOLES in $scad"
+    elif [ "$TOPO_FAIL" -eq 0 ]; then
+        echo "CHECK_RESULT topology=PASS"
+        log_check "topology" 0 "validate_scad.sh $MODE" "PASS"
+    else
+        echo "CHECK_RESULT topology=FAIL"
+        log_check "topology" 1 "validate_scad.sh $MODE" "FAIL"
     fi
     echo "INFO: single-part mode ($MODE) runs the per-part geometry checks and the project-level
   gates above. It does NOT render the assembly, so collisions / mechanics / sub-feature
