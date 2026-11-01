@@ -20,6 +20,7 @@ Kiekvienas punktas per `feature-loop`: AC → vartotojo patvirtinimas → TDD �
 Baigus punktą: pažymėti `[x]` su commit'u, ne trinti (ši eilė istorijai).
 
 - [ ] **P1 Aplinkos vartai.** Skill'as randa `.venv` (`~/Github/Claude_Code_SCAD_Skill/.venv`) ir `openscad`; jei trūksta — STOP su instrukcija, ne tęsti be patikrų. Įrodymas: MBP 32/48 patikrų exit 4 (2026-11-01).
+- [ ] **P1b Checker'ių mutantai.** Kiekvienam `check_*.py` bent vienas sąmoningai sugadintas modelis `tests/mutants/`, kuris PRIVALO duoti FAIL; tylus SKIP = STOP. Pagrindas: 31/95 incidentų = klaidingas PASS/tylus SKIP; LLMorpheus (Tip ir kt., 2025). Tyrimas: Obsidian `Research/Runs/2026/2026-11-01-openscad-skills.md`.
 - [ ] **P2 Trys pigios taisyklės iš „not yet“ incidentų:** (a) jokių numatytųjų verčių apskaičiuojamiems matmenims (beam 211 vs 216.5), (b) standartų konstantos be apvalinimo (EIA 44.45), (c) failo magijos patikra prieš STL parserį (ASCII vs binary).
 - [ ] **P3 Skylių kandidatai iš CSG** (`check_csg.py`, T8): `--export-format=csg` → visi `difference()` cilindrai → `bores.candidates.json`; žmogus patvirtina į `bores.json`. Ne auto-deklaracija. Įrodymas: bore_reachability SKIP 10/11, B klasė 22 incidentai.
 - [ ] **P4 Jungčių grafas** (MUSE stiliumi): kiekviena dalis turi ≥1 jungtį (varžtas/presas/klijai/magnetas) `attachments.json`; be jungties = FAIL. D klasė 13 incidentų.
