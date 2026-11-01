@@ -20,9 +20,13 @@ python3 scripts/check_rules.py --project-dir .
 ```
 
 If `validate_scad.sh` prints `CHECK_RESULT env=FAIL` (exit 5), the machine is missing
-a Python module, OpenSCAD, or a library the project includes, and nothing it could
+a Python module, OpenSCAD, or a library the project includes -- or the installed
+library is not the version in the project's `libs.lock` -- and nothing it could
 report would be about the geometry. Stop there: show the user the `ENV_FAIL:` lines
 and their fix (usually `bash scripts/setup_env.sh`), and report no PASS/FAIL.
+Once a project validates, pin its libraries: `python3 scripts/env_gate.py --project-dir . --write-lock`.
+A newer BOSL2 dropped `worm_gear_thickness()` and silently moved a gear's bore; the lock
+turns that into env=FAIL instead of a wrong STL.
 
 Then paste BOTH outputs into your final report. Everything below explains *why*;
 this box is the *what*, and it is first because it is the one thing that must not be
@@ -574,31 +578,6 @@ does not produce:
   Run it by hand with `--stl` once the mesh is clean.
 - **Load / strength** — not checked at all; needs a datasheet and material properties
   this chain cannot derive from geometry.
-
-### Opt-in accelerator (prototype): `scripts/run_checks.py`
-
-Not a gate, and **not a replacement for `validate_scad.sh`** — it covers 9 of the 18
-checks (`connectivity`, `dimensions`, `features`, `collisions`, `mechanics`,
-`margin_provenance`, `param_context`, `assumptions`, `plan`) and deliberately
-neither renders nor runs the checks whose inputs come from the render/positioning
-stage (`render`, `intake`, `dependencies`, `printability`, `bore_reachability`,
-`attachment`, `subfeature_overlap`).
-
-It exists because every checker is a separate process that pays the
-trimesh/shapely/scipy/networkx import again. Measured 2026-09-19 on
-`examples/gear_reduction`: `validate_scad.sh --all` = **19.34 s**, of which
-`python3` was **11.52 s across 33 processes** (import alone ~0.65 s per heavy
-checker, 1.50 s of that is 19 `validation_log.py` processes) and `openscad`
-**4.31 s across 7 renders** (native, irreducible). Here the import is paid once:
-the same nine checks run in **~2.0 s warm**, i.e. ~7.7 s saved on that subset, so
-a fully integrated pipeline would land near **11.6 s (~40% faster)**.
-
-Verified: its `CHECK_RESULT` lines match `validate_scad.sh --all` **1:1** on that
-example (9/9, including `dimensions=SKIP`). **Deliberately not wired in** — a second
-orchestrator would duplicate the SKIP/positioning semantics that live in the shell
-script and become a competing source of truth, which is a worse failure mode than
-waiting 7 s. Use it only while iterating on one part; run the real cycle before
-anything is called done.
 
 ### Declarations
 

@@ -299,12 +299,19 @@ if [ -f params.scad ]; then
         log_check "analytic_bounds" 0 "openscad --hardwarnings params.scad preflight" "PASS"
     else
         echo "CHECK_RESULT analytic_bounds=FAIL"
-        echo "FAIL: an assert() in params.scad failed -- fix the source parameters" >&2
-        echo "before any part is rendered, not after:" >&2
-        grep -E "^ERROR: Assertion" "$preflight_log" >&2 || cat "$preflight_log" >&2
+        if grep -q "^ERROR: Assertion" "$preflight_log"; then
+            echo "FAIL: an assert() in params.scad failed -- fix the source parameters" >&2
+            echo "before any part is rendered, not after:" >&2
+            grep -E "^ERROR: Assertion" "$preflight_log" >&2
+        else
+            # P14: an unknown function (BOSL2 2.0.782 dropped worm_gear_thickness) is only a
+            # WARNING; --hardwarnings stops on it, and blaming an assert() sent the reader astray.
+            echo "FAIL: params.scad stopped on a warning under --hardwarnings (not an assert):" >&2
+            grep -E "^(WARNING|ERROR|TRACE):" "$preflight_log" >&2 || cat "$preflight_log" >&2
+        fi
         OVERALL_FAIL=1
         log_check "analytic_bounds" 1 "openscad --hardwarnings params.scad preflight" \
-            "FAIL: assert() failed in params.scad ($(grep -m1 -E "^ERROR: Assertion" "$preflight_log" || echo 'see stderr'))"
+            "FAIL: params.scad preflight ($(grep -m1 -E "^(ERROR: Assertion|WARNING:)" "$preflight_log" || echo 'see stderr'))"
     fi
     rm -f "$tmp_wrapper" "$preflight_log" "$BUILD_DIR/.analytic_preflight.stl"
 else
@@ -983,6 +990,8 @@ if [ -d "$BUILD_DIR" ] && [ -w "$BUILD_DIR" ]; then
             "$([ "$OVERALL_FAIL" -eq 0 ] && echo PASS || echo FAIL)"
         printf '"coverage":{"passed":%d,"failed":%d,"not_applicable":%d,"inconclusive":%d,"advisory":%d},' \
             "$CHK_PASS" "$CHK_FAIL" "$CHK_SKIP" "$CHK_INC" "$CHK_ADV"
+        # P14: the library versions this verdict was made with.
+        printf '"libs":%s,' "$(python3 "$SCRIPT_DIR/env_gate.py" --project-dir . --libs-json 2>/dev/null || echo '{}')"
         printf '"sources":{'
         first=1
         lone=(); [[ "$MODE" == *.scad && "$MODE" != parts/* ]] && lone=("$MODE")
