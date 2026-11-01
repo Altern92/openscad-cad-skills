@@ -1,0 +1,17 @@
+# checker	fixture -- P1b: fixture that MUST fail when this checker is replaced by a silent `exit 0` stub
+check_assumptions	assumptions_critical_open_fail
+check_attachment	attachment_missing_fail
+check_bore_reachability	bore_reachability_sealed_fail
+check_collisions	collisions_candidate_touch
+check_connectivity	connectivity_disconnected_fail
+check_dependencies	dependencies_reaches_part
+check_dimensions	dimensions_bbox_fail
+check_features	features_coarse_fn_fail
+check_intake	intake_no_manifest
+check_margin_provenance	margin_provenance_fail
+check_param_context	param_context_fail
+check_plan	plan_no_decision_fail
+check_printability	printability_overhang_fail
+check_rules	rules_gate_fails_unchecked_project
+check_service_envelope	service_envelope_blank_fail
+check_subfeature_overlap	subfeature_overlap_fail
