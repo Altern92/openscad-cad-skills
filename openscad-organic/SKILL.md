@@ -81,6 +81,16 @@ Below that: 0.2 nozzle or resin — say so, do not fake it.
 3. Dimension check: bounding box vs brief; detail calipers (>= 0.5).
 4. Self-intersection hunt: any skin()/sweep added since last render gets
    a solo render first — CGAL errors come from the NEW profile, not old code.
+5. Proportions as numbers (P6): write the ratios you researched in step 0.4
+   into the .scad BEFORE modelling, one per line —
+   `// PROPORTION: z/x = 2.6 +- 0.05` (bbox) or
+   `// PROPORTION: w_x@0.9 / x = 0.55 +- 0.1` (slice width at 90 % height).
+   `validate_scad.sh` checks them (CHECK_RESULT proportions).
+6. Shape vs reference (P6): cut the reference photo out to a silhouette
+   (dark shape on white, or transparent background), save it next to the
+   .scad, and declare `// SILHOUETTE: front ref_front.png >= 0.85`
+   (front|side|top). Needs Pillow (`bash scripts/setup_env.sh`).
+   A raw photo with clutter measures the clutter.
 
 ## 4. Output conventions
 

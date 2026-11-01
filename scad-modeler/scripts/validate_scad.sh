@@ -109,6 +109,10 @@ TOPO_DECLARED=0
 TOPO_FAIL=0
 SENS_DECLARED=0   # P13: // SENSITIVE_TO: param
 SENS_FAIL=0
+PROP_DECLARED=0  # P6: // PROPORTION: / // SILHOUETTE: (openscad-organic)
+PROP_FAIL=0
+SIL_DECLARED=0
+SIL_FAIL=0
 PREVIEW_COUNT=0
 DECL_MISSING=""   # P15: parts with no size / through-hole declaration
 RENDER_FAIL=0
@@ -277,6 +281,16 @@ validate_file() {
             this_failed=1
             SENS_FAIL=1
         fi
+    fi
+
+    # P6: proportions from the researched source, and the outline against a reference image.
+    if [ "$is_preview" -eq 0 ] && grep -q '^[[:space:]]*//[[:space:]]*PROPORTION' "$scad"; then
+        PROP_DECLARED=$((PROP_DECLARED + 1))
+        python3 "$SCRIPT_DIR/check_proportions.py" --stl "$stl" --scad "$scad" || { this_failed=1; PROP_FAIL=1; }
+    fi
+    if [ "$is_preview" -eq 0 ] && grep -q '^[[:space:]]*//[[:space:]]*SILHOUETTE' "$scad"; then
+        SIL_DECLARED=$((SIL_DECLARED + 1))
+        python3 "$SCRIPT_DIR/check_silhouette.py" --stl "$stl" --scad "$scad" || { this_failed=1; SIL_FAIL=1; }
     fi
 
     return $this_failed
@@ -927,6 +941,26 @@ sys.exit(0 if motion else 1)
         echo "CHECK_RESULT sensitivity=FAIL"
         log_check "sensitivity" 1 "validate_scad.sh --all" "FAIL: see check_sensitivity.py output above"
     fi
+    if [ "$PROP_DECLARED" -eq 0 ]; then
+        echo "CHECK_RESULT proportions=SKIP"
+        log_check "proportions" 0 "n/a" "SKIP: no // PROPORTION declared"
+    elif [ "$PROP_FAIL" -eq 0 ]; then
+        echo "CHECK_RESULT proportions=PASS"
+        log_check "proportions" 0 "validate_scad.sh --all" "PASS ($PROP_DECLARED part(s) declared)"
+    else
+        echo "CHECK_RESULT proportions=FAIL"
+        log_check "proportions" 1 "validate_scad.sh --all" "FAIL: see check_proportions.py output above"
+    fi
+    if [ "$SIL_DECLARED" -eq 0 ]; then
+        echo "CHECK_RESULT silhouette=SKIP"
+        log_check "silhouette" 0 "n/a" "SKIP: no // SILHOUETTE declared"
+    elif [ "$SIL_FAIL" -eq 0 ]; then
+        echo "CHECK_RESULT silhouette=PASS"
+        log_check "silhouette" 0 "validate_scad.sh --all" "PASS ($SIL_DECLARED part(s) declared)"
+    else
+        echo "CHECK_RESULT silhouette=FAIL"
+        log_check "silhouette" 1 "validate_scad.sh --all" "FAIL: see check_silhouette.py output above"
+    fi
 
     # --- Checkers that exist in scripts/ but are NOT gates here -------------
     # Named explicitly so the absence of a check is a written statement rather
@@ -1033,6 +1067,26 @@ else
     else
         echo "CHECK_RESULT sensitivity=FAIL"
         log_check "sensitivity" 1 "validate_scad.sh $MODE" "FAIL: see check_sensitivity.py output above"
+    fi
+    if [ "$PROP_DECLARED" -eq 0 ]; then
+        echo "CHECK_RESULT proportions=SKIP"
+        log_check "proportions" 0 "n/a" "SKIP: no // PROPORTION declared"
+    elif [ "$PROP_FAIL" -eq 0 ]; then
+        echo "CHECK_RESULT proportions=PASS"
+        log_check "proportions" 0 "validate_scad.sh $MODE" "PASS ($PROP_DECLARED part(s) declared)"
+    else
+        echo "CHECK_RESULT proportions=FAIL"
+        log_check "proportions" 1 "validate_scad.sh $MODE" "FAIL: see check_proportions.py output above"
+    fi
+    if [ "$SIL_DECLARED" -eq 0 ]; then
+        echo "CHECK_RESULT silhouette=SKIP"
+        log_check "silhouette" 0 "n/a" "SKIP: no // SILHOUETTE declared"
+    elif [ "$SIL_FAIL" -eq 0 ]; then
+        echo "CHECK_RESULT silhouette=PASS"
+        log_check "silhouette" 0 "validate_scad.sh $MODE" "PASS ($SIL_DECLARED part(s) declared)"
+    else
+        echo "CHECK_RESULT silhouette=FAIL"
+        log_check "silhouette" 1 "validate_scad.sh $MODE" "FAIL: see check_silhouette.py output above"
     fi
     echo "INFO: single-part mode ($MODE) runs the per-part geometry checks and the project-level
   gates above. It does NOT render the assembly, so collisions / mechanics / sub-feature

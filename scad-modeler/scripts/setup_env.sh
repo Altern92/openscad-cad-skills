@@ -18,8 +18,9 @@ if [ -z "$(missing)" ]; then
     echo "already complete: $V"
     exit 0
 fi
-# doctor.py import names -> pip names; python-fcl is checked only once trimesh imports
-pkgs=$("$V/bin/python" -c "import sys; sys.path.insert(0, '$SCRIPT_DIR'); import doctor; print(' '.join({'yaml': 'pyyaml'}.get(m, m) for m in doctor.PY_DEPS), 'python-fcl')")
+# doctor.py import names -> pip names; python-fcl is checked only once trimesh imports;
+# pillow is optional (check_silhouette.py only)
+pkgs=$("$V/bin/python" -c "import sys; sys.path.insert(0, '$SCRIPT_DIR'); import doctor; print(' '.join({'yaml': 'pyyaml'}.get(m, m) for m in doctor.PY_DEPS), 'python-fcl pillow')")
 # shellcheck disable=SC2086
 uv pip install -q --python "$V/bin/python" $pkgs
 left=$(missing)

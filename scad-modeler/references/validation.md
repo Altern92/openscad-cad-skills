@@ -29,6 +29,8 @@ manual.
 | `check_joint_graph.py` (`joints`, P4) | yes, 2+ printable parts: FAIL when a part is in no joints.json contact and no attachments.json entry (`part`/`to`) and has no `// NO_JOINT: <reason>` |
 | `bore_candidates.py` (P3) | no, a generator: every subtracted cylinder from the CSG tree as a bores.json entry, for you to prune |
 | `check_sensitivity.py` (`sensitivity`, P13) | yes, opt-in by `// SENSITIVE_TO: param`: re-renders with param x1.5, FAIL when bbox and volume do not change (a hard-coded number) |
+| `check_proportions.py` (`proportions`, P6) | yes, opt-in by `// PROPORTION: z/x = 2.6 +- 0.05` (terms x, y, z, `w_x@F`, `w_y@F`): FAIL when a ratio is outside its tolerance or a line is unreadable |
+| `check_silhouette.py` (`silhouette`, P6) | yes, opt-in by `// SILHOUETTE: front ref.png >= 0.85`: IoU of the projected outline vs a cut-out reference, each normalised to its own bbox; needs Pillow |
 | `declarations` (in validate_scad.sh) | yes, every printable part: FAIL when it declares neither the size nor the through-holes (or their NO_ form with a reason) |
 | `check_scad_lint.py` (computed defaults, rounded standards) | yes, always |
 | `check_collisions.py` | yes, whenever `assembly.scad` exists (declaration optional — was gated on `joints.json`, a chicken-and-egg) |

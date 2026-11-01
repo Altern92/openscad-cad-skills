@@ -21,3 +21,5 @@ acceptance	acceptance_lock
 check_joint_graph	joint_graph
 bore_candidates	bore_candidates
 check_sensitivity	sensitivity
+check_proportions	organic_checks
+check_silhouette	organic_checks

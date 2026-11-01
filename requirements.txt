@@ -15,3 +15,4 @@ rtree            # trimesh's point-in-mesh containment test; needed by
 pyyaml           # rules_manifest.yaml parsing; needed by check_rules.py
 jsonschema       # design_manifest.json/requirements.json validation;
                  # needed by check_intake.py
+pillow           # reference images; needed only by check_silhouette.py (optional)
