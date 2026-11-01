@@ -594,6 +594,16 @@ Declare expectations in the `.scad` file next to the part's own dimension variab
 (audit, 2026-11-01). Where one truly cannot apply, write the reason instead:
 `// NO_BBOX: <why>` / `// NO_THROUGH_HOLES_CHECK: <why>` (an empty reason counts as missing).
 
+**Approved numbers (P5).** Before writing geometry for a multi-part project, put the size
+and through-hole count the user agreed to in `acceptance.json` at the project root:
+`{"parts": {"plate": {"bbox": [40, 20, 5], "through_holes": 2}}}`. Show it to the user;
+after their yes run `$S/acceptance.py approve --quote "<their exact words>"` (writes
+`acceptance.lock`), then `$S/acceptance.py emit` prints the declaration lines to paste.
+`CHECK_RESULT acceptance` fails when the spec changed after approval or a part declares
+other numbers, so a failing part is fixed in the geometry, never in its comment. The stop
+gate blocks if the quote is not in one of the user's messages: you cannot approve your own
+numbers. If the user wants different numbers, they change acceptance.json and approve again.
+
 ```openscad
 // EXPECTED_BBOX: [40, 20, 15]
 // EXPECTED_HOLE: [0, 0, 5, "Z", 8.0]   // axis point, axis, target across-flats Ø

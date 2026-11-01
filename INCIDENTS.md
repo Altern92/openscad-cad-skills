@@ -17,132 +17,133 @@ Every incident here is real and was fixed. **Read the entry you need, not the
 file.** This list is ~130 lines; the file is 1 500. `grep -n <term> INCIDENTS.md`
 works too. Numbers point at each entry's `###` heading.
 
-**2026-11-01** (4)
-- validator said "All validations passed." for a 62 % thinner gear, a missing plan and an INCON...  [L281]
-- second BOSL2 copy (cloned latest during P1 setup) silently broke a real gear; env gate only c...  [L288]
-- feature-loop P11: docs fixture passed in the repo, failed installed, and its mutation wrote i...  [L295]
-- feature-loop P1: python shim wrote through a stale symlink and overwrote uv's CPython binary  [L302]
+**2026-11-01** (5)
+- check_collisions: a lid resting on an open box measured "penetration depth 40.000 mm"  [L282]
+- validator said "All validations passed." for a 62 % thinner gear, a missing plan and an INCON...  [L289]
+- second BOSL2 copy (cloned latest during P1 setup) silently broke a real gear; env gate only c...  [L296]
+- feature-loop P11: docs fixture passed in the repo, failed installed, and its mutation wrote i...  [L303]
+- feature-loop P1: python shim wrote through a stale symlink and overwrote uv's CPython binary  [L310]
 
 **2026-09-16** (1)
-- Big_CNC: trys NEMA23 vienetai vietoj dviejų + skylės 4.3 nuo krašto + suplėšytas assembly.stl  [L1641]
+- Big_CNC: trys NEMA23 vienetai vietoj dviejų + skylės 4.3 nuo krašto + suplėšytas assembly.stl  [L1649]
 
 **2026-09-12** (24)
-- file count is not a cost proxy: the optimisation cycle raised cost ~70%  [L309]
-- maintainer files were symlinked into the runtime skills dir and agents read them (eval, 40 pa...  [L1385]
-- check_connectivity.py reported 2 bodies while printing 3122, and suggested the wrong EXPECTED...  [L1394]
-- 6 is ~14 patikru tyliai nepaleidziamos: exit 0 atrodo kaip 'viskas patikrinta'  [L1403]
-- ADDENDUM prie tyliu patikru iraso: tikslus skaicius -- 4 checker'iai NEKVIECIAMI IS VISO  [L1416]
-- PADENGIMAS SUTVARKYTAS: 8 -> 17 CHECK_RESULT; islindo 3 nematomi dimensions FAIL  [L1432]
-- Patikrinti FAIL'ai: 3 skirtingi atsakymai, ir vienas ju pakeicia checker'io kalba  [L1442]
-- PREVIEW_FILE: 4 perziuros failai kure klaidingus FAIL'us kiekviena paleidima  [L1456]
-- Ertmes, ne kunai: check_connectivity skaite 5 tikras dalis kaip sudužusias  [L1467]
-- KLAIDINGAS PASS: dalis, kuri visai nesirenderino, gavo connectivity=PASS  [L1481]
-- 8 failai parts/ kataloge yra moduliu bibliotekos, ne dalys  [L1490]
-- Vištos ir kiausinio problema: patikra, kuri butu sukūrusi pirma deklaracija, reikalavo deklar...  [L1499]
-- bbox tolerancija klydo su minkowski() filletais: 0.0214 mm laikyta defektu  [L1510]
-- 8 checker'iai neturejo nė vieno testo; rasdamas juos radau vakuumini PASS  [L1520]
-- SKIP be instrukcijos: 8-10 patikru neivyksta ir niekas nesako, ka daryti  [L1530]
-- SAKNIS: skill'o darbo eiga niekada neliepe parasyti deklaraciju  [L1540]
-- Degeneruota geometrija: 28 nanometru briauna sugadina spinduliu matavimus  [L1549]
-- check_subfeature_overlap buvo parasytas, istestuotas ir NIEKADA nepaleistas  [L1559]
-- End-to-end testas: ar defektas praeina per VISA grandine, ne per checkeri atskirai  [L1569]
-- Nepriklausomas recenzentas: 10 radiniu, visi tikri, visi pataisyti  [L1578]
-- Tylus false negative mano pačiame tripwire: inline parseris krito i `// echo 0`  [L1596]
-- Penki verdiktai vietoj dvieju: printability buvo PAVADINTAS SKIP, nors IVYKO  [L1606]
-- Cover ataskaita, neigiami irodymai ir pervasiveness (isleista is tyrimo)  [L1620]
-- INCONCLUSIVE per platus: tuscias motion masyvas duoda klaidinga teigiama  [L1631]
+- file count is not a cost proxy: the optimisation cycle raised cost ~70%  [L317]
+- maintainer files were symlinked into the runtime skills dir and agents read them (eval, 40 pa...  [L1393]
+- check_connectivity.py reported 2 bodies while printing 3122, and suggested the wrong EXPECTED...  [L1402]
+- 6 is ~14 patikru tyliai nepaleidziamos: exit 0 atrodo kaip 'viskas patikrinta'  [L1411]
+- ADDENDUM prie tyliu patikru iraso: tikslus skaicius -- 4 checker'iai NEKVIECIAMI IS VISO  [L1424]
+- PADENGIMAS SUTVARKYTAS: 8 -> 17 CHECK_RESULT; islindo 3 nematomi dimensions FAIL  [L1440]
+- Patikrinti FAIL'ai: 3 skirtingi atsakymai, ir vienas ju pakeicia checker'io kalba  [L1450]
+- PREVIEW_FILE: 4 perziuros failai kure klaidingus FAIL'us kiekviena paleidima  [L1464]
+- Ertmes, ne kunai: check_connectivity skaite 5 tikras dalis kaip sudužusias  [L1475]
+- KLAIDINGAS PASS: dalis, kuri visai nesirenderino, gavo connectivity=PASS  [L1489]
+- 8 failai parts/ kataloge yra moduliu bibliotekos, ne dalys  [L1498]
+- Vištos ir kiausinio problema: patikra, kuri butu sukūrusi pirma deklaracija, reikalavo deklar...  [L1507]
+- bbox tolerancija klydo su minkowski() filletais: 0.0214 mm laikyta defektu  [L1518]
+- 8 checker'iai neturejo nė vieno testo; rasdamas juos radau vakuumini PASS  [L1528]
+- SKIP be instrukcijos: 8-10 patikru neivyksta ir niekas nesako, ka daryti  [L1538]
+- SAKNIS: skill'o darbo eiga niekada neliepe parasyti deklaraciju  [L1548]
+- Degeneruota geometrija: 28 nanometru briauna sugadina spinduliu matavimus  [L1557]
+- check_subfeature_overlap buvo parasytas, istestuotas ir NIEKADA nepaleistas  [L1567]
+- End-to-end testas: ar defektas praeina per VISA grandine, ne per checkeri atskirai  [L1577]
+- Nepriklausomas recenzentas: 10 radiniu, visi tikri, visi pataisyti  [L1586]
+- Tylus false negative mano pačiame tripwire: inline parseris krito i `// echo 0`  [L1604]
+- Penki verdiktai vietoj dvieju: printability buvo PAVADINTAS SKIP, nors IVYKO  [L1614]
+- Cover ataskaita, neigiami irodymai ir pervasiveness (isleista is tyrimo)  [L1628]
+- INCONCLUSIVE per platus: tuscias motion masyvas duoda klaidinga teigiama  [L1639]
 
 **2026-09-11** (5)
-- FULL plan: stash landing + retrieval.md + organic passports + SCAD golden seed + T8 research  [L147]
-- golden set was too easy to measure anything (eval, N=10)  [L330]
-- RAG hardening: references without metadata passports + modeler description over 1024 chars  [L358]
-- sonines plokstes: (a) be jokio tvirtinimo, (b) kirtosi su stulpais (server_rack_modular_v4/v8)  [L1341]
-- static PNG render is not a sufficient evaluation channel (server_rack_modular_v4 v8)  [L1377]
+- FULL plan: stash landing + retrieval.md + organic passports + SCAD golden seed + T8 research  [L148]
+- golden set was too easy to measure anything (eval, N=10)  [L338]
+- RAG hardening: references without metadata passports + modeler description over 1024 chars  [L366]
+- sonines plokstes: (a) be jokio tvirtinimo, (b) kirtosi su stulpais (server_rack_modular_v4/v8)  [L1349]
+- static PNG render is not a sufficient evaluation channel (server_rack_modular_v4 v8)  [L1385]
 
 **2026-09-10** (7)
-- v4 darytas be pilno skill-loading: organic tik skaitytas, ne krautas (salmas_romenu)  [L1320]
-- v6/v7 sokinejo prie geometrijos be uzsaldyto speco (server_rack_modular_v4)  [L1327]
-- top projekcija melavo apie flansu kolizija (server_rack_modular_v4 v7)  [L1334]
-- 45deg flanges appeared in geometry with no requirement behind them (server_rack_modular_v4 v7)  [L1349]
-- unexplained circle ("kas tas ratas random") visible in render (server_rack_modular_v4 v7)  [L1356]
-- user had to ask whether the skill was actually loaded; procedure ran from read files (server_...  [L1363]
-- tiered validation available but only partially used (server_rack_modular_v4 v7/v8)  [L1370]
+- v4 darytas be pilno skill-loading: organic tik skaitytas, ne krautas (salmas_romenu)  [L1328]
+- v6/v7 sokinejo prie geometrijos be uzsaldyto speco (server_rack_modular_v4)  [L1335]
+- top projekcija melavo apie flansu kolizija (server_rack_modular_v4 v7)  [L1342]
+- 45deg flanges appeared in geometry with no requirement behind them (server_rack_modular_v4 v7)  [L1357]
+- unexplained circle ("kas tas ratas random") visible in render (server_rack_modular_v4 v7)  [L1364]
+- user had to ask whether the skill was actually loaded; procedure ran from read files (server_...  [L1371]
+- tiered validation available but only partially used (server_rack_modular_v4 v7/v8)  [L1378]
 
 **2026-09-09** (3)
-- BOSL2 overrides translate(), breaks pts[i] indexing in shared templates (openscad-organic)  [L1299]
-- helmet modeled from imagination, no research, wrong proportions (salmas_romenu)  [L1306]
-- v2/v3 vis dar ne galea: brezinys sako viena, kodas skaiciuoja kita (salmas_romenu)  [L1313]
+- BOSL2 overrides translate(), breaks pts[i] indexing in shared templates (openscad-organic)  [L1307]
+- helmet modeled from imagination, no research, wrong proportions (salmas_romenu)  [L1314]
+- v2/v3 vis dar ne galea: brezinys sako viena, kodas skaiciuoja kita (salmas_romenu)  [L1321]
 
 **2026-09-08** (15)
-- used openscad-cad alone for 14-part assembly, ignored dual-skill rule (cnc_control_enclosure v2)  [L1194]
-- never read canonical INCIDENTS.md before modelling (cnc_control_enclosure v2)  [L1201]
-- wrote 11 entries to wrong INCIDENTS.md, duplicated log (cnc_control_enclosure v2)  [L1208]
-- wall_side louver slots merged into one opening (cnc_control_enclosure v2)  [L1215]
-- wall_side() ignored -D side override, L/R identical (cnc_control_enclosure v2)  [L1222]
-- wall_side outer length poked past front/rear walls (cnc_control_enclosure v2)  [L1229]
-- corner brackets poked through walls in assembly (cnc_control_enclosure v2)  [L1236]
-- assembly walls had zero fastening, butt-placed only (cnc_control_enclosure v2)  [L1243]
-- lid gravity-held, bosses referenced deleted posts (cnc_control_enclosure v2)  [L1250]
-- hardware.scad single trailing call, siblings unexportable (cnc_control_enclosure v2)  [L1257]
-- STLs in wrong dir, bbox glob silently empty (cnc_control_enclosure v2)  [L1264]
-- binary STL parser on ASCII STLs, silent empty (cnc_control_enclosure v2)  [L1271]
-- -D via is_undef ignored, snapshot is_undef broken (cnc_control_enclosure v2)  [L1278]
-- SUPERCEDES: prior-day review corrections (cnc v2 entries)  [L1285]
-- coupon series instead of single version, plastic wasted (cnc_control_enclosure)  [L1292]
+- used openscad-cad alone for 14-part assembly, ignored dual-skill rule (cnc_control_enclosure v2)  [L1202]
+- never read canonical INCIDENTS.md before modelling (cnc_control_enclosure v2)  [L1209]
+- wrote 11 entries to wrong INCIDENTS.md, duplicated log (cnc_control_enclosure v2)  [L1216]
+- wall_side louver slots merged into one opening (cnc_control_enclosure v2)  [L1223]
+- wall_side() ignored -D side override, L/R identical (cnc_control_enclosure v2)  [L1230]
+- wall_side outer length poked past front/rear walls (cnc_control_enclosure v2)  [L1237]
+- corner brackets poked through walls in assembly (cnc_control_enclosure v2)  [L1244]
+- assembly walls had zero fastening, butt-placed only (cnc_control_enclosure v2)  [L1251]
+- lid gravity-held, bosses referenced deleted posts (cnc_control_enclosure v2)  [L1258]
+- hardware.scad single trailing call, siblings unexportable (cnc_control_enclosure v2)  [L1265]
+- STLs in wrong dir, bbox glob silently empty (cnc_control_enclosure v2)  [L1272]
+- binary STL parser on ASCII STLs, silent empty (cnc_control_enclosure v2)  [L1279]
+- -D via is_undef ignored, snapshot is_undef broken (cnc_control_enclosure v2)  [L1286]
+- SUPERCEDES: prior-day review corrections (cnc v2 entries)  [L1293]
+- coupon series instead of single version, plastic wasted (cnc_control_enclosure)  [L1300]
 
 **2026-09-04** (8)
-- check_margin_provenance.py gained a second detection mode after re-reading INCIDENTS.md turne...  [L365]
-- 13 tracked skill files found silently emptied to 0 bytes (not caused this session), restored ...  [L416]
-- motion_sweep.py gained a gear-ratio sign sanity check (Muse skill-analysis recommendation)  [L456]
-- beam default len 211 vs computed 216.5/191 (server_rack, part4)  [L1159]
-- top_panel magnet walls inverted 0.6/0.8, D21 (server_rack, part4)  [L1166]
-- Task 4 ternary-offset countersink outside solid (server_rack, part4)  [L1173]
-- glue-in pocket only -Y, +Y panel had nothing (server_rack, part4)  [L1180]
-- assembly not fully watertight, 5 of 53 shells at corners (server_rack, part4)  [L1187]
+- check_margin_provenance.py gained a second detection mode after re-reading INCIDENTS.md turne...  [L373]
+- 13 tracked skill files found silently emptied to 0 bytes (not caused this session), restored ...  [L424]
+- motion_sweep.py gained a gear-ratio sign sanity check (Muse skill-analysis recommendation)  [L464]
+- beam default len 211 vs computed 216.5/191 (server_rack, part4)  [L1167]
+- top_panel magnet walls inverted 0.6/0.8, D21 (server_rack, part4)  [L1174]
+- Task 4 ternary-offset countersink outside solid (server_rack, part4)  [L1181]
+- glue-in pocket only -Y, +Y panel had nothing (server_rack, part4)  [L1188]
+- assembly not fully watertight, 5 of 53 shells at corners (server_rack, part4)  [L1195]
 
 **2026-08-30** (1)
-- dovetail bowtie, impossible 50deg angle (server_rack, part3)  [L1152]
+- dovetail bowtie, impossible 50deg angle (server_rack, part3)  [L1160]
 
 **2026-08-26** (6)
-- dovetail tail/socket offset 6mm, 5 separate bodies, D25/D27 class (server_rack, part3)  [L1110]
-- magnet pocket coincident faces, negative-volume fragments (server_rack, part3)  [L1117]
-- top dovetail socket covered top EIA hole (server_rack, part3)  [L1124]
-- NAS as one welded body, top plate bridge in air (server_rack, part3)  [L1131]
-- NAS posts welded with glue-in magnets, wrong system (server_rack, part3)  [L1138]
-- nas_side_panel pocket open to inner face, D33 (server_rack, part3)  [L1145]
+- dovetail tail/socket offset 6mm, 5 separate bodies, D25/D27 class (server_rack, part3)  [L1118]
+- magnet pocket coincident faces, negative-volume fragments (server_rack, part3)  [L1125]
+- top dovetail socket covered top EIA hole (server_rack, part3)  [L1132]
+- NAS as one welded body, top plate bridge in air (server_rack, part3)  [L1139]
+- NAS posts welded with glue-in magnets, wrong system (server_rack, part3)  [L1146]
+- nas_side_panel pocket open to inner face, D33 (server_rack, part3)  [L1153]
 
 **2026-08-23** (3)
-- 1U 44.5 vs EIA-310 44.45, error propagated, D17 (server_rack, part2)  [L1089]
-- 2U meant outer height, interior only 1.37U, D18 (server_rack, part2)  [L1096]
-- NAS bay interior 194 to 170, bottom ring 14 to 5, D19-D20 (server_rack, part2)  [L1103]
+- 1U 44.5 vs EIA-310 44.45, error propagated, D17 (server_rack, part2)  [L1097]
+- 2U meant outer height, interior only 1.37U, D18 (server_rack, part2)  [L1104]
+- NAS bay interior 194 to 170, bottom ring 14 to 5, D19-D20 (server_rack, part2)  [L1111]
 
 **2026-08-22** (10)
-- persisted a regression suite for this skill's own checker scripts (tests/run_all.sh)  [L493]
-- added FDM printability checks (check_printability.py, R-17), grounded in an independent deep-...  [L527]
-- named a recurring gap shape found across the day's fixes: passive correctness without an acti...  [L596]
-- added a parameter context manifest (use_param() + check_param_context.py, Phase-2 Pattern 3)  [L624]
-- check_collisions.py gained clash classification and auto-suggested joints.json stubs (Phase-2...  [L670]
-- EIA holes bored through wrong axis, D12 (server_rack, part2)  [L1054]
-- EIA wall only 0.29mm, unprintable, D13 (server_rack, part2)  [L1061]
-- socket bore 3.4mm instead of 8.38mm, D14 (server_rack, part2)  [L1068]
-- flush recess on every module made 3.15mm gaps, D15 (server_rack, part2)  [L1075]
-- intermediate ring closed on 4 sides, 28mm band at seam, D16 (server_rack, part2)  [L1082]
+- persisted a regression suite for this skill's own checker scripts (tests/run_all.sh)  [L501]
+- added FDM printability checks (check_printability.py, R-17), grounded in an independent deep-...  [L535]
+- named a recurring gap shape found across the day's fixes: passive correctness without an acti...  [L604]
+- added a parameter context manifest (use_param() + check_param_context.py, Phase-2 Pattern 3)  [L632]
+- check_collisions.py gained clash classification and auto-suggested joints.json stubs (Phase-2...  [L678]
+- EIA holes bored through wrong axis, D12 (server_rack, part2)  [L1062]
+- EIA wall only 0.29mm, unprintable, D13 (server_rack, part2)  [L1069]
+- socket bore 3.4mm instead of 8.38mm, D14 (server_rack, part2)  [L1076]
+- flush recess on every module made 3.15mm gaps, D15 (server_rack, part2)  [L1083]
+- intermediate ring closed on 4 sides, 28mm band at seam, D16 (server_rack, part2)  [L1090]
 
 **2026-08-21** (10)
-- check_dependencies.py gained requirement-influence cross-referencing (P1 decision-tree optimi...  [L714]
-- added an analytic pre-flight gate, a provenance requirement, and a spatial "contact witness" ...  [L747]
-- edit classification (C1-C5) and forbidden_regions added (P2 decision-tree optimization)  [L805]
-- added a validation-run log (scripts/validation_log.py) after a real reconstruction attempt lo...  [L853]
-- added calibration_coupon() and a proactive-proposal rule (R-14) after the model only offered ...  [L895]
-- P1S bed limit, 250mm too close to 256mm (server_rack, part1)  [L1019]
-- hidden screw channel crossed EIA holes (server_rack, part1)  [L1026]
-- shelf_plate stayed square after module went rectangular, D8 (server_rack, part1)  [L1033]
-- EIA slot extension merged with magnet pocket, D11 (server_rack, part1)  [L1040]
-- flush recess detached spigots from posts (server_rack, part1)  [L1047]
+- check_dependencies.py gained requirement-influence cross-referencing (P1 decision-tree optimi...  [L722]
+- added an analytic pre-flight gate, a provenance requirement, and a spatial "contact witness" ...  [L755]
+- edit classification (C1-C5) and forbidden_regions added (P2 decision-tree optimization)  [L813]
+- added a validation-run log (scripts/validation_log.py) after a real reconstruction attempt lo...  [L861]
+- added calibration_coupon() and a proactive-proposal rule (R-14) after the model only offered ...  [L903]
+- P1S bed limit, 250mm too close to 256mm (server_rack, part1)  [L1027]
+- hidden screw channel crossed EIA holes (server_rack, part1)  [L1034]
+- shelf_plate stayed square after module went rectangular, D8 (server_rack, part1)  [L1041]
+- EIA slot extension merged with magnet pocket, D11 (server_rack, part1)  [L1048]
+- flush recess detached spigots from posts (server_rack, part1)  [L1055]
 
 **2026-08-19** (2)
-- a BOSL2 gear positioned through layout.scad's at() failed under --hardwarnings; a plain guess...  [L938]
-- check_collisions.py's declared-contact verdict has no spatial awareness: a legitimate contact...  [L993]
+- a BOSL2 gear positioned through layout.scad's at() failed under --hardwarnings; a plain guess...  [L946]
+- check_collisions.py's declared-contact verdict has no spatial awareness: a legitimate contact...  [L1001]
 
 ### 2026-09-11 -- FULL plan: stash landing + retrieval.md + organic passports + SCAD golden seed + T8 research
 - **Where:** PLAN-2026-09-11-VISI-tobulinimai.md (5 fazės A–E).
@@ -277,6 +278,13 @@ build last). Not scheduled -- logged here for when there's a go-ahead.
 ```
 
 ## Entries
+
+### 2026-11-01 -- check_collisions: a lid resting on an open box measured "penetration depth 40.000 mm"
+- **Where:** scad-modeler/scripts/check_collisions.py, declared-contact branch (pair_penetration_depth); found by an external audit's cold start, reproduced on the mini
+- **Symptom:** open box (60x40x30, 2 mm walls) + 1.5 mm lid with four 3 mm screw holes resting on the rim, declared resting 0-0.05 mm: DECLARED INTERFERENCE OUT OF RANGE, depth 40.000 mm (the box width), overlap volume 0. The same lid without holes measured 0. A lid sunk 1 mm read 2.000 mm.
+- **Root cause:** FCL per-contact depth on coplanar triangle pairs is not a depth; it returned a face extent. Nothing cross-checked it against the boolean intersection the script already computes elsewhere.
+- **Fix:** P16 bounded_depth(): depth = min(FCL depth, smallest extent of the intersection's bounds), 0 when the intersection is empty; FCL value kept only without a boolean engine. Resting lid -> 0, sunk lid -> 1.000 mm.
+- **Already promoted to a rule?** yes, fixture collisions_coplanar_contact.
 
 ### 2026-11-01 -- validator said "All validations passed." for a 62 % thinner gear, a missing plan and an INCONCLUSIVE check
 - **Where:** scad-modeler/scripts/validate_scad.sh verdict, check_plan/check_service_envelope on a missing file, check_rules.py gate interpreter; found by an external audit on MBP, every case re-measured on the mini (examples/gear_reduction)

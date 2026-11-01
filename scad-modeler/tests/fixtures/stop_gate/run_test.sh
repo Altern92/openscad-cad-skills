@@ -56,6 +56,39 @@ out=$(echo 'garbage' | python3 "$H"); rc=$?
 [ "$rc" -eq 0 ] && [ -z "$out" ] || { echo "AC-10 (bad input): rc=$rc out=$out" >&2; fail=1; }
 out=$(echo '{"transcript_path":"/nonexistent"}' | python3 "$H"); rc=$?
 [ "$rc" -eq 0 ] && [ -z "$out" ] || { echo "AC-10 (no transcript): rc=$rc out=$out" >&2; fail=1; }
+# P17b: a .scad written through Bash (heredoc, cp, sed -i) counts as edited; one only read does not
+bash_t() {  # $1 file, $2 command
+    python3 -c 'import json,sys; print(json.dumps({"message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":sys.argv[1]}}]}}))' "$2" > "$1"
+}
+rm -f "$P/build/.validation_state.json"
+for c in "cat > parts/a.scad <<'E'
+cube(10);
+E" "cp /tmp/x.scad $P/parts/a.scad" "sed -i '' 's/10/12/' parts/a.scad" "printf 'cube(1);' | tee parts/a.scad"; do
+    bash_t "$tmp/tb.jsonl" "$c"; out=$(run "$tmp/tb.jsonl" false)
+    blocks "$out" || { echo "P17b: Bash write not seen: $c" >&2; fail=1; }
+done
+for c in "cat parts/a.scad > /tmp/out.txt" "openscad -o build/a.stl parts/a.scad" "grep cube parts/a.scad"; do
+    bash_t "$tmp/tb.jsonl" "$c"; out=$(run "$tmp/tb.jsonl" false)
+    [ -z "$out" ] || { echo "P17b: read-only Bash blocked: $c" >&2; fail=1; }
+done
+# P5 / AC-9: an approval recorded this session must quote the user's own words
+printf '{"sha256":"x","quote":"taip, tinka","when":"t"}\n' > "$P/acceptance.lock"
+appr() {  # $1 file, $2 user text
+    python3 - "$1" "$2" <<'PYT'
+import json, sys
+t, user = sys.argv[1], sys.argv[2]
+with open(t, "w") as f:
+    f.write(json.dumps({"type": "user", "message": {"role": "user", "content": user}}) + "\n")
+    f.write(json.dumps({"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "content": "taip, tinka"}]}}) + "\n")
+    f.write(json.dumps({"message": {"content": [{"type": "tool_use", "name": "Bash",
+        "input": {"command": "python3 ~/.claude/skills/scad-modeler/scripts/acceptance.py approve --quote 'taip, tinka'"}}]}}) + "\n")
+PYT
+}
+appr "$tmp/ta.jsonl" "padaryk dangtį"; out=$(run "$tmp/ta.jsonl" false)
+blocks "$out" && echo "$out" | grep -q 'acceptance' || { echo "AC-9: self-approval not blocked: $out" >&2; fail=1; }
+appr "$tmp/ta.jsonl" "Taip,  tinka -- daryk"; out=$(run "$tmp/ta.jsonl" false)
+[ -z "$out" ] || { echo "AC-9: user-quoted approval blocked: $out" >&2; fail=1; }
+rm -f "$P/acceptance.lock"
 # End to end: a real validate_scad.sh run on a lone file satisfies the gate (state format
 # written by the script == format read by the hook); editing it afterwards blocks again.
 L="$tmp/lone"; mkdir -p "$L"; echo 'cube(3);' > "$L/b.scad"

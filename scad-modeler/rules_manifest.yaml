@@ -168,6 +168,13 @@ rules:
     gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
     success_pattern: "CHECK_RESULT declarations=PASS"
 
+  - id: R-20
+    rule: "Approved acceptance (P5, 2026-11-01): acceptance.json holds the bbox and through-hole numbers the user approved before geometry, sha256-locked by acceptance.py approve --quote <user's words>; every listed part declares exactly those numbers -- the agent cannot pass a part by editing its own declaration or the spec"
+    applies: "file_exists:acceptance.json"
+    kind: auto
+    gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
+    success_pattern: "CHECK_RESULT acceptance=PASS"
+
   - id: R-17
     rule: "FDM printability (§7): each printed part was checked with check_printability.py for unsupported overhang and thin walls -- manual because it is new, not yet wired into validate_scad.sh --all, and its wall-thickness reading has a confirmed edge-case limitation (a solid, sharply-tapered feature's edge can produce a spuriously short reading) that needs a human/agent read of the result, not a bare pass/fail"
     applies: "always"

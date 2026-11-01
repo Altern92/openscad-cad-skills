@@ -25,6 +25,7 @@ manual.
 | `check_dimensions.py` (EXPECTED_BBOX) | yes; the declaration is required (`declarations`, P15), or `// NO_BBOX: <why>` |
 | `check_features.py` (EXPECTED_HOLE) | yes, opt-in by declaration |
 | `check_topology.py` (EXPECTED_THROUGH_HOLES) | yes; the declaration is required (`declarations`, P15), or `// NO_THROUGH_HOLES_CHECK: <why>` |
+| `acceptance.py check` (`acceptance`, P5) | yes, when acceptance.json exists: FAIL if unapproved, changed after approval, or a part declares other numbers |
 | `declarations` (in validate_scad.sh) | yes, every printable part: FAIL when it declares neither the size nor the through-holes (or their NO_ form with a reason) |
 | `check_scad_lint.py` (computed defaults, rounded standards) | yes, always |
 | `check_collisions.py` | yes, whenever `assembly.scad` exists (declaration optional — was gated on `joints.json`, a chicken-and-egg) |

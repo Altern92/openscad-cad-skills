@@ -17,3 +17,4 @@ check_service_envelope	service_envelope_blank_fail
 check_subfeature_overlap	subfeature_overlap_fail
 check_scad_lint	scad_lint_rounded_standard_fail
 check_topology	topology_sealed_hole_fail
+acceptance	acceptance_lock

@@ -197,7 +197,24 @@ def highest_tier(scad, deps, calib):
     return 5, "static assembly checking and motion sweep both available"
 
 
+def reexec_with_mesh_python():
+    """P17a: judge the interpreter the checkers run with, not whichever python3 started us
+    (system python3 has no trimesh and reported tier 1 on a tier-2 machine)."""
+    if os.environ.get("SCAD_DOCTOR_REEXEC"):
+        return
+    resolver = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resolve_python.sh")
+    try:
+        py = subprocess.run(["bash", resolver, "--print"], capture_output=True, text=True,
+                            timeout=10).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return
+    if py and os.path.isfile(py) and os.path.abspath(py) != os.path.abspath(sys.executable):
+        os.environ["SCAD_DOCTOR_REEXEC"] = "1"
+        os.execv(py, [py] + sys.argv)
+
+
 def main():
+    reexec_with_mesh_python()
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()

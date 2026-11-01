@@ -439,6 +439,21 @@ else
     log_check "plan" 1 "check_plan.py --plan plan.md" "FAIL"
 fi
 
+# P5: the numbers the user approved (acceptance.json, sha256-locked) -- a part may not
+# declare anything else, and the spec may not change without a new approval.
+python3 "$SCRIPT_DIR/acceptance.py" check --project-dir .; _acc_rc=$?
+if [ "$_acc_rc" -eq 2 ]; then
+    echo "CHECK_RESULT acceptance=SKIP"
+    log_check "acceptance" 0 "n/a" "SKIP: no acceptance.json -- the approved numbers live only in the part files"
+elif [ "$_acc_rc" -eq 0 ]; then
+    echo "CHECK_RESULT acceptance=PASS"
+    log_check "acceptance" 0 "acceptance.py check" "PASS"
+else
+    echo "CHECK_RESULT acceptance=FAIL"
+    OVERALL_FAIL=1
+    log_check "acceptance" 1 "acceptance.py check" "FAIL"
+fi
+
 if [[ "$MODE" == "--all" ]]; then
     shopt -s nullglob
     parts=(parts/*.scad)
