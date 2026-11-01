@@ -36,6 +36,8 @@ BUILD_DIR=${BUILD_DIR:-build}
 BACKEND=${BACKEND:-Manifold}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODE=${1:---all}
+# Every `python3` below now means the interpreter that has the mesh libraries (P1, 2026-11-01).
+. "$SCRIPT_DIR/resolve_python.sh"
 
 OVERALL_FAIL=0
 
@@ -244,6 +246,10 @@ validate_file() {
     return $this_failed
 }
 
+# Environment gate (P1, 2026-11-01): missing modules / OpenSCAD / an included
+# library would make every CHECK_RESULT below a verdict on the tools, not the
+# geometry. One env=FAIL line, the fix, exit 5 -- nothing else is reported.
+python3 "$SCRIPT_DIR/env_gate.py" --project-dir . --openscad "$OPENSCAD" || exit 5
 check_openscad
 
 # Analytic pre-flight gate (added 2026-08-21, see INCIDENTS.md): runs FIRST,
