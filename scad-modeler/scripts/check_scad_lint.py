@@ -139,8 +139,9 @@ def main():
     for rel, src in files.items():
         for m in MODULE_RE.finditer(src):
             for arg, val in kwargs(balanced(src, m.end() - 1)).items():
-                # 0 is the usual "feature off" sentinel (chamfer = 0, bore = 0), not a dimension.
-                if NUM_RE.match(val) and float(val) != 0:
+                # 0 is the usual "feature off" sentinel (chamfer = 0, bore = 0) and +/-1 a sign
+                # (nas_post side = 1, server_rack v4), not a dimension.
+                if NUM_RE.match(val) and abs(float(val)) not in (0, 1):
                     defaults.setdefault(m.group(1), {})[arg] = (val, rel, line_of(src, m.start()))
     for mod, args in defaults.items():
         call_re = re.compile(r"(?<![\w.])" + re.escape(mod) + r"\s*\(")
