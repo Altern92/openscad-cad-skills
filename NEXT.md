@@ -38,7 +38,7 @@ Baigus punktą: pažymėti `[x]` su commit'u, ne trinti (ši eilė istorijai).
 - [x] **P10 Vienas validacijos kelias.** ✅ 2026-11-01 (6feff84): `validate_scad.sh part.scad` vienai detalei už `parts/` ribų; `openscad-cad` nebemoko leisti checker'ių rankomis.
 - [x] **P11 Dokumentacija = kodas.** ✅ 2026-11-01 (431d749 + pataisa po incidento): `skill_docs_match_code` fixture – SKILL.md/references minimi skriptai ir flag'ai egzistuoja kode.
 
-- [ ] **P18 scad-modeler SKILL.md 56,7 KB (~14k tokenų) sumažinti** — 2026-11-01 abliacija (bench/AGENT_EVAL_2026-11-01.md): agentai skaito tik SKILL.md failus, validation.md/INCIDENTS/NEXT neatidaromi; be scad-modeler SKILL.md −12,8 % tokenų, bet viena užduotis (vyrio ašis) blogesnė. Kelias: perkelti retai reikalingus skyrius į references/, palikti vartus ir komandas; matuoti tuo pačiu agent_eval (n ≥ 3).
+- [x] **P18 scad-modeler SKILL.md 56,7 KB (~14k tokenų) sumažinti** — ATLIKTA 2026-11-01: SKILL.md 12,8 KB, pilnas tekstas references/workflow_details.md; slim n=2×5: 10/10 PASS, vid. 73 712 tok. (−6,8 % vs full, triukšmo ribose). Buvęs aprašas: — 2026-11-01 abliacija (bench/AGENT_EVAL_2026-11-01.md): agentai skaito tik SKILL.md failus, validation.md/INCIDENTS/NEXT neatidaromi; be scad-modeler SKILL.md −12,8 % tokenų, bet viena užduotis (vyrio ašis) blogesnė. Kelias: perkelti retai reikalingus skyrius į references/, palikti vartus ir komandas; matuoti tuo pačiu agent_eval (n ≥ 3).
 
 ## 1. Golden set'as nematuoja — perrašyti (prioritetas: aukštas)
 

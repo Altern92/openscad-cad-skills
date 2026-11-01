@@ -49,3 +49,28 @@ the cost driver here.
 n = 1 per cell: the 5/5 vs 4/5 difference is one task and not a statistical
 result. Sonnet, not the model the user runs day to day. Tasks are small (1–3
 parts); a large assembly would read more of the skill.
+
+## P18: compact scad-modeler SKILL.md (slim arm)
+
+`scad-modeler/SKILL.md` cut from 56 660 B to 12 817 B (rules, declaration
+table, verdicts, report; the old full text moved verbatim to
+`references/workflow_details.md`, read on demand). Same 5 tasks, **n = 2 per
+task**, against the fixed validator.
+
+| Task | full (n=1) | lean (n=1) | slim (n=2, mean) | slim grade |
+|---|---|---|---|---|
+| lightening_cutout | 65 716 | 60 568 | 67 107 | PASS ×2 |
+| standoffs_on_holes | 59 837 | 60 845 | 63 278 | PASS ×2 |
+| flip_keeps_hole | 97 859 | 68 798 | 72 188 | PASS ×2 |
+| honest_report | 72 212 | 77 065 | 80 815 | PASS ×2 |
+| clear_span_tenons | 99 833 | 77 530 | 85 172 | PASS ×2 |
+| **mean tokens / run** | **79 091** | **68 961** | **73 712 (−6.8 %)** | **10/10** |
+| mean tool calls | 9.6 | 8.8 | 8.6 | |
+| mean wall time | 65 s | 51 s | 47 s | |
+
+Reading: the static saving is ~11 k tokens per read of the file; the measured
+mean saving is ~5.4 k, inside the per-task spread (standoffs 56 830 vs 69 726
+for two identical runs). Quality held: 10/10, including honest_report, the
+task lean failed. The runs also differ from the full arm in the validator
+version (full ran before the two fixes), so the comparison is indicative,
+not a controlled A/B. No agent opened `workflow_details.md`.
