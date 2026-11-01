@@ -609,6 +609,7 @@ numbers. If the user wants different numbers, they change acceptance.json and ap
 // EXPECTED_HOLE: [0, 0, 5, "Z", 8.0]   // axis point, axis, target across-flats Ø
 // EXPECTED_BODIES: 2                    // only if genuinely multi-shell
 // EXPECTED_THROUGH_HOLES: 2             // topological through-holes (check_topology.py)
+// SENSITIVE_TO: wall                    // re-render with wall x1.5; unchanged = hard-coded (check_sensitivity.py)
 // PREVIEW_FILE: renders the 2U and the 1U post 12mm apart for comparison
 ```
 

@@ -107,6 +107,8 @@ FEAT_DECLARED=0
 FEAT_FAIL=0
 TOPO_DECLARED=0
 TOPO_FAIL=0
+SENS_DECLARED=0   # P13: // SENSITIVE_TO: param
+SENS_FAIL=0
 PREVIEW_COUNT=0
 DECL_MISSING=""   # P15: parts with no size / through-hole declaration
 RENDER_FAIL=0
@@ -264,6 +266,16 @@ validate_file() {
         if ! python3 "$SCRIPT_DIR/check_topology.py" --stl "$stl" --scad "$scad"; then
             this_failed=1
             TOPO_FAIL=1
+        fi
+    fi
+
+    # P13: `// SENSITIVE_TO: param` -- re-render with param x1.5; unchanged geometry = the part
+    # hard-codes a number where it claims to follow the parameter.
+    if [ "$is_preview" -eq 0 ] && grep -q '^[[:space:]]*//[[:space:]]*SENSITIVE_TO' "$scad"; then
+        SENS_DECLARED=$((SENS_DECLARED + 1))
+        if ! python3 "$SCRIPT_DIR/check_sensitivity.py" --stl "$stl" --scad "$scad"; then
+            this_failed=1
+            SENS_FAIL=1
         fi
     fi
 
@@ -905,6 +917,16 @@ sys.exit(0 if motion else 1)
         echo "CHECK_RESULT topology=FAIL"
         log_check "topology" 1 "validate_scad.sh --all" "FAIL: see check_topology.py output above"
     fi
+    if [ "$SENS_DECLARED" -eq 0 ]; then
+        echo "CHECK_RESULT sensitivity=SKIP"
+        log_check "sensitivity" 0 "n/a" "SKIP: no // SENSITIVE_TO declared"
+    elif [ "$SENS_FAIL" -eq 0 ]; then
+        echo "CHECK_RESULT sensitivity=PASS"
+        log_check "sensitivity" 0 "validate_scad.sh --all" "PASS ($SENS_DECLARED part(s) declared)"
+    else
+        echo "CHECK_RESULT sensitivity=FAIL"
+        log_check "sensitivity" 1 "validate_scad.sh --all" "FAIL: see check_sensitivity.py output above"
+    fi
 
     # --- Checkers that exist in scripts/ but are NOT gates here -------------
     # Named explicitly so the absence of a check is a written statement rather
@@ -1001,6 +1023,16 @@ else
     else
         echo "CHECK_RESULT topology=FAIL"
         log_check "topology" 1 "validate_scad.sh $MODE" "FAIL"
+    fi
+    if [ "$SENS_DECLARED" -eq 0 ]; then
+        echo "CHECK_RESULT sensitivity=SKIP"
+        log_check "sensitivity" 0 "n/a" "SKIP: no // SENSITIVE_TO declared"
+    elif [ "$SENS_FAIL" -eq 0 ]; then
+        echo "CHECK_RESULT sensitivity=PASS"
+        log_check "sensitivity" 0 "validate_scad.sh $MODE" "PASS ($SENS_DECLARED part(s) declared)"
+    else
+        echo "CHECK_RESULT sensitivity=FAIL"
+        log_check "sensitivity" 1 "validate_scad.sh $MODE" "FAIL: see check_sensitivity.py output above"
     fi
     echo "INFO: single-part mode ($MODE) runs the per-part geometry checks and the project-level
   gates above. It does NOT render the assembly, so collisions / mechanics / sub-feature
