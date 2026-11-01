@@ -168,9 +168,9 @@ that stays prose is checked by nothing:
 
 | The narrative answer | Becomes | Read by |
 |---|---|---|
-| Insertion path | `bores.json` — start/end axis segment per bore | `check_bore_reachability.py` |
+| Insertion path | `bores.json` — start/end axis segment per bore; `bore_candidates.py --scad parts/X.scad` writes it from the CSG tree (every subtracted cylinder), you delete what is not a bore | `check_bore_reachability.py` |
 | Shared-part neighbors | `fusions.json`, and `// EXPECTED_BODIES: N` for a part that is meant to be one body | `check_subfeature_overlap.py`, `check_connectivity.py` |
-| Retention | `attachments.json` — where material must exist for the fastener | `check_attachment.py` |
+| Retention | `attachments.json` — where material must exist for the fastener; `"to": "<part>"` names what it fastens to. Every part needs at least one joint (contact, attachment, or `// NO_JOINT: <reason>`) | `check_attachment.py`, `check_joint_graph.py` |
 | Purchased-part fit | `joints.json` — declared contact, `expected_interference_mm`, `derivation` | `check_collisions.py`, `motion_sweep.py` |
 
 Copy the templates from `templates/` into the project root and fill them in;

@@ -26,6 +26,8 @@ manual.
 | `check_features.py` (EXPECTED_HOLE) | yes, opt-in by declaration |
 | `check_topology.py` (EXPECTED_THROUGH_HOLES) | yes; the declaration is required (`declarations`, P15), or `// NO_THROUGH_HOLES_CHECK: <why>` |
 | `acceptance.py check` (`acceptance`, P5) | yes, when acceptance.json exists: FAIL if unapproved, changed after approval, or a part declares other numbers |
+| `check_joint_graph.py` (`joints`, P4) | yes, 2+ printable parts: FAIL when a part is in no joints.json contact and no attachments.json entry (`part`/`to`) and has no `// NO_JOINT: <reason>` |
+| `bore_candidates.py` (P3) | no, a generator: every subtracted cylinder from the CSG tree as a bores.json entry, for you to prune |
 | `declarations` (in validate_scad.sh) | yes, every printable part: FAIL when it declares neither the size nor the through-holes (or their NO_ form with a reason) |
 | `check_scad_lint.py` (computed defaults, rounded standards) | yes, always |
 | `check_collisions.py` | yes, whenever `assembly.scad` exists (declaration optional — was gated on `joints.json`, a chicken-and-egg) |

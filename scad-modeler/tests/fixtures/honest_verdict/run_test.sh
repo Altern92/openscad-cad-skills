@@ -46,7 +46,7 @@ echo "$out" | grep -q '^CHECK_RESULT plan=SKIP' || die "AC-5: 2 parts no plan no
 
 # AC-7: joints.json declares motion, no assembly.scad -> mechanics INCONCLUSIVE -> exit 2
 cat > "$tmp/three/joints.json" <<'J'
-{"joints": [], "motion": [{"part": "a", "axis": [0,0,1], "pivot": [0,0,0], "range_deg": [0, 90], "step_deg": 30}]}
+{"contacts": [{"pair": ["a", "b"], "joint_type": "bolted"}], "motion": [{"part": "a", "axis": [0,0,1], "pivot": [0,0,0], "range_deg": [0, 90], "step_deg": 30}]}
 J
 out=$(cd "$tmp/three" && bash "$V" --all 2>&1); rc=$?
 echo "$out" | grep -q '^CHECK_RESULT mechanics=INCONCLUSIVE' || die "AC-7 setup: mechanics not INCONCLUSIVE"

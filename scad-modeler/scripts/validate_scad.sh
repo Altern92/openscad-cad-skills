@@ -519,6 +519,23 @@ if [[ "$MODE" == "--all" ]]; then
         log_check "connectivity" 1 "validate_scad.sh --all" "FAIL: see part-level check_connectivity.py output above"
     fi
 
+    # P4: every printable part is joined to something (joints.json contact, attachments.json
+    # part/"to", or // NO_JOINT: <reason>). Runs after the parts loop so build/ knows which
+    # files rendered (a shared module library renders nothing and is not a part).
+    _jg_out=$(python3 "$SCRIPT_DIR/check_joint_graph.py" --project-dir . 2>&1); _jg_rc=$?
+    [ -n "$_jg_out" ] && echo "$_jg_out"
+    if [ "$_jg_rc" -eq 0 ] && echo "$_jg_out" | grep -q '^SKIP'; then
+        echo "CHECK_RESULT joints=SKIP"
+        log_check "joints" 0 "n/a" "SKIP: fewer than 2 printable parts"
+    elif [ "$_jg_rc" -eq 0 ]; then
+        echo "CHECK_RESULT joints=PASS"
+        log_check "joints" 0 "check_joint_graph.py --project-dir ." "PASS"
+    else
+        echo "CHECK_RESULT joints=FAIL"
+        OVERALL_FAIL=1
+        log_check "joints" 1 "check_joint_graph.py --project-dir ." "FAIL"
+    fi
+
     # Bore-reachability check: opt-in via a project-root bores.json declaring
     # each bearing/shaft/fastener bore's axis segment (see §0.6 in SKILL.md
     # for why -- a sealed bore passes every other check here, since a fully
@@ -546,7 +563,7 @@ if [[ "$MODE" == "--all" ]]; then
         # Absent declaration used to mean NO line at all -- indistinguishable
         # from "this check does not exist" (INCIDENTS.md, 2026-09-12).
         echo "CHECK_RESULT bore_reachability=SKIP"
-        log_check "bore_reachability" 0 "n/a" "SKIP: no bores.json -- copy templates/bores.json to the project root and fill it in; until then no bore is checked for reachability"
+        log_check "bore_reachability" 0 "n/a" "SKIP: no bores.json -- generate candidates from the CSG tree: python3 $SCRIPT_DIR/bore_candidates.py --scad parts/<part>.scad > bores.json, keep the real bores; until then no bore is checked for reachability"
     fi
 
     # Attachment-point check: opt-in via a project-root attachments.json

@@ -92,6 +92,12 @@ def evaluate_applies(expr, project_dir):
     if expr.startswith("file_exists:"):
         candidates = expr[len("file_exists:"):].split(",")
         return any(os.path.isfile(os.path.join(project_dir, c.strip())) for c in candidates)
+    if expr.startswith("glob_min:"):
+        # glob_min:N:pattern -- applies when the pattern matches at least N files (P4: a joint
+        # graph needs 2+ parts; accepting SKIP in success_pattern instead is the vacuous pass).
+        n, _, pattern = expr[len("glob_min:"):].partition(":")
+        import glob as _glob
+        return len(_glob.glob(os.path.join(project_dir, pattern.strip()))) >= int(n)
     if expr.startswith("glob_exists:"):
         # file_exists cannot express "there is anything to check". Without it a
         # rule that is only meaningful when the project HAS geometry had to be

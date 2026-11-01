@@ -175,6 +175,15 @@ rules:
     gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
     success_pattern: "CHECK_RESULT acceptance=PASS"
 
+  - id: R-21
+    rule: "Joint graph (P4, 2026-11-01): every printable part of a multi-part project is joined to something -- a joints.json contact, an attachments.json entry (part or \"to\"), or // NO_JOINT: <reason> -- catches a part with nothing holding it (D class, 13 incidents: side panels with no fastening passed every other gate)"
+    # shortcut: counts parts/*.scad files, so 2 files of which one is a PREVIEW_FILE or a
+    # module library apply here while the check says SKIP (-> FAIL); rare, upgrade if met.
+    applies: "glob_min:2:parts/*.scad"
+    kind: auto
+    gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
+    success_pattern: "CHECK_RESULT joints=PASS"
+
   - id: R-17
     rule: "FDM printability (§7): each printed part was checked with check_printability.py for unsupported overhang and thin walls -- manual because it is new, not yet wired into validate_scad.sh --all, and its wall-thickness reading has a confirmed edge-case limitation (a solid, sharply-tapered feature's edge can produce a spuriously short reading) that needs a human/agent read of the result, not a bare pass/fail"
     applies: "always"

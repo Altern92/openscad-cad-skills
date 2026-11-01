@@ -1,6 +1,6 @@
 [
   {
-    "_comment": "Copy to the PROJECT ROOT as bores.json. One entry per bore that must be open along its whole path. consumed by check_bore_reachability.py, wired into validate_scad.sh. Without this file the check reports SKIP -- a sealed bore passes every other check, because a fully enclosed cavity is still one connected watertight shell (INCIDENTS.md, 2026-08-18: a Wishbone A-arm pivot bore was blind and nothing said so).",
+    "_comment": "Copy to the PROJECT ROOT as bores.json -- or generate it: bore_candidates.py --scad parts/<part>.scad > bores.json (P3: every subtracted cylinder, exact axes from the CSG tree). One entry per bore that must be open along its whole path. consumed by check_bore_reachability.py, wired into validate_scad.sh. Without this file the check reports SKIP -- a sealed bore passes every other check, because a fully enclosed cavity is still one connected watertight shell (INCIDENTS.md, 2026-08-18: a Wishbone A-arm pivot bore was blind and nothing said so).",
     "name": "bearing_tower_bore",
     "part": "gearbox_frame",
     "start": [-40, 10, 10],
