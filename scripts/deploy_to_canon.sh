@@ -16,4 +16,5 @@ for s in openscad-cad scad-modeler; do
         "$SRC/$s/SKILL.md" > "$DST/$s/SKILL.md"
 done
 cp "$SRC/INCIDENTS.md" "$DST/INCIDENTS.md"
+mkdir -p "$DST/references" && cp "$SRC/references/retrieval.md" "$DST/references/retrieval.md"   # skills read ../references/retrieval.md
 echo "deployed to $DST -- now: (cd ~/.claude/skills/scad-modeler && bash tests/run_all.sh)"
