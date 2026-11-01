@@ -184,6 +184,20 @@ and rules-enforcement gates. Whatever's missing, the corresponding check is
 simply unavailable, and the tools say so (`doctor.py` reports exactly which
 checks each missing package unlocks).
 
+### Stop gate (Claude Code, optional)
+
+`scad-modeler/hooks/scad_stop_gate.py` refuses to let a Claude Code session end
+while a `.scad` file it edited has not been through `validate_scad.sh` in its
+current form (it compares sha256 against `build/.validation_state.json`). A FAIL
+verdict does not block; it blocks at most once per stop. Add to `~/.claude/settings.json`:
+
+```json
+"hooks": {"Stop": [{"hooks": [{"type": "command",
+  "command": "python3 /path/to/scad-modeler/hooks/scad_stop_gate.py", "timeout": 10}]}]}
+```
+
+`SCAD_STOP_GATE=0` turns it off for one session.
+
 ## Verify before trusting it
 
 ```bash
