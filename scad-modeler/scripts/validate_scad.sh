@@ -6,6 +6,7 @@
 # Usage:
 #   scripts/validate_scad.sh --all              # every part + assembly.scad
 #   scripts/validate_scad.sh <part_basename>     # just parts/<name>.scad
+#   scripts/validate_scad.sh path/to/part.scad   # one file outside parts/ (openscad-cad)
 #
 # Flags used below (--hardwarnings, --check-parameters, --check-parameter-ranges)
 # were confirmed present via `openscad --help` on 2026-08-16 -- see
@@ -851,12 +852,14 @@ sys.exit(0 if motion else 1)
     echo "CHECK_RESULT dependencies=SKIP"
     log_check "dependencies" 0 "n/a" "SKIP: on-demand analysis (--change), not a gate"
 else
-    scad="parts/$MODE.scad"
+    # A path ending in .scad is a lone part outside parts/ -- openscad-cad's single
+    # bracket goes through this same gate instead of hand-run checkers (P10).
+    if [[ "$MODE" == *.scad ]]; then scad="$MODE"; else scad="parts/$MODE.scad"; fi
     if [ ! -f "$scad" ]; then
         echo "ERROR: $scad not found" >&2
         exit 1
     fi
-    validate_file "$scad" "$BUILD_DIR/$MODE.stl" || OVERALL_FAIL=1
+    validate_file "$scad" "$BUILD_DIR/$(basename "$scad" .scad).stl" || OVERALL_FAIL=1
     # Single-part mode must report like every other run. SKILL.md tells the
     # reader to trust the CHECK_RESULT lines and the COVERAGE line, and this
     # mode used to print NEITHER for the per-part checks -- it emitted only the
@@ -872,7 +875,7 @@ else
     fi
     if [ "$DIM_DECLARED" -eq 0 ]; then
         echo "CHECK_RESULT dimensions=SKIP"
-        log_check "dimensions" 0 "n/a" "SKIP: no // EXPECTED_BBOX in parts/$MODE.scad"
+        log_check "dimensions" 0 "n/a" "SKIP: no // EXPECTED_BBOX in $scad"
     elif [ "$DIM_FAIL" -eq 0 ]; then
         echo "CHECK_RESULT dimensions=PASS"
         log_check "dimensions" 0 "validate_scad.sh $MODE" "PASS"
@@ -882,7 +885,7 @@ else
     fi
     if [ "$FEAT_DECLARED" -eq 0 ]; then
         echo "CHECK_RESULT features=SKIP"
-        log_check "features" 0 "n/a" "SKIP: no // EXPECTED_HOLE in parts/$MODE.scad"
+        log_check "features" 0 "n/a" "SKIP: no // EXPECTED_HOLE in $scad"
     elif [ "$FEAT_FAIL" -eq 0 ]; then
         echo "CHECK_RESULT features=PASS"
         log_check "features" 0 "validate_scad.sh $MODE" "PASS"
@@ -937,7 +940,8 @@ if [ -d "$BUILD_DIR" ] && [ -w "$BUILD_DIR" ]; then
             "$CHK_PASS" "$CHK_FAIL" "$CHK_SKIP" "$CHK_INC" "$CHK_ADV"
         printf '"sources":{'
         first=1
-        for f in params.scad layout.scad assembly.scad parts/*.scad; do
+        lone=(); [[ "$MODE" == *.scad && "$MODE" != parts/* ]] && lone=("$MODE")
+        for f in params.scad layout.scad assembly.scad parts/*.scad ${lone[@]+"${lone[@]}"}; do
             [ -f "$f" ] || continue
             h=$(shasum -a 256 "$f" 2>/dev/null | cut -d" " -f1)
             [ -n "$h" ] || continue

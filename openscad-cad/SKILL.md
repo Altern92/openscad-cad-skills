@@ -77,7 +77,8 @@ internal features from rendered views; the CAD benchmarks that exist
 moved accuracy 64.6% → 68.2% — real but small. Treat the render as a sanity
 layer, never as a gate. Anything dimensional needs a number: an `assert()` in
 the model, or the STL-side checks in the `scad-modeler` skill
-(`check_dimensions.py` for the envelope, `check_features.py` for bores).
+(`check_dimensions.py` for the envelope, `check_features.py` for bores; both run
+by `validate_scad.sh part.scad`, §4.5).
 
 ## 2. Commands
 
@@ -303,22 +304,28 @@ the user if they're designing something load-bearing at M3 or below.
 ## 4.5 Checking a single part numerically
 
 Looking at the render is not a dimensional check (§1). The `scad-modeler` skill's
-scripts are not assembly-only — two of them work on one part, and a single
-bracket or insert benefits from them as much as a gearbox does. If that skill is
-installed, find them in the `scad-modeler` skill's `scripts/` directory (the sibling
-`scad-modeler/scripts/` in this repo, or wherever that skill is installed):
+scripts are not assembly-only: a single bracket or insert goes through the same
+gate as a gearbox. If that skill is installed, find it in the `scad-modeler` skill's
+`scripts/` directory (the sibling `scad-modeler/scripts/` in this repo, or wherever
+that skill is installed). Run it from the part's directory:
 
 ```bash
-PY=$(bash .../scripts/resolve_python.sh --print)   # the interpreter that has trimesh & co.
-$PY .../scripts/env_gate.py --project-dir .        # must print CHECK_RESULT env=PASS
-$PY .../scripts/check_dimensions.py --stl build/part.stl --scad part.scad
-$PY .../scripts/check_features.py   --stl build/part.stl --scad part.scad
-$PY .../scripts/check_printability.py --stl build/part.stl  # FDM overhang + thin-wall (added 2026-08-22)
+bash .../scripts/validate_scad.sh part.scad   # env gate, render, connectivity, dimensions, features
 ```
 
-If the gate prints `CHECK_RESULT env=FAIL`, stop and show the user its `ENV_FAIL:` lines
-and fix (usually `bash .../scripts/setup_env.sh`); a checker run without those modules
-exits 4, which says nothing about the part. `$PY .../scripts/doctor.py` gives the full report.
+This is the one validation path: read its `CHECK_RESULT` and `COVERAGE` lines, and
+report the part done only after a run on its current content (it leaves
+`build/.validation_state.json`, which the stop gate checks). Do not run
+`check_dimensions` or `check_features` by hand instead: that skips connectivity and
+leaves no record. If it prints `CHECK_RESULT env=FAIL`, stop and show the user its
+`ENV_FAIL:` lines and fix (usually `bash .../scripts/setup_env.sh`); nothing it could
+report would be about the part.
+
+Advisory only, not a gate (judge each finding yourself):
+
+```bash
+$(bash .../scripts/resolve_python.sh --print) .../scripts/check_printability.py --stl build/part.stl
+```
 
 Declare what they should verify, in the `.scad` file itself:
 
@@ -327,11 +334,11 @@ Declare what they should verify, in the `.scad` file itself:
 // EXPECTED_HOLE: [0, 0, 5, "Z", 8.0]
 ```
 
-`check_dimensions.py` compares the exported STL's bounding box, with the
-tolerance derived from `$fa`/`$fs` rather than a flat guess.
-`check_features.py` slices the mesh and measures a bore flat-to-flat — the
-dimension a shaft actually binds on, which a bounding box cannot see. Both skip
-silently when nothing is declared, so adding a declaration is the whole cost.
+The `dimensions` check compares the exported STL's bounding box, with the
+tolerance derived from `$fa`/`$fs` rather than a flat guess. The `features` check
+slices the mesh and measures a bore flat-to-flat — the dimension a shaft actually
+binds on, which a bounding box cannot see. Both report `SKIP` when nothing is
+declared, so adding a declaration is the whole cost.
 
 `check_printability.py` (added 2026-08-22) checks something neither of the
 above does: whether the resulting geometry can actually be printed on FDM,
