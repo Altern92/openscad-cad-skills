@@ -13,6 +13,21 @@ punktas turi įrodymą, kodėl jis čia. Kai padaromas — ištrinti, ne pažym�
 
 ---
 
+## 0. DARBŲ EILĖ nuo 2026-11-01 (vystymas Mac mini, `~/Github/Claude_Code_SCAD_Skill`)
+
+Tyrimas: Obsidian `Research/Runs/2026/2026-11-01-openscad-skill-tobulinimas-pagal-incidentus.md`.
+Kiekvienas punktas per `feature-loop`: AC → vartotojo patvirtinimas → TDD → `tests/run_all.sh` 48+/48+.
+Baigus punktą: pažymėti `[x]` su commit'u, ne trinti (ši eilė istorijai).
+
+- [ ] **P1 Aplinkos vartai.** Skill'as randa `.venv` (`~/Github/Claude_Code_SCAD_Skill/.venv`) ir `openscad`; jei trūksta — STOP su instrukcija, ne tęsti be patikrų. Įrodymas: MBP 32/48 patikrų exit 4 (2026-11-01).
+- [ ] **P2 Trys pigios taisyklės iš „not yet“ incidentų:** (a) jokių numatytųjų verčių apskaičiuojamiems matmenims (beam 211 vs 216.5), (b) standartų konstantos be apvalinimo (EIA 44.45), (c) failo magijos patikra prieš STL parserį (ASCII vs binary).
+- [ ] **P3 Skylių kandidatai iš CSG** (`check_csg.py`, T8): `--export-format=csg` → visi `difference()` cilindrai → `bores.candidates.json`; žmogus patvirtina į `bores.json`. Ne auto-deklaracija. Įrodymas: bore_reachability SKIP 10/11, B klasė 22 incidentai.
+- [ ] **P4 Jungčių grafas** (MUSE stiliumi): kiekviena dalis turi ≥1 jungtį (varžtas/presas/klijai/magnetas) `attachments.json`; be jungties = FAIL. D klasė 13 incidentų.
+- [ ] **P5 Reikalavimų testai prieš geometriją** (CADTests + CIT-CAD + ProCAD): intake → `requirements_tests` → vartotojas patvirtina → geometrija.
+- [ ] **P6 `openscad-organic` patikros:** siluetų IoU su referencine nuotrauka, proporcijų lentelė iš šaltinio prieš modeliavimą.
+- [ ] **P7 Golden set v2:** ≥30 sunkių atvejų su spąstais + cost-of-pass (žr. §1, §6).
+- [ ] **P8 Sprendimas dėl 258 mokymo pavyzdžių** (§2) — vartotojo.
+
 ## 1. Golden set'as nematuoja — perrašyti (prioritetas: aukštas)
 
 **Įrodymas:** `golden_scad/PRES_PO_2026-09-11.md`. Tie patys 10 klausimų prieš ir po
