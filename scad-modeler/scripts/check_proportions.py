@@ -34,6 +34,7 @@ ANY_RE = re.compile(r"^[ \t]*//[ \t]*PROPORTION[ \t]*:(.*)$", re.M)
 try:
     import trimesh
 except ImportError:
+    __import__("mesh_python").reexec()
     print("ERROR: trimesh not installed. Run: bash scripts/setup_env.sh", file=sys.stderr)
     sys.exit(EXIT_USAGE)
 

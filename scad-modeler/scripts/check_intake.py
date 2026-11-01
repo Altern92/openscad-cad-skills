@@ -46,7 +46,8 @@ EXIT_USAGE = 4
 try:
     import jsonschema
 except ImportError:
-    print("ERROR: jsonschema not installed. Run: pip install jsonschema",
+    __import__("mesh_python").reexec()
+    print("ERROR: jsonschema not installed. Run: bash scripts/setup_env.sh",
           file=sys.stderr)
     sys.exit(EXIT_USAGE)
 

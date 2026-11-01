@@ -94,8 +94,9 @@ try:
     import trimesh
     from trimesh.collision import CollisionManager
 except ImportError as e:
+    __import__("mesh_python").reexec()
     print(f"ERROR: missing dependency ({e}). "
-          f"Run: pip install trimesh python-fcl scipy numpy", file=sys.stderr)
+          f"Run: bash scripts/setup_env.sh", file=sys.stderr)
     sys.exit(EXIT_USAGE)
 
 

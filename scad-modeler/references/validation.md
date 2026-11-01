@@ -518,3 +518,22 @@ point.
 ## Log verbosity
 
 `validate_scad.sh` drops OpenSCAD's cache and mesh statistics (`Geometries in cache`, `Genus:`, ...) from its log; no check reads them. `SCAD_VERBOSE=1 bash scripts/validate_scad.sh ...` prints the full OpenSCAD output.
+
+## Migrating an older project
+
+Projects written before 2026-11-01 have no `EXPECTED_BBOX` / `EXPECTED_THROUGH_HOLES`, so
+`declarations=FAIL` on the first run. There is deliberately no script that writes them from
+the current STL: that would declare whatever the part is now, including its bugs, and the
+size and hole checks would then prove nothing. Per part:
+
+1. Take the intended numbers from the source of truth (plan, `params.scad`, drawing, the
+   user's spec) — not from the render.
+2. Write `// EXPECTED_BBOX: [x, y, z]` and `// EXPECTED_THROUGH_HOLES: N` from them.
+3. Run `bash scripts/validate_scad.sh parts/<part>.scad`. A `dimensions` or `topology` FAIL
+   now is a real disagreement between intent and geometry: fix one of them, never the
+   declaration alone to match the mesh.
+4. A part where a number does not apply (organic shape, shared library file) gets
+   `// NO_BBOX: <why>` or `// NO_THROUGH_HOLES_CHECK: <why>` instead.
+
+`python3 scripts/stl_extent.py build/<part>.stl` shows the measured extent for step 3's
+comparison.

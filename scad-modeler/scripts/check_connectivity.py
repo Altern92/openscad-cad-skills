@@ -57,7 +57,8 @@ EXIT_USAGE = 4
 try:
     import trimesh
 except ImportError:
-    print("ERROR: trimesh not installed. Run: pip install trimesh", file=sys.stderr)
+    __import__("mesh_python").reexec()
+    print("ERROR: trimesh not installed. Run: bash scripts/setup_env.sh", file=sys.stderr)
     sys.exit(EXIT_USAGE)
 
 BODIES_RE = re.compile(r'^\s*//\s*EXPECTED_BODIES\s*:\s*([0-9]+)')

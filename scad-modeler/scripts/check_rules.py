@@ -60,7 +60,8 @@ EXIT_USAGE = 4
 try:
     import yaml
 except ImportError:
-    print("ERROR: pyyaml not installed. Run: pip install pyyaml", file=sys.stderr)
+    __import__("mesh_python").reexec()
+    print("ERROR: pyyaml not installed. Run: bash scripts/setup_env.sh", file=sys.stderr)
     sys.exit(EXIT_USAGE)
 
 

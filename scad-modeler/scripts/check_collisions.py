@@ -182,7 +182,8 @@ EXIT_USAGE = 4
 try:
     import trimesh
 except ImportError:
-    print("ERROR: trimesh not installed. Run: pip install trimesh python-fcl scipy",
+    __import__("mesh_python").reexec()
+    print("ERROR: trimesh not installed. Run: bash scripts/setup_env.sh",
           file=sys.stderr)
     sys.exit(EXIT_USAGE)
 

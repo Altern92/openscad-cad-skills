@@ -87,6 +87,7 @@ def main():
         import PIL  # noqa: F401
         import numpy as np
     except ImportError:
+        __import__("mesh_python").reexec()
         print("ERROR: Pillow not installed -- uv pip install --python \"$(bash scripts/resolve_python.sh --print)\" pillow",
               file=sys.stderr)
         return EXIT_USAGE

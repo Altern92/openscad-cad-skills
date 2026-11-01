@@ -69,7 +69,8 @@ try:
     import numpy as np
     import trimesh
 except ImportError:
-    print("ERROR: trimesh/numpy not installed. Run: pip install trimesh numpy rtree",
+    __import__("mesh_python").reexec()
+    print("ERROR: trimesh/numpy not installed. Run: bash scripts/setup_env.sh",
           file=sys.stderr)
     sys.exit(EXIT_USAGE)
 

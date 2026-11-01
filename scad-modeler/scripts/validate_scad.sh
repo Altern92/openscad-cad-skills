@@ -1123,6 +1123,7 @@ else
     echo "CHECK_RESULT declarations=FAIL"
     printf '%b' "$DECL_MISSING"
     echo "  -> without these the size and through-hole checks never run on that part. Add the line, or the NO_ form with a reason."
+    echo "  -> project from before this gate (2026-11-01)? references/validation.md, \"Migrating an older project\"."
     OVERALL_FAIL=1
     log_check "declarations" 1 "validate_scad.sh $MODE" "FAIL: part(s) without EXPECTED_BBOX / EXPECTED_THROUGH_HOLES"
 fi

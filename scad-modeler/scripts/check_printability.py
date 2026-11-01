@@ -199,7 +199,8 @@ def main():
     try:
         import trimesh
     except ImportError:
-        print("ERROR: trimesh not installed. Run: pip install trimesh", file=sys.stderr)
+        __import__("mesh_python").reexec()
+        print("ERROR: trimesh not installed. Run: bash scripts/setup_env.sh", file=sys.stderr)
         return EXIT_USAGE
 
     if not os.path.isfile(args.stl):
