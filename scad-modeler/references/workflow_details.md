@@ -14,6 +14,23 @@ gear pair doesn't mesh, not just "the pocket is 2mm too small."
 
 **Not sure which skill to load, or where a fact lives? See `../references/retrieval.md` — the routing table (skill choice, passport format, abstention).**
 
+## Contents
+
+- You are not done until these two commands have run
+- 0. Before anything else: read project facts
+- 0.5. Planning (mandatory before §1, for any assembly with 3+ parts or a genuinely uncertain architecture)
+- 0.6. Physical assembly narrative (mandatory before geometry, per feature that interfaces with a bearing/shaft/fastener/purchased part or shares a `union()` with another feature)
+- 1. Calculation table (mandatory, before writing any geometry)
+- 2. `params.scad` — all dimensions, one place
+- 3. `layout.scad` — where each *part* sits in the assembly
+- 4. Part files — local coordinates, no assembly-level transforms
+- 4.5. Purchased hardware — position it too, not just its cavity
+- 5. Gears: use BOSL2, do not hand-write involute math
+- 6. `assembly.scad` — MODE switch
+- 7. Validation cycle (mandatory, every part and the full assembly)
+- 8. Final report
+- Reference files
+
 ## You are not done until these two commands have run
 
 ```

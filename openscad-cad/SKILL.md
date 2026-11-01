@@ -5,12 +5,10 @@ description: 'Drive OpenSCAD directly from the CLI to write, render, visually ve
 
 # OpenSCAD CAD Skill
 
-Write the model as OpenSCAD code, render it to a PNG, actually look at the PNG,
-fix what's wrong, and only export STL/3MF once the render looks right. The whole
-loop runs through the CLI — the human never has to open the OpenSCAD GUI, though
-they can if they want to tweak the `.scad` file by hand afterward.
-
-**Not sure which skill to load, or where a fact lives? `references/retrieval.md` is the routing table (skill choice, passport format, abstention). Read it before assuming this skill has the answer.
+Write the model as OpenSCAD code, render a PNG, look at it, fix, and export STL/3MF only
+once it is right — all through the CLI. Reasoning, caveats and incident history behind
+every rule here: `references/workflow_details.md` (same section numbers). Which skill to
+load, where a fact lives: `references/retrieval.md` (sibling `claude_skills/references/`).
 
 ## 0. Check installation
 
@@ -18,452 +16,133 @@ they can if they want to tweak the `.scad` file by hand afterward.
 openscad --version || which openscad
 ```
 
-If missing on macOS, install the **`openscad@snapshot`** cask, not the plain `openscad`
-cask. As of this writing Homebrew's `openscad` cask is pinned to the 2021.01 stable
-release, which is both flagged deprecated (fails macOS Gatekeeper, scheduled for
-removal) and too old to even parse current-generation libraries like
-gridfinity-rebuilt-openscad (they use newer OpenSCAD language syntax such as trailing
-commas in argument lists). `openscad@snapshot` tracks the actively-maintained nightly
-and is what you actually want:
-
-```bash
-brew install --cask openscad@snapshot
-```
-
-This places the binary on PATH automatically (Homebrew casks link their `Binary`
-artifact into the prefix's `bin/` at install time) — confirm with `which openscad`
-rather than assuming a manual symlink step is needed; only add one by hand
-(`ln -sf /Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD "$(brew --prefix)/bin/openscad"`)
-if `which openscad` comes up empty after install.
-
-```bash
-# Debian/Ubuntu
-sudo apt-get update && sudo apt-get install -y openscad
-```
-
-On headless Linux (containers/servers, no attached display), OpenSCAD still needs a
-display context to rasterize PNGs even in CLI mode — install Xvfb:
-
-```bash
-sudo apt-get install -y xvfb
-```
-
-Then prefix every PNG-producing command with `xvfb-run -a` (shown below). This is a
-Linux-only concern — never wrap macOS commands in `xvfb-run`; macOS renders through
-Cocoa and just needs a normal logged-in session. STL/3MF-only exports (no PNG) don't
-need a display on either platform, since they're pure geometry export, not a viewport
-capture — but running everything through the same render step keeps the workflow simple.
+- macOS: `brew install --cask openscad@snapshot` (the plain `openscad` cask is 2021.01 and
+  cannot parse current libraries). Check `which openscad` afterwards.
+- Debian/Ubuntu: `sudo apt-get install -y openscad xvfb`; prefix every PNG command with
+  `xvfb-run -a` on headless Linux (never on macOS).
 
 ## 1. Core workflow
 
-1. **Write** the model as a `.scad` file — the editable source of truth. Put every
-   key dimension (width/depth/height, wall thickness, divider count, hole sizes...)
-   as a named variable at the top of the file, so the file stays a true parametric
-   template instead of a one-off. This also makes step 4's `-D` overrides possible.
-2. **Render a preview PNG** and look at it before doing anything else. Don't assume
-   the geometry is correct just because it compiled without errors — compilation
-   only checks syntax, not whether the shapes ended up where you meant them to.
-3. **Iterate**: adjust variables/code, re-render, re-view, repeat until it's right.
-4. **Export final geometry** (STL for printing) only once the preview looks right.
+1. **Write** a `.scad` file with every key dimension as a named variable at the top.
+2. **Render a PNG with `--render`** and look at it. Compiling proves syntax, not shape.
+3. **Iterate** until it looks right, then **export**.
 
-**How much to trust step 2.** Looking at the render catches gross mistakes —
-wrong proportions, a missing feature, a part in the wrong place — and that is
-worth doing every time. It is not evidence that dimensions are correct. A
-literature check (2026-08) found no benchmark measuring how well a
-vision-language model detects wrong dimensions, interference, or missing
-internal features from rendered views; the CAD benchmarks that exist
-(CADPrompt, Text2CAD-Bench, CadBench, MUSE) measure *generation*, not
-*inspection*, and the one measured visual-feedback repair loop, CADCodeVerify,
-moved accuracy 64.6% → 68.2% — real but small. Treat the render as a sanity
-layer, never as a gate. Anything dimensional needs a number: an `assert()` in
-the model, or the STL-side checks in the `scad-modeler` skill
-(`check_dimensions.py` for the envelope, `check_features.py` for bores; both run
-by `validate_scad.sh part.scad`, §4.5).
+The render is a sanity layer, never a gate: it catches a missing feature or a part in
+the wrong place, not a wrong dimension. Anything dimensional needs a number — an
+`assert()` in the model, or `validate_scad.sh` (§4.5).
 
 ## 2. Commands
 
-Fast preview render (uses the OpenCSG preview path — same as pressing F5 in the
-GUI; quick, but boolean operations like subtracted holes or divider cuts can render
-misleadingly, e.g. showing overlapping faces that aren't really there):
-
-```bash
-openscad -o preview.png --imgsize=1200,900 --autocenter --viewall --projection=ortho model.scad
-```
-
-Add `--render` for a full geometry evaluation (same as F6) whenever the model has
-subtractions, unions of overlapping solids, or anything with internal structure —
-this is what you actually want to eyeball before trusting the shape, since preview
-mode is only a rough approximation of the final CSG result:
-
 ```bash
 openscad --render -o preview.png --imgsize=1200,900 --autocenter --viewall --projection=ortho model.scad
-```
-
-On headless Linux, wrap it:
-
-```bash
-xvfb-run -a openscad --render -o preview.png --imgsize=1200,900 --autocenter --viewall --projection=ortho model.scad
-```
-
-Render multiple angles for real QA (top, front, iso) — do this for anything with
-internal structure like dividers or pockets, since a single iso view hides a lot:
-
-```bash
-openscad --render -o preview_top.png   --imgsize=1000,1000 --camera=0,0,0,0,0,0,300   --projection=ortho model.scad
-openscad --render -o preview_front.png --imgsize=1000,1000 --camera=0,0,0,90,0,0,300  --projection=ortho model.scad
-openscad --render -o preview_iso.png   --imgsize=1200,900  --autocenter --viewall     model.scad
-```
-
-(`--camera=tx,ty,tz,rx,ry,rz,dist` is the Euler-angle form: translate, rotate, then
-distance. Adjust `dist` if the model is clipped or too small in frame.)
-
-Export the final STL (binary — much smaller than the ASCII default, which is why
-`--export-format` needs to be stated explicitly rather than left to the default):
-
-```bash
-openscad -o output.stl --export-format=binstl model.scad
-```
-
-Export 3MF (no `--export-format` needed — selected by the `.3mf` extension):
-
-```bash
+# internal structure (dividers, pockets): top, front, iso
+openscad --render -o preview_top.png   --imgsize=1000,1000 --camera=0,0,0,0,0,0,300  --projection=ortho model.scad
+openscad --render -o preview_front.png --imgsize=1000,1000 --camera=0,0,0,90,0,0,300 --projection=ortho model.scad
+openscad --render -o preview_iso.png   --imgsize=1200,900  --autocenter --viewall    model.scad
+openscad -o output.stl --export-format=binstl model.scad     # binary STL
 openscad -o output.3mf model.scad
+openscad -o output.stl --export-format=binstl -D 'bin_width=3' -D 'label="Screws"' model.scad
 ```
 
-Override top-level variables from the CLI without editing the file — useful for
-generating several sizes from one template. Quote string values on both the shell
-and OpenSCAD side, e.g. `-D 'label="Screws"'`:
+- Without `--render` the PNG is the F5 preview, which can misdraw subtractions.
+- `--camera=tx,ty,tz,rx,ry,rz,dist`; raise `dist` if the model is clipped.
+- Add `--backend=Manifold` to render/export on the snapshot build (much faster); check
+  `openscad --help | grep -i backend` first.
+- On the 2026.06.12 snapshot `is_undef(X)` returned `true` even with `-D X=...`. If a `-D`
+  flag seems ignored after 2 tries, pass the value as a module argument or make a separate file.
+
+## 3. Gridfinity
+
+Use **gridfinity-rebuilt-openscad** (kennetek); never hand-write Gridfinity math.
 
 ```bash
-openscad -o output.stl --export-format=binstl \
-  -D 'bin_width=3' -D 'bin_depth=2' -D 'bin_height=6' -D 'divider_count=4' \
-  model.scad
+find ~ -maxdepth 6 -type d -name 'gridfinity-rebuilt-openscad' 2>/dev/null | head   # reuse a clone (git pull)
+git clone https://github.com/kennetek/gridfinity-rebuilt-openscad.git                # only if none
+sed -n '1,80p' gridfinity-rebuilt-bins.scad    # the CURRENT variable names; they drift
 ```
 
-> ⚠️ `is_undef()` + `-D` is broken in the `openscad@snapshot` 2026.06.12
-> build: `is_undef(X)` returns `true` even when `-D X=...` defined it
-> (verified 2026-09-07: `-D F7=1` then `is_undef(F7)` → `true`). So never
-> gate `-D` flags through `is_undef()` on this build — pass values directly
-> as module args with plain defaults (`module wall(side=1)`), which work.
-> If a `-D` flag seems ignored after 2 tries, make a separate file instead
-> of diagnosing further.
-
-On the `openscad@snapshot` build, pass `--backend=Manifold` on render/export
-commands — it's dramatically faster than the default CGAL backend (a bin render
-that takes several seconds under CGAL can drop to well under a second), which
-matters a lot when you're iterating render→look→adjust in a loop. Confirm the
-flag is present with `openscad --help | grep -i backend` before relying on it —
-older builds don't have it.
-
-## 3. Gridfinity work specifically
-
-Don't reinvent Gridfinity math by hand. Use the community-standard parametric
-library **gridfinity-rebuilt-openscad** (by kennetek) — it already implements
-correct 42 mm grid units, 7 mm height units, magnet/screw holes, scoops, labels,
-and baseplates, and is the de facto standard the ecosystem expects:
-
-### 3.1 Setup
-
-```bash
-git clone https://github.com/kennetek/gridfinity-rebuilt-openscad.git
-```
-
-Keep the cloned directory intact and invoke the entry-point `.scad` files from
-inside it (or with paths relative to it) — they pull in `src/core/...` via
-relative imports, so a copied-out single file will fail with missing-include
-errors.
-
-Entry points — the only files to invoke or override params on:
-- `gridfinity-rebuilt-bins.scad` — bins/inserts: compartments, dividers, scoops,
-  label tabs, magnet/screw holes, lips.
-- `gridfinity-rebuilt-baseplate.scad` — baseplates: thin/weighted/skeletonized,
-  drawer-fit, magnet holes.
-
-Everything else in the repo (`src/core/...`, `src/helpers/...`) is internal
-plumbing the entry points `include`/`use` — don't edit it, and don't override
-its internals with `-D`; go through the entry-point variables instead.
-
-The table below was verified against the repo as cloned on 2026-08-09 — this is
-a live community project and its variable names/defaults can and do change
-between clones. Before trusting the table blind on a fresh clone (or one that's
-been sitting around a while), skim the actual current variable block — it's
-right at the top of the entry-point file and doubles as the OpenSCAD Customizer
-UI, so it's always current with what that copy of the repo actually accepts:
-
-```bash
-sed -n '1,80p' gridfinity-rebuilt-bins.scad
-```
-
-### 3.2 Parameters and custom cutouts
-
-Full bin and baseplate `-D` parameter tables (verified against
-`gridfinity-rebuilt-bins.scad`/`gridfinity-rebuilt-baseplate.scad` as cloned
-2026-08-09) moved to `references/gridfinity-params.md` — re-confirm with the
-`sed` command above before trusting blind on a fresh/stale clone; this table
-has already drifted once, see caveat above — an earlier version of this skill
-had `style_lip` and a `cdivx`/`cdivy`/`c_orientation` cylindrical-grid API that
-turned out not to exist in the current source at all.
-
-Custom/uneven compartments — no `cut()`/`cut_move()` (that API is on the project's docs
-site but is stale; it's not in the current source). Instead, use `bin_translate()` +
-`compartment_cutter()` inside `bin_render()`, with `cgs()` converting base-unit sizes to
-mm. The grid origin is the bin's bottom-left corner, 1 unit = 1 base length, and positions
-can be fractional:
-
-```openscad
-bin_33 = new_bin([3, 3], fromGridfinityUnits(6));
-bin_render(bin_33) {
-    bin_translate(bin_33, [0, 0])
-    compartment_cutter(cgs([1.5, 0.5]), center_top=false);
-    bin_translate(bin_33, [1.5, 0])
-    compartment_cutter(cgs([1.5, 1]), center_top=false);
-}
-```
-
-More worked examples (varying-radius cylinders per division, one custom child shape per
-division, etc.) are in the `// ===== EXAMPLES ===== //` block at the bottom of
-`gridfinity-rebuilt-bins.scad` — read that block directly for copy-paste patterns instead
-of reconstructing the API from memory.
-
-For clearance values (how much to add around an item for a given fit) and for
-non-Gridfinity-specific reusable geometry patterns (a friction sleeve with a wire
-notch, a bent duct via segmented `hull()`, an irregular-contour locating pocket via
-`polygon()`+`offset()`), see `references/tolerances.md` and `references/patterns.scad`
-— both extracted from real parts built in this project set, not written fresh.
-
-Two other entry points exist for specific needs — read their own top variable block the
-same way before using:
-- `gridfinity-rebuilt-lite.scad` — a simpler/faster single-file bin variant; notably it
-  *does* still use the old `style_lip` (0/1/2) enum, so don't assume parameter names are
-  identical across entry points just because they're both "bins."
-- `gridfinity-spiral-vase.scad` — generates a single continuous-wall bin or base for
-  slicer vase/spiral mode (near-zero infill, very fast/cheap prints, but no dividers or
-  holes in the usual sense). Takes printer-specific params (`nozzle`, `layer`) because
-  wall thickness in vase mode is derived directly from extrusion width. Only reach for
-  this when the user specifically wants a lightweight vase-mode print, not a normal bin.
-
-Example — a 2×3 bin, 4 height-units tall, six compartments, scooped, magnet holes:
+- Invoke only the entry points, from inside the clone: `gridfinity-rebuilt-bins.scad`,
+  `gridfinity-rebuilt-baseplate.scad` (also `-lite`, which still uses `style_lip`, and
+  `gridfinity-spiral-vase.scad` for vase mode). Never edit or `-D` into `src/`.
+- Parameter tables: `references/gridfinity-params.md`.
+- Custom compartments: `bin_translate()` + `compartment_cutter()` inside `bin_render()`,
+  sizes via `cgs()`; there is no `cut()`/`cut_move()`. Copy patterns from the
+  `// ===== EXAMPLES ===== //` block at the bottom of `gridfinity-rebuilt-bins.scad`.
 
 ```bash
 cd gridfinity-rebuilt-openscad
 openscad --backend=Manifold -o ../my-bin.stl --export-format=binstl \
-  -D 'gridx=2' -D 'gridy=3' -D 'gridz=4' -D 'gridz_define=0' \
-  -D 'divx=2' -D 'divy=3' -D 'scoop=1' -D 'style_tab=1' -D 'include_lip=true' \
-  -D 'refined_holes=false' -D 'magnet_holes=true' -D 'screw_holes=false' -D 'printable_hole_top=true' \
-  gridfinity-rebuilt-bins.scad
+  -D 'gridx=2' -D 'gridy=3' -D 'gridz=4' -D 'gridz_define=0' -D 'divx=2' -D 'divy=3' \
+  -D 'scoop=1' -D 'style_tab=1' -D 'include_lip=true' -D 'magnet_holes=true' gridfinity-rebuilt-bins.scad
 ```
 
-Before cloning, look for an existing clone rather than assuming either way —
-this skill previously named one machine's absolute path, which is wrong
-everywhere else:
+Clearances: `references/tolerances.md`. Reusable geometry: `references/patterns.scad`.
+
+## 4. Threads (threads-scad)
+
+`git clone https://github.com/rcolyer/threads-scad.git`, then `use <threads.scad>` (not
+`include`). Modules: `ScrewHole(outer_diam, height, ...) { children }`,
+`ScrewThread(...)`, `ClearanceHole(...)`, `CountersunkClearanceHole(...)`,
+`MetricBolt/MetricNut/MetricWasher`, `RodStart/RodEnd/RodExtender`. Check parameter order
+in `threads.scad`. Internal threads print from M2; external M3 is fragile; M4+ is
+reliable — warn the user about load-bearing threads at M3 or below.
+
+## 4.5 Checking a part numerically
+
+One validation path, from the part's directory (scripts live in the `scad-modeler` skill):
 
 ```bash
-find ~ -maxdepth 6 -type d -name 'gridfinity-rebuilt-openscad' 2>/dev/null | head
+bash .../scad-modeler/scripts/validate_scad.sh part.scad
 ```
 
-If one turns up, reuse it (`git pull` first if it's been sitting), and put
-generated bins in a sibling folder next to it.
-
-Prefer these `-D` overrides (or editing the top variable block of a copy) over
-writing Gridfinity geometry from scratch, unless the user explicitly wants a
-fully custom implementation.
-
-## 4. Threaded holes and bolts (threads-scad)
-
-Not Gridfinity-specific — reach for this any time a design needs real printed
-screw threads (a threaded lid, a bolt-on bracket, a threaded insert cavity)
-rather than a plain clearance hole. Gridfinity's own `enable_thumbscrew`
-(§3.2) is actually built on this same library, vendored inside that repo at
-`src/external/threads-scad/threads.scad` — for non-Gridfinity work, clone it
-directly:
-
-```bash
-git clone https://github.com/rcolyer/threads-scad.git
-```
-
-Include it with `use <threads.scad>`, not `include` — `include` also pulls in
-the file's own example/test geometry into your model, `use` just gives you the
-modules. Key modules (verify exact parameter order/defaults in `threads.scad`
-itself before relying on them — tolerances in particular matter for fit):
-
-- `ScrewHole(outer_diam, height, position, rotation, pitch, ...) { <children> }`
-  — cuts an internal threaded hole into children; the usual case for a
-  threaded lid or insert.
-- `ScrewThread(outer_diam, height, pitch, ...)` — external threads on a rod.
-- `ClearanceHole(...)` / `CountersunkClearanceHole(...)` — plain or
-  countersunk bolt passthroughs (no threads, for a bolt to pass through).
-- `MetricBolt(diameter, length)`, `MetricNut(diameter)`, `MetricWasher(diameter)`
-  — printable or reference hardware geometry.
-- `RodStart()` / `RodEnd()` / `RodExtender()` — for rods/dowels longer than the
-  printer's build volume, joined with threaded couplers.
-
-Per the library's own notes: printed internal threads work fine from M2+;
-external M3 threads are print-quality sensitive; M4+ is reliable. Flag this to
-the user if they're designing something load-bearing at M3 or below.
-
-## 4.5 Checking a single part numerically
-
-Looking at the render is not a dimensional check (§1). The `scad-modeler` skill's
-scripts are not assembly-only: a single bracket or insert goes through the same
-gate as a gearbox. If that skill is installed, find it in the `scad-modeler` skill's
-`scripts/` directory (the sibling `scad-modeler/scripts/` in this repo, or wherever
-that skill is installed). Run it from the part's directory:
-
-```bash
-bash .../scripts/validate_scad.sh part.scad   # env gate, render, connectivity, dimensions, features
-```
-
-This is the one validation path: read its `CHECK_RESULT` and `COVERAGE` lines, and
-report the part done only after a run on its current content (it leaves
-`build/.validation_state.json`, which the stop gate checks). Do not run
-`check_dimensions` or `check_features` by hand instead: that skips connectivity and
-leaves no record. If it prints `CHECK_RESULT env=FAIL`, stop and show the user its
-`ENV_FAIL:` lines and fix (usually `bash .../scripts/setup_env.sh`); nothing it could
-report would be about the part.
-
-Advisory only, not a gate (judge each finding yourself):
-
-```bash
-$(bash .../scripts/resolve_python.sh --print) .../scripts/check_printability.py --stl build/part.stl
-```
-
-Declare what they should verify, in the `.scad` file itself. `EXPECTED_BBOX` and
-`EXPECTED_THROUGH_HOLES` are required (`declarations=FAIL` without them, or write
-`// NO_BBOX: <why>` / `// NO_THROUGH_HOLES_CHECK: <why>`):
+- Read its `CHECK_RESULT` and `COVERAGE` lines. Report the part done only after a run on
+  its current content. Exit 2 (`NOT VERIFIED`) is not a pass.
+- `CHECK_RESULT env=FAIL`: stop, show the `ENV_FAIL:` lines, fix
+  (`bash .../scad-modeler/scripts/setup_env.sh`).
+- Never run `check_dimensions` / `check_features` by hand instead.
+- Declare in the `.scad` file (`declarations=FAIL` without the first two, or write
+  `// NO_BBOX: <why>` / `// NO_THROUGH_HOLES_CHECK: <why>`):
 
 ```openscad
 // EXPECTED_BBOX: [40, 20, 15]
-// EXPECTED_HOLE: [0, 0, 5, "Z", 8.0]
 // EXPECTED_THROUGH_HOLES: 1
+// EXPECTED_HOLE: [0, 0, 5, "Z", 8.0]     // optional: x, y, z, axis, diameter
 ```
 
-The `dimensions` check compares the exported STL's bounding box, with the
-tolerance derived from `$fa`/`$fs` rather than a flat guess. The `features` check
-slices the mesh and measures a bore flat-to-flat — the dimension a shaft actually
-binds on, which a bounding box cannot see. The `topology` check counts holes that go
-all the way through (mesh genus), so a bore sealed by a thin skin fails. Each runs
-only on its declaration; `EXPECTED_HOLE` is optional, the other two are required. Exit 2 (`NOT VERIFIED`) is not a pass.
-The same run lints the source: a rounded standard (`44.5` for 1U's 44.45) or a numeric
-default that another call computes fails `scad_lint`.
-
-Measuring an STL yourself (a quick extent, a sanity number)? Use
-`scripts/stl_extent.py` from scad-modeler, never an inline parser: OpenSCAD writes ASCII
-STL by default, and a binary-only parser read its header as a triangle count and
-silently returned nothing (INCIDENTS.md 2026-09-08).
-
-`check_printability.py` (added 2026-08-22) checks something neither of the
-above does: whether the resulting geometry can actually be printed on FDM,
-independent of whether it's dimensionally correct — unsupported overhang
-(face-normal vs. build axis, default flags past 45° from vertical) and
-thin walls (ray-cast wall-thickness estimate, default minimum 2× nozzle
-diameter). No declaration needed to run it; it's a standalone step, not
-yet wired into `validate_scad.sh --all` (new, not yet battle-tested at
-scale — see its own docstring for confirmed edge-case limitations, in
-particular that a thin-wall reading near a sharp edge/tip on a solid,
-tapered feature can be a measurement artifact rather than a real problem,
-distinct from a genuine flat panel reading).
-
-**Before finalizing any fit-critical hole (press fit, bearing bore, threaded
-insert, snap fit — anything where the actual printed size, not the CAD
-number, decides whether it works) when no calibration profile exists
-(`doctor.py`'s `find_calibration()` returns none), proactively PROPOSE
-printing a calibration coupon first — do not wait to be asked.** Confirmed
-gap (INCIDENTS.md, 2026-08-21): across a real multi-part project, the model
-only offered to print a fit-test piece each time the user explicitly asked
-for one, never on its own, even though `references/confidence-tiers.md`
-Tier 3 already names a calibration profile as a hard gate. Use
-`calibration_coupon()` in `references/patterns.scad` (Pattern 5) — one
-labelled plate with holes at incremental diameters straddling the target —
-rather than guessing a single clearance value and hoping it prints right the
-first time. This does not apply to every hole in every project: propose it
-when a fit is actually load-bearing or precision-sensitive (a bearing press
-fit, a structural pin), not for a generous loose-clearance mounting hole
-where being off by 0.1mm changes nothing.
-
-State the confidence tier reached in the final response — see
-`references/confidence-tiers.md`. A part with no numeric check is Tier 1, and
-saying so is more useful than implying more.
+- Measuring an STL yourself: `.../scad-modeler/scripts/stl_extent.py`, never an inline parser.
+- Printability (advisory, judge each finding):
+  `$(bash .../scad-modeler/scripts/resolve_python.sh --print) .../scad-modeler/scripts/check_printability.py --stl build/part.stl`
+- Fit-critical hole (press fit, bearing, insert, snap) and no calibration profile:
+  **propose a calibration coupon first** (`calibration_coupon()`, `references/patterns.scad`
+  Pattern 5). Use `true_hole()` (Pattern 0) for round fit-critical holes.
+- Name the confidence tier in the final response (`references/confidence-tiers.md`).
 
 ## 4.6 Impact analysis before any design change (mandatory)
 
-Before deleting a part, changing a joint/pocket interface, or renaming a
-module, run these four steps. Skipping them caused real incidents (carrier
-removal left orphan sockets — D47; see `../INCIDENTS.md`).
+Before deleting a part, changing a joint/pocket interface, or renaming a module:
 
-1. **Dependents**: `grep -rn '^use\|^include' scad/` — which files depend on
-   the file being changed.
-2. **Callers**: `grep -rn '<module_name>' scad/` — what calls the module
-   being changed or removed.
-3. **Show the list to the user** before executing (what will be touched).
-4. **Archive first**: move superseded `.scad`/`.stl` to `archive/` in the
-   same step, never as a separate later request. Nothing is deleted outright.
-
-(Rationale: codebase-memory graph has no OpenSCAD grammar — `.scad` files
-are invisible to it. But OpenSCAD dependencies are strict `use`/`include`
-statements, so one grep gives the complete impact tree in milliseconds.
-Graph navigates elsewhere; here grep navigates, file confirms — D48.)
+1. **Dependents**: `grep -rn '^use\|^include' scad/`
+2. **Callers**: `grep -rn '<module_name>' scad/`
+3. **Show the list to the user** before executing.
+4. **Archive first**: move superseded `.scad`/`.stl` to `archive/` in the same step. Nothing is deleted outright.
 
 ## 5. Output conventions
 
-- **Each distinct design gets its own project folder** (e.g.
-  `936DH_soldering_station_insert/`, `gridfinity_demo_bin/`), not shared with
-  other unrelated designs in one folder — the user has stated this preference
-  explicitly. A shared library clone (`gridfinity-rebuilt-openscad/`,
-  `threads-scad/`) is not itself "a design" and can stay a sibling shared
-  dependency referenced by relative path from each project folder.
-- Keep the `.scad` source as the deliverable to hand back for future edits.
-- Always include at least one PNG render (rendered with `--render`, not just
-  preview) in the final response so the user can see the result without opening
-  a slicer.
-- **Always also hand back an interactive inspection path, not only stills.** A few
-  fixed-angle PNGs are a genuinely weaker channel for a 3D object: geometry hidden
-  behind a wall, interpenetration, and orientation errors are invisible from the
-  chosen angles, so the user cannot actually check the model. Export the STL/3MF
-  (for an assembly, the assembly STL) and state the command or viewer, so they can
-  rotate the real thing. Ship it by default, not on request — a user asking *"how
-  am I supposed to judge this from a picture?"* has already lost a review cycle.
-  A top view once reported a flange collision that did not exist: the projection
-  collapsed two different Z heights into one plane (`INCIDENTS.md` 2026-09-10).
-- Name variables and the file itself descriptively (e.g. `gridfinity_bin_3x2x6.scad`),
-  not `model.scad`, once the design is finalized.
-- Give each project folder its own short `README.md`: what it is, the exact
-  render/export commands used, and — when dimensions came from a photo/caliper
-  reading rather than a stated spec — which numbers are confirmed vs. still
-  estimated, so a future edit knows what's safe to trust.
-- Before declaring a task done, re-check the rendered image against the user's
-  stated dimensions — measure against what they asked for, don't just trust that
-  the code "looks right" syntactically.
-- If something was actually wrong this session — not a routine addition, a
-  bug, a false pass, an inaccurate claim caught by cross-checking — append an
-  entry to `../INCIDENTS.md` before finishing (entry format is in that file).
-  Raw data for a later pattern-review pass, not something to analyze now.
+- One project folder per design; shared library clones stay siblings.
+- Hand back the `.scad` source, at least one `--render` PNG, and the exported STL/3MF with
+  a viewer command — stills hide interpenetration and Z-collapsed views mislead.
+- Descriptive file and variable names once final; a short `README.md` per project: what it
+  is, the exact commands, which dimensions are confirmed vs estimated.
+- Before declaring done, check the result against the user's stated dimensions.
+- Something actually went wrong this session (bug, false pass, wrong claim): append an
+  entry to `../INCIDENTS.md`.
 
 ## Reference files
 
-- `references/retrieval.md` (sibling `claude_skills/references/`) — routing table: which skill to load, passport format, abstention rule.
-
-- `../INCIDENTS.md` — append-only log of real bugs found and fixed, shared
-  with `scad-modeler`. Not reviewed automatically; a later pass reads it for
-  patterns worth promoting into a permanent rule.
-- `references/gridfinity-params.md` — full bin/baseplate `-D` parameter
-  tables (§3.2), moved out of this file so a Gridfinity lookup doesn't add to
-  every skill load.
-- `references/confidence-tiers.md` — what may be promised at each tier and the
-  gates it requires, plus the default assumptions table. Name the tier in the
-  final response.
-- `references/tolerances.md` — per-side clearance values for common fits (loose
-  drop-in, grid-constrained drop-in, friction fit), each sourced from a real part
-  in this project set rather than guessed.
-- `references/patterns.scad` — Pattern 0 is `true_hole_d()`/`true_hole()`, the
-  exact compensation for OpenSCAD's inscribed-polygon hole undersizing; apply it
-  to any round fit-critical hole (holes only, never pins). Pattern 5 is
-  `calibration_coupon()` — a labelled multi-hole test plate to print BEFORE
-  committing to a fit-critical dimension with no existing calibration
-  profile (§4.5). The rest are reusable geometry modules
-  (`gridfinity_contour_pocket`,
-  `friction_sleeve`/`sleeve_wire_notch`, `bent_duct`) extracted from real parts;
-  `use <patterns.scad>` the ones you need. The single-rectangular-pocket case is
-  documented there as a snippet rather than a module — it depends on the Gridfinity
-  library's own `compartment_cutter()`, which a module defined *inside* patterns.scad
-  can't call (confirmed: `use` only exposes a file's own module names to its caller,
-  not the caller's other `use`d modules back into that file).
+- `references/workflow_details.md` — full text behind every section above.
+- `references/retrieval.md` (sibling `claude_skills/references/`) — skill routing.
+- `references/gridfinity-params.md` — bin/baseplate `-D` tables.
+- `references/confidence-tiers.md` — what each tier may promise.
+- `references/tolerances.md` — per-side clearances from real parts.
+- `references/patterns.scad` — `true_hole()`, `calibration_coupon()`, pocket/sleeve/duct modules.
+- `../INCIDENTS.md` — append-only bug log shared with scad-modeler.

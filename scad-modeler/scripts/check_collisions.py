@@ -354,6 +354,7 @@ def bounded_depth(depth, mesh_a, mesh_b):
     resting on an open box's rim measured 40.000 mm (the box width) with zero
     overlap volume. The real penetration cannot exceed the smallest extent of
     the intersection's bounding box, and is 0 when the intersection is empty.
+    Each connected piece is bounded separately; zero-volume pieces are touches.
     Without a boolean engine the FCL number is returned unchanged.
     """
     if depth is None:
@@ -364,8 +365,15 @@ def bounded_depth(depth, mesh_a, mesh_b):
         return depth
     if inter is None or inter.is_empty:
         return 0.0
-    extent = inter.bounds[1] - inter.bounds[0]
-    return min(depth, float(extent.min()))
+    # Bound each piece on its own: two zero-volume contact sheets 10 mm apart (a tenon
+    # touching shoulder and mortise floor) once spanned a 10 mm bbox and read as depth 10.
+    try:
+        pieces = inter.split(only_watertight=False)
+    except Exception:
+        pieces = [inter]
+    depths = [float((q.bounds[1] - q.bounds[0]).min()) for q in pieces
+              if abs(q.volume) > 1e-6]
+    return min(depth, max(depths)) if depths else 0.0
 
 
 def pair_distance(mesh_a, mesh_b, name_a, name_b):

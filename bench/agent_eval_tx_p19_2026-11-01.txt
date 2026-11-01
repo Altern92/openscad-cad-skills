@@ -1,0 +1,39 @@
+p19 clear_span_tenons 1 89415 1251482 21 []
+p19 clear_span_tenons 2 82485 840586 14 []
+p19 clear_span_tenons 3 79327 608054 12 []
+p19 flip_keeps_hole 1 65947 290943 8 []
+p19 flip_keeps_hole 2 65782 291146 8 []
+p19 flip_keeps_hole 3 66760 352304 7 []
+p19 honest_report 1 68565 359629 6 []
+p19 honest_report 2 71853 440459 9 []
+p19 honest_report 3 70254 433986 9 []
+p19 lightening_cutout 1 62543 222340 5 []
+p19 lightening_cutout 2 63657 226127 7 []
+p19 lightening_cutout 3 64076 226696 7 []
+p19 standoffs_on_holes 1 60278 161311 4 []
+p19 standoffs_on_holes 2 61655 224942 6 []
+p19 standoffs_on_holes 3 63153 224257 5 []
+p19 task n mean_final mean_sum
+p19 clear_span_tenons 3 83742 900041
+p19 flip_keeps_hole 3 66163 311464
+p19 honest_report 3 70224 411358
+p19 lightening_cutout 3 63425 225054
+p19 standoffs_on_holes 3 61695 203503
+p19 ALL 15 69050 410284 tools 8.5
+slim clear_span_tenons 1 86041 742821 11 []
+slim clear_span_tenons 2 83961 653369 11 []
+slim flip_keeps_hole 1 73265 388562 9 []
+slim flip_keeps_hole 2 71038 387730 9 []
+slim honest_report 1 81086 706473 12 ['motion_sweep.py']
+slim honest_report 2 80344 551177 11 ['motion_sweep.py']
+slim lightening_cutout 1 67452 225310 5 []
+slim lightening_cutout 2 66761 174846 6 []
+slim standoffs_on_holes 1 56830 203823 5 []
+slim standoffs_on_holes 2 69726 245513 7 []
+slim task n mean_final mean_sum
+slim clear_span_tenons 2 85001 698095
+slim flip_keeps_hole 2 72152 388146
+slim honest_report 2 80715 628825
+slim lightening_cutout 2 67106 200078
+slim standoffs_on_holes 2 63278 224668
+slim ALL 10 73650 427962 tools 8.6

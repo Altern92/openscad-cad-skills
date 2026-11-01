@@ -177,6 +177,22 @@ else if (MODE == "part") { at(PART) part_by_name(PART); }
 End assembly mode with a BOM `echo()`. NopSCADlib projects can use its BOM tooling
 instead (details §6).
 
+Anything that moves (hinge, gear, slider) is declared in `joints.json`; the validator
+sweeps it (`mechanics`). Every motion entry needs a `drivers` list:
+
+```json
+{"contacts": [{"pair": ["box", "lid"], "joint_type": "hinge", "expected_interference_mm": [0, 0.05]}],
+ "motion": [{"id": "lid_open", "range_deg": [0, 110], "step_deg": 2.0,
+   "drivers": [{"part": "lid", "type": "revolute", "axis": [-1, 0, 0], "origin": [0, 60, 20], "ratio": 1.0}]}]}
+```
+
+`axis`/`origin` are assembly coordinates and +angle turns right-handed about `axis`: a lid
+hinged on its back edge (y = 60) opens upward with axis −X; +X swings it into the box.
+Meshing external gears need opposite-sign `ratio` (1.0 and −0.5); `prismatic` takes mm per
+degree. Undriven parts are static; contact pairs may overlap only within their range.
+`min_clearance_mm` (default 0) applies to every pair, the hinge contact too — set it only
+when no driven part may ever touch anything.
+
 ## 7. Validation cycle (every part and the assembly)
 
 `bash scripts/validate_scad.sh --all` renders every `parts/*.scad` and the assembly

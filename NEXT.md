@@ -39,6 +39,7 @@ Baigus punktą: pažymėti `[x]` su commit'u, ne trinti (ši eilė istorijai).
 - [x] **P11 Dokumentacija = kodas.** ✅ 2026-11-01 (431d749 + pataisa po incidento): `skill_docs_match_code` fixture – SKILL.md/references minimi skriptai ir flag'ai egzistuoja kode.
 
 - [x] **P18 scad-modeler SKILL.md 56,7 KB (~14k tokenų) sumažinti** — ATLIKTA 2026-11-01: SKILL.md 12,8 KB, pilnas tekstas references/workflow_details.md; slim n=2×5: 10/10 PASS, vid. 73 712 tok. (−6,8 % vs full, triukšmo ribose). Buvęs aprašas: — 2026-11-01 abliacija (bench/AGENT_EVAL_2026-11-01.md): agentai skaito tik SKILL.md failus, validation.md/INCIDENTS/NEXT neatidaromi; be scad-modeler SKILL.md −12,8 % tokenų, bet viena užduotis (vyrio ašis) blogesnė. Kelias: perkelti retai reikalingus skyrius į references/, palikti vartus ir komandas; matuoti tuo pačiu agent_eval (n ≥ 3).
+- [x] **P19 openscad-cad SKILL.md 25 KB → 8,4 KB + tylus validatoriaus log'as + motion formatas** — 2026-11-01 (agent-reach tyrimas: SkillsBench, SkillReducer, Anthropic best practices). Agent_eval n=3×5: 15/15 PASS, vid. galutinis kontekstas 69 050 (−6,2 % vs slim, −12,7 % vs full), suma per ėjimus −4,1 %. Rasti ir pataisyti 2 validatoriaus defektai (motion be drivers → traceback; dviejų plokštumų kontaktas → 10 mm netikras gylis).
 
 ## 1. Golden set'as nematuoja — perrašyti (prioritetas: aukštas)
 

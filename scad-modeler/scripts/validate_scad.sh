@@ -77,6 +77,13 @@ log_check() {
         --command "$3" --summary "$4" --project "$PWD" >/dev/null 2>&1 || true
 }
 
+# OpenSCAD's cache and mesh statistics: ~10 lines per render that no check reads, but an
+# agent reading this log pays for every one. SCAD_VERBOSE=1 keeps the full log.
+render_log() {
+    if [ "${SCAD_VERBOSE:-0}" = 1 ]; then cat; return; fi
+    grep -vE '^(Geometries in cache|Geometry cache size|CGAL Polyhedrons in cache|CGAL cache size|Total rendering time|Rendering Polygon Mesh|Compiling design|Parsing design|Done\.$|[[:space:]]+(Top level object is a|Status:|Genus:|Vertices:|Facets:))' || true
+}
+
 check_openscad() {
     # Fatal, unlike everything below: no check in this script can produce a
     # meaningful result without OpenSCAD, so there is nothing to gain by
@@ -166,7 +173,7 @@ validate_file() {
         --check-parameter-ranges=true \
         -o "$stl" "$scad" >"$render_out" 2>&1
     render_rc=$?
-    cat "$render_out"
+    render_log < "$render_out"
 
     # A shared module library renders nothing by construction -- see the long
     # note on the empty-STL branch below. openscad reports it as "Current top
@@ -752,9 +759,10 @@ sys.exit(0 if motion else 1)
             for scad in ${parts[@]+"${parts[@]}"}; do
                 base="$(basename "$scad" .scad)"
                 pstl="$BUILD_DIR/positioned/$base.stl"
-                if "$OPENSCAD" --backend="$BACKEND" --hardwarnings \
+                "$OPENSCAD" --backend="$BACKEND" --hardwarnings \
                     -D 'MODE="part"' -D "PART=\"$base\"" \
-                    -o "$pstl" assembly.scad && [ -s "$pstl" ]; then
+                    -o "$pstl" assembly.scad 2>&1 | render_log
+                if [ "${PIPESTATUS[0]}" -eq 0 ] && [ -s "$pstl" ]; then
                     positioned_stls+=("$pstl")
                 fi
             done

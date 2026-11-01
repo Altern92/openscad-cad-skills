@@ -409,6 +409,15 @@ def main():
               f"(check_collisions.py covers the static pose.)")
         return EXIT_OK
 
+    bad = [m.get("id", f"#{i}") for i, m in enumerate(motions)
+           if not isinstance(m.get("drivers"), list) or not m["drivers"]]
+    if bad:
+        print(f"FAIL: motion entry {', '.join(map(str, bad))} has no \"drivers\" list, so nothing "
+              f"can be swept. Expected shape (see DECLARING MOTION in this script's --help):")
+        print('  {"id": "lid_open", "range_deg": [0, 110], "step_deg": 2.0, "drivers": '
+              '[{"part": "lid", "type": "revolute", "axis": [1, 0, 0], "origin": [0, 60, 20], "ratio": 1.0}]}')
+        return EXIT_FAIL
+
     sign_failures = check_gear_mesh_signs(contacts, motions)
     if sign_failures:
         print("FAIL: gear-ratio sign check (before any sweep runs):")

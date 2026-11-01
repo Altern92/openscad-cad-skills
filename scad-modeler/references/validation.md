@@ -514,3 +514,7 @@ Requires `trimesh`, `numpy`, `rtree` (`pip install trimesh numpy rtree`).
 Regression fixtures: `tests/fixtures/attachment_missing_fail` (real incident
 shape) and `attachment_present_pass` — a true A/B pair on the same declared
 point.
+
+## Log verbosity
+
+`validate_scad.sh` drops OpenSCAD's cache and mesh statistics (`Geometries in cache`, `Genus:`, ...) from its log; no check reads them. `SCAD_VERBOSE=1 bash scripts/validate_scad.sh ...` prints the full OpenSCAD output.

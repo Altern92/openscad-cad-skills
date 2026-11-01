@@ -74,3 +74,35 @@ for two identical runs). Quality held: 10/10, including honest_report, the
 task lean failed. The runs also differ from the full arm in the validator
 version (full ran before the two fixes), so the comparison is indicative,
 not a controlled A/B. No agent opened `workflow_details.md`.
+
+## P19: compact openscad-cad SKILL.md, quiet validator log, motion format (n = 3)
+
+Changes against the slim arm: `openscad-cad/SKILL.md` 25 437 B → 8 420 B (full text in
+`openscad-cad/references/workflow_details.md`); OpenSCAD cache/mesh statistics dropped
+from the validator log (`SCAD_VERBOSE=1` restores); scad-modeler SKILL.md §6 shows the
+motion format with a verified hinge example (13 804 B); a motion entry without `drivers`
+fails with the expected shape instead of a traceback; tables of contents in both
+`workflow_details.md`.
+
+Token figures below come from the transcripts (`bench/eval_tx.py`, raw rows in
+`bench/agent_eval_tx_p19_2026-11-01.txt`): **final** = context at the last turn (what
+the usage report calls subagent tokens), **sum** = context summed over turns (what is
+actually re-sent, the cost driver).
+
+| Task | slim final (n=2) | P19 final (n=3) | slim sum | P19 sum | P19 grade |
+|---|---|---|---|---|---|
+| clear_span_tenons | 85 001 | 83 742 | 698 095 | 900 041 | PASS ×3 |
+| standoffs_on_holes | 63 278 | 61 695 | 224 668 | 203 503 | PASS ×3 |
+| flip_keeps_hole | 72 152 | 66 163 | 388 146 | 311 464 | PASS ×3 |
+| lightening_cutout | 67 106 | 63 425 | 200 078 | 225 054 | PASS ×3 |
+| honest_report | 80 715 | 70 224 | 628 825 | 411 358 | PASS ×3 |
+| **mean** | **73 650** | **69 050 (−6.2 %)** | **427 962** | **410 284 (−4.1 %)** | **15/15** |
+
+- Full arm (old 56.7 KB scad-modeler SKILL.md, n=1) was 79 091 final: P19 is −12.7 %.
+- No P19 agent read a script's source; both slim honest_report runs had read
+  `motion_sweep.py`. honest_report sum −35 %, the largest per-task drop.
+- clear_span_tenons sum rose, driven by run 1 (1.25 M, 21 tool calls): the agent hit a
+  false collision FAIL (two zero-volume contact sheets read as 10 mm depth) and worked
+  around it. Fixed (`collisions_two_face_tenon`); runs 2–3 were 0.84 M and 0.61 M.
+- Harness base before any skill read is ~42.5 k of the final context, so the skill
+  text now is ~22 KB of input against that floor.
