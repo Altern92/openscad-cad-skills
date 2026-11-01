@@ -25,4 +25,17 @@ if [ -d "$FORK" ]; then
 fi
 cp "$SRC/INCIDENTS.md" "$DST/INCIDENTS.md"
 mkdir -p "$DST/references" && cp "$SRC/references/retrieval.md" "$DST/references/retrieval.md"   # skills read ../references/retrieval.md
+# OpenSCAD_GenKit (SSD) builds on validate_scad.sh's CHECK_RESULT/COVERAGE lines; its
+# handoff (docs/12 §7) asks that a gate change never silently break it.
+GENKIT="${GENKIT_DIR:-/Volumes/SSD_1TB/Docs/03_Asmeniniai_projektai/OpenSCAD_GenKit}"
+if [ -f "$GENKIT/tests/run_all.sh" ]; then
+    if (cd "$GENKIT" && SCAD_GATE="$DST/scad-modeler/scripts/validate_scad.sh" bash tests/run_all.sh 2>&1 | tail -1 | grep -q ' 0 failed'); then
+        echo "GenKit contract: green"
+    else
+        echo "ERROR: GenKit tests fail against the deployed validator -- run: (cd $GENKIT && bash tests/run_all.sh)" >&2
+        exit 1
+    fi
+else
+    echo "GenKit contract: SKIP ($GENKIT not mounted)"
+fi
 echo "deployed to $DST -- now: (cd ~/.claude/skills/scad-modeler && bash tests/run_all.sh)"

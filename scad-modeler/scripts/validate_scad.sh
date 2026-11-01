@@ -1000,14 +1000,23 @@ sys.exit(0 if motion else 1)
     echo "CHECK_RESULT printability=ADVISORY"
     log_check "printability" 0 "ADVISORY" "ADVISORY: runs and reports, does not gate -- measured 4/4 real parts flagged (~100% FP), past the >50% 'not worth integrating' line. Run scripts/check_printability.py --stl <stl> directly and judge each finding."
 
-    echo "CHECK_RESULT intake=SKIP"
-    # The reason must be true. It said "no design_manifest.json" unconditionally,
-    # including in a project that HAD one -- a SKIP whose stated cause is false
-    # is worse than a bare SKIP, because it sends the reader to fix something
-    # that is not broken (adversarial review, INCIDENTS.md 2026-09-12).
-    if [ -f design_manifest.json ] || [ -f requirements.json ]; then
-        log_check "intake" 0 "n/a" "SKIP: a manifest exists but validate_scad.sh does not run check_intake.py -- run it directly, or 'bash {skill_dir}/scripts/check_rules.py --project-dir .' for rule R-01"
+    # S-4 (GenKit handoff, 2026-11-01): with a design_manifest.json the verdict is
+    # check_intake.py's; it used to be SKIP unconditionally. requirements.json alone
+    # stays SKIP: GenKit uses that name for its generator input (another schema).
+    if [ -f design_manifest.json ]; then
+        if python3 "$SCRIPT_DIR/check_intake.py" --manifest design_manifest.json; then
+            echo "CHECK_RESULT intake=PASS"
+            log_check "intake" 0 "check_intake.py --manifest design_manifest.json" "PASS"
+        else
+            echo "CHECK_RESULT intake=FAIL"
+            OVERALL_FAIL=1
+            log_check "intake" 1 "check_intake.py --manifest design_manifest.json" "FAIL"
+        fi
+    elif [ -f requirements.json ]; then
+        echo "CHECK_RESULT intake=SKIP"
+        log_check "intake" 0 "n/a" "SKIP: only requirements.json (may be a GenKit generator input, another schema) -- run check_intake.py --manifest requirements.json directly if it is a design spec"
     else
+        echo "CHECK_RESULT intake=SKIP"
         log_check "intake" 0 "n/a" "SKIP: no design_manifest.json -- the Stage-0 requirement spec was never produced; see references/intake_and_analysis.md"
     fi
     echo "CHECK_RESULT dependencies=SKIP"

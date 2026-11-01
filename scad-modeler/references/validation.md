@@ -39,7 +39,7 @@ manual.
 | `check_attachment.py` | yes, opt-in by attachments.json |
 | `check_subfeature_overlap.py` | yes, opt-in via `// SUBFEATURES: a, b, c` (2+ names) — renders each solo through the part file's guarded `SUBFEATURE` switch, per part |
 | `check_printability.py` | **no** — manual, standalone |
-| `check_intake.py` | **no** — Stage-0 manifest only |
+| `check_intake.py` (`intake`) | yes, when `design_manifest.json` exists (S-4, 2026-11-01); `requirements.json` alone stays SKIP (GenKit generator input, another schema) |
 
 **`check_subfeature_overlap.py` was written and tested but never fed.** It needs the
 sub-features exported SOLO, before `union()`, and nothing in the workflow produced such
