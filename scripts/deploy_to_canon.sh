@@ -15,6 +15,14 @@ for s in openscad-cad scad-modeler; do
     awk 'NR==1{print; print "disable-model-invocation: true"; next} /^disable-model-invocation:/{next} 1' \
         "$SRC/$s/SKILL.md" > "$DST/$s/SKILL.md"
 done
+# DSH keeps its own manual-only copy of openscad-organic; it went stale (no P6) when
+# only skills/ was deployed.
+FORK="$DST/../skills-forks/dsh/openscad-organic"
+if [ -d "$FORK" ]; then
+    rsync -a --delete --exclude __pycache__ --exclude SKILL.md "$SRC/openscad-organic/" "$FORK/"
+    awk 'NR==1{print; print "disable-model-invocation: true"; next} /^disable-model-invocation:/{next} 1' \
+        "$SRC/openscad-organic/SKILL.md" > "$FORK/SKILL.md"
+fi
 cp "$SRC/INCIDENTS.md" "$DST/INCIDENTS.md"
 mkdir -p "$DST/references" && cp "$SRC/references/retrieval.md" "$DST/references/retrieval.md"   # skills read ../references/retrieval.md
 echo "deployed to $DST -- now: (cd ~/.claude/skills/scad-modeler && bash tests/run_all.sh)"
