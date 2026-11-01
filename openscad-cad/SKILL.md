@@ -327,7 +327,9 @@ Advisory only, not a gate (judge each finding yourself):
 $(bash .../scripts/resolve_python.sh --print) .../scripts/check_printability.py --stl build/part.stl
 ```
 
-Declare what they should verify, in the `.scad` file itself:
+Declare what they should verify, in the `.scad` file itself. `EXPECTED_BBOX` and
+`EXPECTED_THROUGH_HOLES` are required (`declarations=FAIL` without them, or write
+`// NO_BBOX: <why>` / `// NO_THROUGH_HOLES_CHECK: <why>`):
 
 ```openscad
 // EXPECTED_BBOX: [40, 20, 15]
@@ -339,8 +341,8 @@ The `dimensions` check compares the exported STL's bounding box, with the
 tolerance derived from `$fa`/`$fs` rather than a flat guess. The `features` check
 slices the mesh and measures a bore flat-to-flat — the dimension a shaft actually
 binds on, which a bounding box cannot see. The `topology` check counts holes that go
-all the way through (mesh genus), so a bore sealed by a thin skin fails. All three
-report `SKIP` when nothing is declared, so adding a declaration is the whole cost.
+all the way through (mesh genus), so a bore sealed by a thin skin fails. Each runs
+only on its declaration; `EXPECTED_HOLE` is optional, the other two are required. Exit 2 (`NOT VERIFIED`) is not a pass.
 The same run lints the source: a rounded standard (`44.5` for 1U's 44.45) or a numeric
 default that another call computes fails `scad_lint`.
 

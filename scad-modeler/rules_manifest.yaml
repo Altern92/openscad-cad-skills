@@ -161,6 +161,13 @@ rules:
     # points were actually examined.
     success_pattern: "CHECK_RESULT attachment=PASS"
 
+  - id: R-19
+    rule: "Declarations (§7, P15 2026-11-01): every printable part declares // EXPECTED_BBOX and // EXPECTED_THROUGH_HOLES, or the NO_ form with a written reason -- the size and hole checks are opt-in per comment, so an undeclared part passed them all (audit: a 62 % thinner gear went green)"
+    applies: "glob_exists:parts/*.scad"
+    kind: auto
+    gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
+    success_pattern: "CHECK_RESULT declarations=PASS"
+
   - id: R-17
     rule: "FDM printability (§7): each printed part was checked with check_printability.py for unsupported overhang and thin walls -- manual because it is new, not yet wired into validate_scad.sh --all, and its wall-thickness reading has a confirmed edge-case limitation (a solid, sharply-tapered feature's edge can produce a spuriously short reading) that needs a human/agent read of the result, not a bare pass/fail"
     applies: "always"

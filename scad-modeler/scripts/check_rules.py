@@ -150,8 +150,11 @@ def run_gate(cmd_template, project_dir, skill_dir):
         # (a first version of this function ran gates from wherever
         # check_rules.py itself was invoked, silently checking the wrong
         # directory's parts/*.scad).
-        proc = subprocess.run(cmd, shell=True, capture_output=True, text=True,
-                               timeout=600, cwd=project_dir)
+        # P15: source resolve_python.sh so a `python3` gate gets the mesh interpreter even
+        # when this script was started by the system python3 (audit: false FAIL R-06).
+        resolver = os.path.join(skill_dir, "scripts", "resolve_python.sh")
+        proc = subprocess.run(f'. "{resolver}"; {cmd}', shell=True, executable="/bin/bash",
+                               capture_output=True, text=True, timeout=600, cwd=project_dir)
         code, output = proc.returncode, proc.stdout + proc.stderr
     except subprocess.TimeoutExpired:
         code, output = 124, "(gate timed out after 600s)"

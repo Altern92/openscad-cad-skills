@@ -20,11 +20,12 @@ manual.
 | `hooks/scad_stop_gate.py` (Claude Code Stop hook: a session that edited a `.scad` cannot end until `build/.validation_state.json` holds that file's current sha256; README → Stop gate) | no, runs when the session ends |
 | Analytic pre-flight (`assert()` in params.scad) | yes |
 | `check_assumptions.py` (calculations.md Criticality) | yes, opt-in by file |
-| `check_service_envelope.py` | yes, opt-in by file |
+| `check_service_envelope.py` | yes, opt-in by file (no file = SKIP, not PASS) |
 | `check_connectivity.py` | yes, always |
-| `check_dimensions.py` (EXPECTED_BBOX) | yes, opt-in by declaration |
+| `check_dimensions.py` (EXPECTED_BBOX) | yes; the declaration is required (`declarations`, P15), or `// NO_BBOX: <why>` |
 | `check_features.py` (EXPECTED_HOLE) | yes, opt-in by declaration |
-| `check_topology.py` (EXPECTED_THROUGH_HOLES) | yes, opt-in by declaration |
+| `check_topology.py` (EXPECTED_THROUGH_HOLES) | yes; the declaration is required (`declarations`, P15), or `// NO_THROUGH_HOLES_CHECK: <why>` |
+| `declarations` (in validate_scad.sh) | yes, every printable part: FAIL when it declares neither the size nor the through-holes (or their NO_ form with a reason) |
 | `check_scad_lint.py` (computed defaults, rounded standards) | yes, always |
 | `check_collisions.py` | yes, whenever `assembly.scad` exists (declaration optional — was gated on `joints.json`, a chicken-and-egg) |
 | `motion_sweep.py` | yes, when motion declared |

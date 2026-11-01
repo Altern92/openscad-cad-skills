@@ -20,8 +20,9 @@ Expected: every part renders as one connected body, both declared 5mm bores
 measure correctly, the declared gear-mesh contact is checked against a real
 measured penetration depth (not a guess — see the comment in `joints.json`),
 and `motion_sweep.py` sweeps the full 360° rotation and confirms no
-unexpected interference anywhere in the cycle. Exit code 0, ending in
-`All validations passed.`
+unexpected interference anywhere in the cycle. Both parts declare their size and
+through-holes, so `dimensions`, `topology` and `declarations` PASS. Exit code 0, ending in
+`All executed checks passed (...)`.
 
 Then, before treating it as done:
 

@@ -1,4 +1,4 @@
-// RAG-passport: file=templates/part_template.scad | skill=scad-modeler | applies_to=[part-file, local-coordinates, EXPECTED_BBOX, EXPECTED_HOLE, trailing-call] | units=mm | version=2026-09-11 | source=06_RAG_taisykles (T2) | kind=TEMPLATE (copy into project, do not edit here)
+// RAG-passport: file=templates/part_template.scad | skill=scad-modeler | applies_to=[part-file, local-coordinates, EXPECTED_BBOX, EXPECTED_THROUGH_HOLES, EXPECTED_HOLE, trailing-call] | units=mm | version=2026-09-11 | source=06_RAG_taisykles (T2) | kind=TEMPLATE (copy into project, do not edit here)
 // ============================================================
 // <part_name>.scad
 // Local origin: <state the exact datum, e.g. "center of the bearing bore,
@@ -7,8 +7,11 @@
 // Print orientation: <e.g. flat face down, no supports needed>
 // EXPECTED_BBOX: [40, 20, 15]   // update to match part_length/width/height below --
 //                                 validate_scad.sh checks the rendered STL against
-//                                 this automatically; delete the line to skip
-//                                 (e.g. for an odd shape where a bbox isn't meaningful)
+//                                 this automatically. REQUIRED (P15): for an odd shape
+//                                 replace it with `// NO_BBOX: <why>`, never delete it
+// EXPECTED_THROUGH_HOLES: 0     // REQUIRED (P15): holes that go all the way through
+//                                 (topological count; a ring or slot counts 1). A blind
+//                                 bore lowers it. Or `// NO_THROUGH_HOLES_CHECK: <why>`
 // EXPECTED_HOLE: [0, 0, 0, "Z", 8.0]  // one line per fit-critical bore: a point on
 //                                 its axis, the axis, and the target across-flats
 //                                 diameter. A bbox cannot see a bore that's too
@@ -51,6 +54,9 @@ module motor_cradle() {
     translate([0, 0, part_height / 2]) cuboid([14, 6, 6]);
 }
 
+// RENAME part_geometry (here and in the last line) to the part name (basename, e.g. motor_mount):
+// assembly.scad's part_by_name() calls <part name>(), so an unrenamed template fails
+// the first assembly render with an unknown module.
 module part_geometry() {
     difference() {
         cuboid([part_length, part_width, part_height]) {

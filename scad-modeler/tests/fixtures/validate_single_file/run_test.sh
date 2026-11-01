@@ -6,7 +6,7 @@ set -uo pipefail
 V="$SCAD_MODELER_SCRIPTS/validate_scad.sh"
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$tmp/ok" "$tmp/bad"
-printf '// EXPECTED_BBOX: [20, 10, 5]\ncube([20,10,5]);\n' > "$tmp/ok/bracket.scad"
+printf '// EXPECTED_BBOX: [20, 10, 5]\n// EXPECTED_THROUGH_HOLES: 0\ncube([20,10,5]);\n' > "$tmp/ok/bracket.scad"
 printf '// EXPECTED_BBOX: [30, 10, 5]\ncube([20,10,5]);\n' > "$tmp/bad/bracket.scad"
 die() { echo "$1" >&2; echo "$out" >&2; exit 1; }
 

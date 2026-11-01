@@ -11,7 +11,7 @@ mkdir -p "$tmp/lib/BOSL2" "$tmp/ok" "$tmp/warn"
 echo '' > "$tmp/lib/BOSL2/std.scad"
 echo 'BOSL_VERSION = [2,0,750];' > "$tmp/lib/BOSL2/version.scad"
 export OPENSCADPATH="$tmp/lib"
-printf 'include <BOSL2/std.scad>\ncube([10,10,10]);\n' > "$tmp/ok/block.scad"
+printf '// EXPECTED_BBOX: [10, 10, 10]\n// EXPECTED_THROUGH_HOLES: 0\ninclude <BOSL2/std.scad>\ncube([10,10,10]);\n' > "$tmp/ok/block.scad"
 out=$(cd "$tmp/ok" && bash "$V" block.scad 2>&1); rc=$?
 [ "$rc" -eq 0 ] || die "AC-6: exit $rc"
 grep -q '"libs":{"BOSL2":"2.0.750"}' "$tmp/ok/build/.validation_state.json" || { out=$(cat "$tmp/ok/build/.validation_state.json"); die "AC-6: state lacks libs"; }

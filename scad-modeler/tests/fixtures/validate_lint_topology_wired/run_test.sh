@@ -7,11 +7,11 @@ tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 die() { echo "$1" >&2; echo "$out" >&2; exit 1; }
 plate='$fn=48; difference(){ cube([40,20,5]); for (x=[10,30]) translate([x,10,-1]) cylinder(d=5,h=7); }'
 mkdir -p "$tmp/ok" "$tmp/std" "$tmp/holes" "$tmp/proj/parts"
-printf '// EXPECTED_THROUGH_HOLES: 2\npitch_1u = 44.45;\n%s\n' "$plate" > "$tmp/ok/plate.scad"
+printf '// EXPECTED_BBOX: [40, 20, 5]\n// EXPECTED_THROUGH_HOLES: 2\npitch_1u = 44.45;\n%s\n' "$plate" > "$tmp/ok/plate.scad"
 printf 'unit_1U = 44.5;\n%s\n' "$plate" > "$tmp/std/plate.scad"
 printf '// EXPECTED_THROUGH_HOLES: 3\n%s\n' "$plate" > "$tmp/holes/plate.scad"
 printf 'unit_1U = 44.5;\n' > "$tmp/proj/params.scad"
-printf '// EXPECTED_THROUGH_HOLES: 2\n%s\n' "$plate" > "$tmp/proj/parts/plate.scad"
+printf '// EXPECTED_BBOX: [40, 20, 5]\n// EXPECTED_THROUGH_HOLES: 2\n%s\n' "$plate" > "$tmp/proj/parts/plate.scad"
 
 out=$(cd "$tmp/ok" && bash "$V" plate.scad 2>&1); rc=$?
 [ "$rc" -eq 0 ] || die "single ok: exit $rc"

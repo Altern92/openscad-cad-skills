@@ -15,9 +15,14 @@ gear pair doesn't mesh, not just "the pocket is 2mm too small."
 ## You are not done until these two commands have run
 
 ```
-bash scripts/validate_scad.sh --all          # from the project root
-python3 scripts/check_rules.py --project-dir .
+S=~/.claude/skills/scad-modeler/scripts       # the skill's scripts, not the project's
+bash $S/validate_scad.sh --all                # from the project root
+$(bash $S/resolve_python.sh --print) $S/check_rules.py --project-dir .
 ```
+
+Exit 0 = every executed check passed (the last line counts the not-applicable ones);
+1 = a check failed; 2 = `NOT VERIFIED`, a check could not determine its answer, which
+is never a pass; 5 = environment.
 
 If `validate_scad.sh` prints `CHECK_RESULT env=FAIL` (exit 5), the machine is missing
 a Python module, OpenSCAD, or a library the project includes -- or the installed
@@ -173,9 +178,11 @@ Copy the templates from `templates/` into the project root and fill them in;
 candidate intentional touch, and it now runs even without a declaration, so the first
 one is cheap to produce.
 
-**A project with parts but no declarations runs 8-10 of its 18 checks as SKIP** and
-still ends with `"All validations passed."` — which is why every run also prints the
-`COVERAGE:` line. Measured 2026-09-12 across 11 real projects: **0 had** `bores.json` or
+**A project with parts but no declarations ran 8-10 of its 18 checks as SKIP** and
+still ended with `"All validations passed."`. Since P15 (2026-11-01) every part must
+declare its size and through-holes (`declarations=FAIL` otherwise), a 3+-part project
+without plan.md fails `plan`, and the last line only says "All executed checks passed"
+with the not-applicable count next to it. Measured 2026-09-12 across 11 real projects: **0 had** `bores.json` or
 `attachments.json`, so the two checks this section credits with closing the gap had
 never once run on real work. The gap was not in the checkers — it was that nothing
 in this workflow ever asked for their input.
@@ -549,9 +556,9 @@ In execution order, with the failure each one exists to catch:
 | `check_assumptions.py` | An unresolved `Criticality: Critical` row in `calculations.md`. |
 | `check_service_envelope.py` | A `service_envelope.md` with a blank field. |
 | `check_connectivity.py` | A printed part that renders as more than one disconnected solid — a fix to one collision silently breaking contact elsewhere. Default on, no declaration needed; `// EXPECTED_BODIES: N` only for a part genuinely meant to be N shells. |
-| `check_dimensions.py` | A part that renders and *looks* right but is the wrong size. Opt-in via `// EXPECTED_BBOX: [40, 20, 15]`. Tolerance is derived from the part's own facet resolution, not fixed. |
+| `check_dimensions.py` | A part that renders and *looks* right but is the wrong size. Required: `// EXPECTED_BBOX: [40, 20, 15]` (or `// NO_BBOX: <why>`). Tolerance is derived from the part's own facet resolution, not fixed. |
 | `check_features.py` | A round fit-critical feature being undersized **across flats** (the dimension a shaft binds on) — invisible to the bbox. Opt-in via `// EXPECTED_HOLE: [0, 0, 5, "Z", 8.0]`. |
-| `check_topology.py` | A bore that is blind or sealed by a thin skin (B class, 16/95 incidents) — bbox, connectivity and `EXPECTED_HOLE` slices all miss it. Counts through-holes as mesh genus = (2·components − χ)/2. Opt-in via `// EXPECTED_THROUGH_HOLES: N`. Genus counts *handles*: a through-slot or ring counts 1, two crossing bores can count more — declare the topological number. |
+| `check_topology.py` | A bore that is blind or sealed by a thin skin (B class, 16/95 incidents) — bbox, connectivity and `EXPECTED_HOLE` slices all miss it. Counts through-holes as mesh genus = (2·components − χ)/2. Required: `// EXPECTED_THROUGH_HOLES: N` (or `// NO_THROUGH_HOLES_CHECK: <why>`). Genus counts *handles*: a through-slot or ring counts 1, two crossing bores can count more — declare the topological number. |
 | `check_scad_lint.py` | Static, always on. (1) A module argument with a numeric default that one call computes while another call omits it (beam `len = 211` vs computed 216.5) — make it `undef` + `assert`. (2) A rounded standard in a variable named for it: 1U 44.45, inch 25.4, 19" panel 482.6, EIA hole pitch 15.875. |
 | `check_collisions.py` | Unintended interference / insufficient clearance between separately-exported parts. Reports three verdicts: unintended interference (fail), candidate intentional touch (fail + paste-ready `joints.json` stub), near miss (non-fatal note), declared contact (range-checked). |
 | `motion_sweep.py` | A static pose that is clear at 0° and clashes at 37°. Needs a `motion` block in `joints.json` — axis, origin, `ratio` per driver. **Meshing external gears need opposite, nonzero ratio signs.** Sampling, not proof. |
@@ -581,7 +588,11 @@ does not produce:
 
 ### Declarations
 
-Declare expectations in the `.scad` file next to the part's own dimension variables:
+Declare expectations in the `.scad` file next to the part's own dimension variables.
+`EXPECTED_BBOX` and `EXPECTED_THROUGH_HOLES` are **required** on every printable part
+(`CHECK_RESULT declarations`): without them a 62 % thinner gear passed every check
+(audit, 2026-11-01). Where one truly cannot apply, write the reason instead:
+`// NO_BBOX: <why>` / `// NO_THROUGH_HOLES_CHECK: <why>` (an empty reason counts as missing).
 
 ```openscad
 // EXPECTED_BBOX: [40, 20, 15]

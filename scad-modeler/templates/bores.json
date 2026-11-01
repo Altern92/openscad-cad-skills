@@ -8,7 +8,7 @@
     "step_mm": 0.5
   },
   {
-    "_comment": "Fields: name (label used in the failure message), part (matched case-insensitively as a substring of the STL basename, so 'gearbox_frame' matches build/gearbox_frame.stl), start and end (the bore's axis segment IN ASSEMBLY COORDINATES, both ends where the bore is supposed to open), step_mm (sampling pitch along that segment; smaller catches a thinner obstruction, costs more time). Delete these _comment entries and replace the examples.",
+    "_comment": "Fields: name (label used in the failure message), part (matched case-insensitively as a substring of the STL basename, so 'gearbox_frame' matches build/gearbox_frame.stl), start and end (the bore's axis segment in the PART'S OWN LOCAL COORDINATES -- validate_scad.sh passes build/<part>.stl, the unpositioned part render -- both ends where the bore is supposed to open), step_mm (sampling pitch along that segment; smaller catches a thinner obstruction, costs more time). Delete these _comment entries and replace the examples.",
     "name": "output_shaft_bore",
     "part": "gearbox_frame",
     "start": [0, 0, 0],

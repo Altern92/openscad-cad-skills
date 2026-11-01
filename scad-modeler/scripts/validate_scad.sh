@@ -108,6 +108,7 @@ FEAT_FAIL=0
 TOPO_DECLARED=0
 TOPO_FAIL=0
 PREVIEW_COUNT=0
+DECL_MISSING=""   # P15: parts with no size / through-hole declaration
 RENDER_FAIL=0
 RENDER_FAILED_FILES=""
 LIB_COUNT=0
@@ -220,6 +221,16 @@ validate_file() {
             PART_CONNECTIVITY_FAIL=1
             this_failed=1
         fi
+    fi
+
+    # P15: the size and hole checks below are opt-in per comment, so a part that
+    # declares nothing passed them all -- a 62 % thinner gear went green (audit M4,
+    # 2026-11-01). Every printable part must declare, or say in writing why not.
+    if [ "$is_preview" -eq 0 ] && [ "$(basename "$scad")" != "assembly.scad" ]; then
+        grep -Eq '^[[:space:]]*//[[:space:]]*(EXPECTED_BBOX[[:space:]]*:|NO_BBOX[[:space:]]*:[[:space:]]*[^[:space:]])' "$scad" \
+            || DECL_MISSING="$DECL_MISSING  $scad: no // EXPECTED_BBOX: [x, y, z] (or // NO_BBOX: <reason>)\n"
+        grep -Eq '^[[:space:]]*//[[:space:]]*(EXPECTED_THROUGH_HOLES[[:space:]]*:|NO_THROUGH_HOLES_CHECK[[:space:]]*:[[:space:]]*[^[:space:]])' "$scad" \
+            || DECL_MISSING="$DECL_MISSING  $scad: no // EXPECTED_THROUGH_HOLES: N (or // NO_THROUGH_HOLES_CHECK: <reason>)\n"
     fi
 
     # Bounding-box check: only runs if the part declares an expected size via
@@ -390,7 +401,11 @@ else
     log_check "assumptions" 0 "n/a" "SKIP: no calculations.md"
 fi
 
-if python3 "$SCRIPT_DIR/check_service_envelope.py" --envelope service_envelope.md; then
+if [ ! -f service_envelope.md ]; then
+    # P15: the checker returns 0 on a missing file; that is "not declared", not PASS.
+    echo "CHECK_RESULT service_envelope=SKIP"
+    log_check "service_envelope" 0 "n/a" "SKIP: no service_envelope.md -- see templates/service_envelope.md"
+elif python3 "$SCRIPT_DIR/check_service_envelope.py" --envelope service_envelope.md; then
     echo "CHECK_RESULT service_envelope=PASS"
     log_check "service_envelope" 0 "check_service_envelope.py --envelope service_envelope.md" "PASS"
 else
@@ -404,7 +419,17 @@ fi
 # in the plan) rather than existing only as prose a model could skip under
 # pressure -- the same gap that let the rear_axle incident happen in the
 # first place (INCIDENTS.md, 2026-08-18). Opt-in by plan.md's existence.
-if python3 "$SCRIPT_DIR/check_plan.py" --plan plan.md \
+shopt -s nullglob; _plan_parts=(parts/*.scad); shopt -u nullglob
+if [ ! -f plan.md ] && [ ${#_plan_parts[@]} -ge 3 ]; then
+    # P15: §0.5 makes the plan mandatory for 3+ parts; check_plan.py returned 0 without one.
+    echo "CHECK_RESULT plan=FAIL"
+    echo "  -> ${#_plan_parts[@]} parts and no plan.md: §0.5 planning is required for 3+ parts (templates/plan.md)."
+    OVERALL_FAIL=1
+    log_check "plan" 1 "n/a" "FAIL: no plan.md for ${#_plan_parts[@]} parts"
+elif [ ! -f plan.md ]; then
+    echo "CHECK_RESULT plan=SKIP"
+    log_check "plan" 0 "n/a" "SKIP: no plan.md (fewer than 3 parts, not required)"
+elif python3 "$SCRIPT_DIR/check_plan.py" --plan plan.md \
     $([ -f layout.scad ] && echo --layout layout.scad); then
     echo "CHECK_RESULT plan=PASS"
     log_check "plan" 0 "check_plan.py --plan plan.md" "PASS"
@@ -950,6 +975,17 @@ else
   overlap are not evaluated -- run validate_scad.sh --all from the project root for those."
 fi
 
+if [ -z "$DECL_MISSING" ]; then
+    echo "CHECK_RESULT declarations=PASS"
+    log_check "declarations" 0 "validate_scad.sh $MODE" "PASS"
+else
+    echo "CHECK_RESULT declarations=FAIL"
+    printf '%b' "$DECL_MISSING"
+    echo "  -> without these the size and through-hole checks never run on that part. Add the line, or the NO_ form with a reason."
+    OVERALL_FAIL=1
+    log_check "declarations" 1 "validate_scad.sh $MODE" "FAIL: part(s) without EXPECTED_BBOX / EXPECTED_THROUGH_HOLES"
+fi
+
 if [[ "$MODE" == "--all" ]]; then
     # Report every outcome separately. "N skipped" used to fold together
     # "does not apply here", "ran but could not determine", and "ran but is not
@@ -981,13 +1017,17 @@ fi
 #    skipped it: it ran one checker by hand, declared success, and shipped a
 #    part that check_connectivity.py would have failed instantly. A reminder in
 #    the last line of output is read; a reminder in §8 is remembered, or not.
+# P15: INCONCLUSIVE is not success (audit M8: exit 0 and "All validations passed.").
+if [ "$OVERALL_FAIL" -ne 0 ]; then VERDICT=FAIL
+elif [ "$CHK_INC" -gt 0 ]; then VERDICT=INCONCLUSIVE
+else VERDICT=PASS; fi
 mkdir -p "$BUILD_DIR" 2>/dev/null || true
 if [ -d "$BUILD_DIR" ] && [ -w "$BUILD_DIR" ]; then
     state="$BUILD_DIR/.validation_state.json"
     {
         printf '{"when":"%s","mode":"%s","verdict":"%s",' \
             "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$MODE" \
-            "$([ "$OVERALL_FAIL" -eq 0 ] && echo PASS || echo FAIL)"
+            "$VERDICT"
         printf '"coverage":{"passed":%d,"failed":%d,"not_applicable":%d,"inconclusive":%d,"advisory":%d},' \
             "$CHK_PASS" "$CHK_FAIL" "$CHK_SKIP" "$CHK_INC" "$CHK_ADV"
         # P14: the library versions this verdict was made with.
@@ -1008,16 +1048,20 @@ if [ -d "$BUILD_DIR" ] && [ -w "$BUILD_DIR" ]; then
 fi
 
 echo
-echo "NEXT: python3 $SCRIPT_DIR/check_rules.py --project-dir ."
+echo "NEXT: ${SCAD_PY:-python3} $SCRIPT_DIR/check_rules.py --project-dir ."
 echo "      This re-runs the pipeline above and reports every rule's verdict (including"
 echo "      MANUAL ones you must self-assess). It is not optional: a result nobody"
 echo "      re-ran is a result nobody checked."
 
-if [ "$OVERALL_FAIL" -eq 0 ]; then
-    echo "All validations passed."
-    log_check "validate_scad_all" 0 "validate_scad.sh $MODE" "all checks passed"
-else
-    echo "FAIL: at least one check above failed -- see CHECK_RESULT lines for which." >&2
-    log_check "validate_scad_all" 1 "validate_scad.sh $MODE" "at least one CHECK_RESULT above is FAIL"
+if [ "$VERDICT" = PASS ]; then
+    echo "All executed checks passed ($CHK_PASS passed, $CHK_SKIP not-applicable, $CHK_ADV advisory)."
+    log_check "validate_scad_all" 0 "validate_scad.sh $MODE" "all executed checks passed"
+    exit 0
+elif [ "$VERDICT" = INCONCLUSIVE ]; then
+    echo "NOT VERIFIED: $CHK_INC check(s) could not determine an answer -- see the INCONCLUSIVE lines above."
+    log_check "validate_scad_all" 2 "validate_scad.sh $MODE" "inconclusive"
+    exit 2
 fi
-exit "$OVERALL_FAIL"
+echo "FAIL: at least one check above failed -- see CHECK_RESULT lines for which." >&2
+log_check "validate_scad_all" 1 "validate_scad.sh $MODE" "at least one CHECK_RESULT above is FAIL"
+exit 1
