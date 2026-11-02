@@ -22,10 +22,9 @@ fi
 if [ -z "${SCAD_GATE:-}" ] && [ -f "$ROOT/scripts/validate_scad.sh" ]; then
     SCAD_GATE="$ROOT/scripts/validate_scad.sh"
 fi
-TMP="/tmp/genkit_test"
+TMP="$(mktemp -d "${TMPDIR:-/tmp}/genkit_test.XXXXXX")"
 GATE="${SCAD_GATE:-$HOME/Skills-plugins-etc/skills/scad-modeler/scripts/validate_scad.sh}"
 
-rm -rf "$TMP"; mkdir -p "$TMP"
 trap 'rm -rf "$TMP"' EXIT
 
 pass=0; fail=0; failed_names=()

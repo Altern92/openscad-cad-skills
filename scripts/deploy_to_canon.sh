@@ -27,19 +27,35 @@ if [ -d "$FORK" ]; then
     awk 'NR==1{print; print "disable-model-invocation: true"; next} /^disable-model-invocation:/{next} 1' \
         "$SRC/openscad-organic/SKILL.md" > "$FORK/SKILL.md"
 fi
+# Verify INCIDENTS.md index is up-to-date before copying to canon.
+if [ -f "$SRC/scad-modeler/tests/tools/incidents_index.py" ]; then
+    python3 "$SRC/scad-modeler/tests/tools/incidents_index.py" check "$SRC/INCIDENTS.md" >/dev/null || {
+        echo "ERROR: INCIDENTS.md index out of sync -- run: python3 scad-modeler/tests/tools/incidents_index.py rebuild INCIDENTS.md" >&2
+        exit 1
+    }
+fi
 cp "$SRC/INCIDENTS.md" "$DST/INCIDENTS.md"
 mkdir -p "$DST/references" && cp "$SRC/references/retrieval.md" "$DST/references/retrieval.md"   # skills read ../references/retrieval.md
 # OpenSCAD_GenKit (SSD) builds on validate_scad.sh's CHECK_RESULT/COVERAGE lines; its
 # handoff (docs/12 §7) asks that a gate change never silently break it.
 GENKIT="${GENKIT_DIR:-/Volumes/SSD_1TB/Docs/03_Asmeniniai_projektai/OpenSCAD_GenKit}"
 if [ -f "$GENKIT/tests/run_all.sh" ]; then
-    if (cd "$GENKIT" && SCAD_GATE="$DST/scad-modeler/scripts/validate_scad.sh" bash tests/run_all.sh 2>&1 | tail -1 | grep -q ' 0 failed'); then
+    genkit_out="$(cd "$GENKIT" && SCAD_GATE="$DST/scad-modeler/scripts/validate_scad.sh" bash tests/run_all.sh 2>&1)" && genkit_rc=0 || genkit_rc=$?
+    if [ "$genkit_rc" -eq 0 ] && printf '%s\n' "$genkit_out" | grep -q ' 0 failed$'; then
         echo "GenKit contract: green"
     else
-        echo "ERROR: GenKit tests fail against the deployed validator -- run: (cd $GENKIT && bash tests/run_all.sh)" >&2
+        printf '%s\n' "$genkit_out" >&2
+        echo "ERROR: GenKit tests fail against the deployed validator (rc=$genkit_rc) -- run: (cd $GENKIT && bash tests/run_all.sh)" >&2
         exit 1
     fi
 else
     echo "GenKit contract: SKIP ($GENKIT not mounted)"
 fi
-echo "deployed to $DST -- now: (cd ~/.claude/skills/scad-modeler && bash tests/run_all.sh)"
+echo "Running full canonical regression suite ($DST/scad-modeler/tests/run_all.sh)..."
+if (cd "$DST/scad-modeler" && bash tests/run_all.sh >/dev/null); then
+    echo "Canonical regression suite: 85 passed, 0 failed"
+else
+    echo "ERROR: canonical regression suite failed -- run: (cd $DST/scad-modeler && bash tests/run_all.sh)" >&2
+    exit 1
+fi
+echo "deployed to $DST (all GenKit + scad-modeler regression suites passed)"
