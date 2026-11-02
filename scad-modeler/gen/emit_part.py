@@ -467,13 +467,14 @@ def main(argv):
     kind = doc.get("kind")
     if kind == "custom":
         print(
-            "unsupported_kind: custom — GenKit generuoja tik 8 parametrinius modulius\n"
+            "unsupported_kind: custom — GenKit generuoja 8 parametrinius modulius ir box_with_lid\n"
             f"  ({args.json})\n"
             "  Ką daryti:\n"
             "   1) krumpliaračiai / vyriai / laisvos formos → BOSL2 (gear, hinges) arba\n"
             "      rankinis .scad su // EXPECTED_* deklaracijomis (docs/03 §custom);\n"
-            "   2) sudėtinis prašymas (kelios dalys) → išskaidyk ir generuok po vieną:\n"
-            "      box, lid, plate_with_holes, bracket_l, boss, hole_pattern, snap_hook;\n"
+            "   2) dėžutė su dangčiu (ir varžtais) → naudok kind=\"box_with_lid\"; kitiems\n"
+            "      sudėtiniams prašymams išskaidyk po vieną (box, lid, plate_with_holes,\n"
+            "      bracket_l, boss, hole_pattern, snap_hook);\n"
             "   3) neužpildyti parametrai → įrašyk juos į params (mūsų spartusis kelias\n"
             "      yra sąžininga prielaida `assumptions`, o ne tylus spėjimas).",
             file=sys.stderr)

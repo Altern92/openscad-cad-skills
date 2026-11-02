@@ -61,13 +61,30 @@ def log_dir():
     return os.environ.get("SCAD_MODELER_LOG_DIR") or DEFAULT_LOG_DIR
 
 
+_EPHEMERAL_PREFIXES = ("/tmp/", "/private/tmp/", "/var/folders/", "/private/var/folders/")
+
+
+def _is_test_or_ephemeral(project_path):
+    real = os.path.realpath(project_path)
+    if any(real.startswith(p) or project_path.startswith(p) for p in _EPHEMERAL_PREFIXES):
+        return True
+    norm = project_path.replace("\\", "/")
+    return "/tests/fixtures/" in norm or "/tests/genkit/" in norm
+
+
 def log_run(checker, exit_code, command, summary, project=None):
     try:
+        proj = project or os.getcwd()
+        # Do not pollute the user's real validation history with /tmp scratch
+        # runs or test fixtures unless SCAD_MODELER_LOG_DIR was set explicitly
+        # (e.g. a test of validation_log.py itself).
+        if not os.environ.get("SCAD_MODELER_LOG_DIR") and _is_test_or_ephemeral(proj):
+            return
         d = log_dir()
         os.makedirs(d, exist_ok=True)
         record = {
             "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
-            "project": project or os.getcwd(),
+            "project": proj,
             "checker": checker,
             "exit_code": int(exit_code),
             "command": command,

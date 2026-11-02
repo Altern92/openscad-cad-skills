@@ -178,13 +178,20 @@ to the part's own dimension variables:
 
 ```openscad
 // EXPECTED_BBOX: [40, 20, 15]
+// EXPECTED_BBOX_TOL: 0.01     // optional: tightening-only (mm or [tx, ty, tz])
 ```
 
 `validate_scad.sh` greps for that comment and, if present, runs
 `scripts/check_dimensions.py --stl <rendered.stl> --scad <part.scad>`. The
 tolerance is **derived from the model's own facet resolution**, not fixed: per
 axis it is `max(tessellation bound, 0.005mm)`, with `$fn`/`$fa`/`$fs` read from
-the part file and one level of its `include`s. The former flat
+the part file and one level of its `include`s. Because the derived bound assumes
+the worst case that the entire axis extent is one faceted circle (at `$fn=64` a
+180mm part gets ~0.22mm of slack), parts whose outer extents are planar or
+axis-aligned circles with `$fn % 4 == 0` can declare `// EXPECTED_BBOX_TOL: 0.01`
+(genkit's `emit_part.py` writes this automatically); the effective tolerance is
+`max(min(declared, derived), 0.005mm)` so a declaration can only tighten the
+gate, never loosen it. The former flat
 `max(0.3mm, 1%)` was not a tessellation tolerance at all — at `$fa=2, $fs=0.3`
 the real mesh error is ~0.003mm at Ø20 and ~0.030mm at Ø200, so it was 10–65×
 too loose and would pass a part that was genuinely the wrong size. Pass

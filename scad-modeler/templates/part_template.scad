@@ -9,6 +9,9 @@
 //                                 validate_scad.sh checks the rendered STL against
 //                                 this automatically. REQUIRED (P15): for an odd shape
 //                                 replace it with `// NO_BBOX: <why>`, never delete it
+// EXPECTED_BBOX_TOL: 0.01       // optional tightening-only tol (mm or [x, y, z]) when
+//                                 outer extents are planar/axis-aligned (capped by the
+//                                 derived tessellation bound; delete if curved outer hull)
 // EXPECTED_THROUGH_HOLES: 0     // REQUIRED (P15): holes that go all the way through
 //                                 (topological count; a ring or slot counts 1). A blind
 //                                 bore lowers it. Or `// NO_THROUGH_HOLES_CHECK: <why>`

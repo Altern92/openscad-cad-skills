@@ -31,6 +31,13 @@ The render is a sanity layer, never a gate: it catches a missing feature or a pa
 the wrong place, not a wrong dimension. Anything dimensional needs a number — an
 `assert()` in the model, or `validate_scad.sh` (§4.5).
 
+**Standard parametric parts (GenKit).** If the request fits one of the 8 standard shapes
+(`plate`, `plate_with_holes`, `bracket_l`, `box`, `lid`, `boss`, `hole_pattern`,
+`snap_hook`) or a 2-part enclosure (`box_with_lid`), do not hand-write the `.scad` —
+write `requirements.json` and run `python3 ../scad-modeler/gen/emit_part.py requirements.json -o part.scad`
+(schema: `../scad-modeler/gen/schema.json`; examples: `../scad-modeler/tests/genkit/fixtures/`).
+It emits both the geometry and the `// EXPECTED_*` declarations from the same numbers.
+
 ## 2. Commands
 
 ```bash

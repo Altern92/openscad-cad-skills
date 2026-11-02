@@ -125,6 +125,7 @@ one). `python3 scripts/doctor.py` confirms BOSL2 is really installed.
 
 ```openscad
 // EXPECTED_BBOX: [33.595, 33.595, 46]        // required (or // NO_BBOX: <why>)
+// EXPECTED_BBOX_TOL: 0.01                    // optional tightening-only tol (mm or [x,y,z])
 // EXPECTED_THROUGH_HOLES: 4                   // required (or // NO_THROUGH_HOLES_CHECK: <why>)
 // EXPECTED_HOLE: [0, 0, 5.5, "Z", 5.2]       // x, y, z, axis, across-flats Ø, per specified bore
 // EXPECTED_BODIES: 2                          // only if genuinely multi-shell
