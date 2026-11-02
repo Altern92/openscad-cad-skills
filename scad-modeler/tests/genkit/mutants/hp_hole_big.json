@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "hole_pattern",
+  "params": {
+    "nx": 1,
+    "ny": 2,
+    "dx": 11,
+    "dy": 11,
+    "hole": "M6",
+    "t": 6
+  },
+  "assumptions": [
+    "6 skylių tinklelis ventilacijai arba tvirtinimui"
+  ],
+  "source": {
+    "brief": "6 M3 skylių tinklelis 3x2, žingsniai 30 ir 25 mm",
+    "date": "2026-11-01"
+  }
+}

@@ -1,0 +1,1 @@
+KLAIDA: chamfer 6.0 mm → turi būti 0 ≤ chamfer < t=6.0 → mažink chamfer arba didink t

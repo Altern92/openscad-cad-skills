@@ -118,14 +118,14 @@ def measure_hole(mesh, point, axis_name, expected_d):
 
     section = mesh.section(plane_origin=origin, plane_normal=normal)
     if section is None:
-        return None, None, "the cutting plane does not intersect the mesh"
+        return None, None, None, "the cutting plane does not intersect the mesh"
 
     try:
         # to_planar is deprecated in newer trimesh in favour of to_2D.
         flatten = getattr(section, "to_2D", None) or section.to_planar
         planar, to_3d = flatten()
     except Exception as e:
-        return None, None, f"could not flatten the section ({e})"
+        return None, None, None, f"could not flatten the section ({e})"
 
     # Map the declared axis point into the section's 2D frame.
     p2 = (np.linalg.inv(to_3d) @ np.append(origin, 1.0))[:2]
@@ -133,7 +133,7 @@ def measure_hole(mesh, point, axis_name, expected_d):
     try:
         from shapely.geometry import Point, Polygon as ShPolygon
     except ImportError:
-        return None, None, "shapely not installed (pip install shapely)"
+        return None, None, None, "shapely not installed (pip install shapely)"
 
     # Work from the raw closed loops rather than trimesh's polygons_full, which
     # builds an enclosure tree and drags in an rtree dependency. The section of
@@ -156,29 +156,39 @@ def measure_hole(mesh, point, axis_name, expected_d):
         loops.append((poly, pts))
 
     if not loops:
-        return None, None, "the section produced no closed contours"
+        return None, None, None, "the section produced no closed contours"
 
     outer_area = max(p.area for p, _ in loops)
     containing = [(p, pts) for p, pts in loops if p.contains(probe)]
     if not containing:
-        return None, None, ("no closed contour encloses that point -- check the "
-                            "coordinates and that the axis is right")
+        return None, None, None, ("no closed contour encloses that point -- check the "
+                                  "coordinates and that the axis is right")
 
     poly, pts = min(containing, key=lambda t: t[0].area)
     if poly.area >= outer_area:
         # The only thing enclosing the point is the part's own silhouette, so
         # there is no cavity here -- measuring it would silently report the
         # distance to the outside wall as if it were a bore.
-        return None, None, ("that point is inside the part's outer contour but "
-                            "not inside any cavity -- no hole there")
+        return None, None, None, ("that point is inside the part's outer contour but "
+                                  "not inside any cavity -- no hole there")
 
     # Distance to the contour ITSELF, not to its vertices: the inradius is the
     # shortest distance to an edge, and on a polygonised bore the vertices all
     # sit at the circumradius. Measuring to vertices happens to give the right
     # answer only when the cutting plane lands on the mesh's diagonal edges.
-    across_flats = 2.0 * float(poly.exterior.distance(probe))
-    across_corners = 2.0 * float(np.linalg.norm(pts - p2, axis=1).max())
-    return across_flats, across_corners, None
+    #
+    # Measure from the contour's own centroid AND report how far the declared
+    # axis point is from that centroid (audit 2026-11-02 §5 #3, found by
+    # geom_mutation.py on bracket_l M5->M6): when a hole's near wall is held at
+    # a fixed margin (inset = d/2 + wall_min), changing d shifts the hole
+    # centre by (d' - d)/2 and the radius by the same amount, so
+    # 2*poly.exterior.distance(probe) stays identically equal to the old d.
+    center = poly.centroid
+    center_offset = float(center.distance(probe))
+    c2 = np.array([center.x, center.y], dtype=float)
+    across_flats = 2.0 * float(poly.exterior.distance(center))
+    across_corners = 2.0 * float(np.linalg.norm(pts - c2, axis=1).max())
+    return across_flats, across_corners, center_offset, None
 
 
 def main():
@@ -214,23 +224,26 @@ def main():
         label = (f"Ø{h['d']:g} on {h['axis']} at "
                  f"({h['point'][0]:g}, {h['point'][1]:g}, {h['point'][2]:g}) "
                  f"[{os.path.basename(args.scad)}:{h['line']}]")
-        flats, corners, reason = measure_hole(mesh, h["point"], h["axis"], h["d"])
+        flats, corners, center_offset, reason = measure_hole(
+            mesh, h["point"], h["axis"], h["d"])
         if flats is None:
             unmeasured.append(f"{label}: {reason}")
             continue
 
         diff = flats - h["d"]
-        if abs(diff) > args.tol:
+        if abs(diff) > args.tol or center_offset > args.tol:
             hint = ""
-            if diff < 0 and corners and corners > h["d"] - args.tol:
+            if abs(diff) > args.tol and diff < 0 and corners and corners > h["d"] - args.tol:
                 # Across corners is on target but across flats is short: the
                 # signature of an uncompensated inscribed polygon.
                 hint = ("  -> across corners is {:.3f} mm, so this is inscribed-"
                         "polygon undersizing, not a wrong parameter. Use "
                         "true_hole_d() or set $fa/$fs finer.").format(corners)
+            off_note = (f"; axis offset {center_offset:.3f} mm > tol {args.tol:.3f} mm"
+                        if center_offset > args.tol else "")
             failures.append(
                 f"{label}: across-flats {flats:.3f} mm, expected {h['d']:.3f} mm "
-                f"(off by {diff:+.3f} mm > tol {args.tol:.3f} mm){hint}")
+                f"(off by {diff:+.3f} mm, tol {args.tol:.3f} mm){off_note}{hint}")
         else:
             print(f"  OK: {label} -- across-flats {flats:.3f} mm "
                   f"(across corners {corners:.3f} mm)")

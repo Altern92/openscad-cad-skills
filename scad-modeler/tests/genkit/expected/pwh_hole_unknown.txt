@@ -1,0 +1,1 @@
+KLAIDA: hole M7 nežinomas žymėjimas → naudok M3, M4, M5, M6 arba Ø mm → pakeisk hole

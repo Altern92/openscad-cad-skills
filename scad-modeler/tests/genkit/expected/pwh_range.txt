@@ -1,0 +1,1 @@
+KLAIDA: hole M6 = Ø6.6 mm → 6.6 < 3.0 arba > 6.5 mm → naudok M3..M6

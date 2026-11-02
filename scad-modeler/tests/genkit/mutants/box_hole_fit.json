@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "kind": "box",
+  "params": {
+    "w": 120,
+    "d": 80,
+    "h": 40,
+    "wall": 2.4,
+    "floor": 2.4,
+    "corner_r": 6,
+    "hole": "M4",
+    "inset": 45
+  },
+  "assumptions": [
+    "dėžutė su 4 M4 varžtų statramsčiais kampuose"
+  ],
+  "source": {
+    "brief": "dėžutė 120x80x40 su 4 M4 varžtų skylėmis kampuose",
+    "date": "2026-11-02"
+  }
+}

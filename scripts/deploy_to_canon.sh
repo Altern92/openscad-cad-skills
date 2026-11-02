@@ -9,6 +9,10 @@ set -euo pipefail
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DST="${1:-$HOME/Skills-plugins-etc/skills}"
 [ -d "$DST" ] || { echo "ERROR: no canon dir $DST" >&2; exit 1; }
+GENKIT="${GENKIT_DIR:-/Volumes/SSD_1TB/Docs/03_Asmeniniai_projektai/OpenSCAD_GenKit}"
+if [ -d "$GENKIT/kit" ] && [ -f "$SRC/scripts/deploy_genkit.sh" ]; then
+    bash "$SRC/scripts/deploy_genkit.sh" "$GENKIT" "$SRC/scad-modeler"
+fi
 rsync -a --delete --exclude __pycache__ "$SRC/openscad-organic/" "$DST/openscad-organic/"
 for s in openscad-cad scad-modeler; do
     rsync -a --delete --exclude __pycache__ --exclude build --exclude SKILL.md "$SRC/$s/" "$DST/$s/"

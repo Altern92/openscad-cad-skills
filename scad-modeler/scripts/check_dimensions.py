@@ -26,6 +26,15 @@ for why the bound, not the typical value, is the right quantity here). $fn/$fa/
 $fs are read from the SCAD file, following include/use one level so that the
 usual "declared in params.scad" layout resolves.
 
+The bound is a worst case (whole extent = one faceted circle), so at $fn=64 a
+180 mm part gets ~0.22 mm of slack. When the extents are known to be planar or
+axis-aligned circles with $fn % 4 == 0, declare a tighter value:
+
+    // EXPECTED_BBOX_TOL: 0.01          (or [tx, ty, tz])
+
+Per axis it becomes max(min(declared, derived), 0.005 mm) -- the declaration
+can only TIGHTEN the gate, never loosen it (2026-11-02, audit §5 #7).
+
 WHAT THIS CHECK CANNOT DO
 -------------------------
 A bounding box is nearly blind to the inscribed-polygon *across-flats* deficit
@@ -80,6 +89,36 @@ BBOX_RE = re.compile(
     r'^\s*//\s*EXPECTED_BBOX\s*:\s*\[\s*'
     r'([0-9.eE+\-]+)\s*,\s*([0-9.eE+\-]+)\s*,\s*([0-9.eE+\-]+)\s*\]'
 )
+
+# `// EXPECTED_BBOX_TOL: 0.01` -- an optional, TIGHTENING-only tolerance.
+# Why (2026-11-02 audit, §5 #7): the derived bound assumes the worst case that a
+# whole axis extent is one faceted circle of the part's own size, so at $fn=64 a
+# 180 mm part gets 0.219 mm of slack -- a 0.2 mm modelling error hides inside it.
+# Measured on all 11 GenKit fixtures ($fn=64, extents set by planes or by
+# circles whose vertices land on the axes): real bbox error 0.00000 mm. Whoever
+# knows the extent is planar/axis-aligned (the generator does) declares it.
+# It can never LOOSEN the gate: the result is min(declared, derived), floored at
+# NUMERIC_FLOOR_MM. Scalar or [x, y, z].
+_NUM = r'([0-9.eE+\-]+)'
+BBOX_TOL_RE = re.compile(
+    r'^\s*//\s*EXPECTED_BBOX_TOL\s*:\s*(?:\[\s*' + _NUM + r'\s*,\s*' + _NUM
+    + r'\s*,\s*' + _NUM + r'\s*\]|' + _NUM + r')'
+)
+
+
+def parse_declared_tol(scad_path):
+    """[tx, ty, tz] from `// EXPECTED_BBOX_TOL:` or None."""
+    try:
+        with open(scad_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                m = BBOX_TOL_RE.match(line)
+                if m:
+                    if m.group(4) is not None:
+                        return [float(m.group(4))] * 3
+                    return [float(m.group(1)), float(m.group(2)), float(m.group(3))]
+    except (OSError, ValueError):
+        return None
+    return None
 
 
 def parse_expected_from_scad(scad_path):
@@ -163,6 +202,17 @@ def main():
         basis = (f"tessellation bound, $fn={fn:g} $fa={fa:g} $fs={fs:g} "
                  f"({source}); facets/axis {facets}, floor {args.floor} mm"
                  + (f"; +{mink:.4f} mm minkowski-sphere term" if mink > 0 else ""))
+        declared = parse_declared_tol(args.scad)
+        if declared is not None:
+            looser = [i for i in range(3) if declared[i] > tolerances[i]]
+            tolerances = [max(min(declared[i], tolerances[i]), args.floor)
+                          for i in range(3)]
+            basis = (f"declared EXPECTED_BBOX_TOL {declared} (tightening only; "
+                     f"capped by the {basis})")
+            if looser:
+                print("NOTE: EXPECTED_BBOX_TOL is looser than the derived bound on "
+                      f"{', '.join('XYZ'[i] for i in looser)} -- the derived bound is "
+                      "used there (a declaration can only tighten the gate).")
 
     errors = []
     for i, axis in enumerate(['X', 'Y', 'Z']):

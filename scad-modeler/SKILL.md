@@ -232,6 +232,22 @@ confidence tier reached (`../openscad-cad/references/confidence-tiers.md`).
 A real bug found and fixed this session (wrong test, false pass, hang, wrong claim):
 append it to `../INCIDENTS.md` in its entry format before finishing.
 
+## Generator (parametric parts)
+
+If the request fits one of the 8 shapes (plate, plate_with_holes, bracket_l, box, lid,
+boss, hole_pattern, snap_hook) or the composite `box_with_lid` (2-part enclosure with
+optional corner screws), do not hand-write the `.scad`. Write `requirements.json` and
+run:
+
+    python3 gen/emit_part.py requirements.json -o parts/<part>.scad
+
+For `kind: "box_with_lid"`, pass `-o assembly.scad` — it emits `parts/box.scad`,
+`parts/lid.scad`, `assembly.scad` and `joints.json`. The generator writes `// EXPECTED_*`
+declarations from the same parameters. Schema: `gen/schema.json`. If `kind` does not fit,
+use `custom` (hand-written, declarations required).
+
+Working example of each kind: `tests/genkit/fixtures/`.
+
 ## Reference files
 
 | Need | File |

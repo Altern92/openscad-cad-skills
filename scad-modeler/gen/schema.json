@@ -1,0 +1,640 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genkit.local/requirements.schema.json",
+  "title": "OpenSCAD GenKit — requirements.json",
+  "description": "Vieno dizaino parametrų sutartis. Schema tikrina TIPUS ir STRUKTŪRĄ; geometrines ribas (pvz. t >= 1.2) tikrina OpenSCAD assert() — todėl schema sąmoningai neleidžia būti naudojama kaip geometrijos vartams. Žr. docs/03_moduliu_api.md.",
+  "type": "object",
+  "required": [
+    "version",
+    "kind",
+    "params",
+    "source"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "kind": {
+      "enum": [
+        "plate",
+        "plate_with_holes",
+        "bracket_l",
+        "box",
+        "lid",
+        "box_with_lid",
+        "boss",
+        "hole_pattern",
+        "snap_hook",
+        "custom"
+      ]
+    },
+    "params": {
+      "type": "object"
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 3
+      },
+      "default": []
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "brief",
+        "date"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "brief": {
+          "type": "string",
+          "minLength": 5
+        },
+        "date": {
+          "type": "string",
+          "format": "date"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "plate"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "$ref": "#/$defs/plate"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "plate_with_holes"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "$ref": "#/$defs/plate_with_holes"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "bracket_l"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "$ref": "#/$defs/bracket_l"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "box"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "$ref": "#/$defs/box"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "lid"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "$ref": "#/$defs/lid"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "box_with_lid"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "$ref": "#/$defs/box_with_lid"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "boss"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "$ref": "#/$defs/boss"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "hole_pattern"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "$ref": "#/$defs/hole_pattern"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "snap_hook"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "$ref": "#/$defs/snap_hook"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "custom"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "$ref": "#/$defs/custom"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "dims": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "hole": {
+      "oneOf": [
+        {
+          "enum": [
+            "M3",
+            "M4",
+            "M5",
+            "M6"
+          ]
+        },
+        {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      ]
+    },
+    "plate": {
+      "type": "object",
+      "required": [
+        "w",
+        "d",
+        "t"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "w": {
+          "$ref": "#/$defs/dims"
+        },
+        "d": {
+          "$ref": "#/$defs/dims"
+        },
+        "t": {
+          "$ref": "#/$defs/dims"
+        },
+        "corner_r": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        },
+        "chamfer": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        }
+      }
+    },
+    "plate_with_holes": {
+      "type": "object",
+      "required": [
+        "w",
+        "d",
+        "t",
+        "hole",
+        "inset"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "w": {
+          "$ref": "#/$defs/dims"
+        },
+        "d": {
+          "$ref": "#/$defs/dims"
+        },
+        "t": {
+          "$ref": "#/$defs/dims"
+        },
+        "hole": {
+          "$ref": "#/$defs/hole"
+        },
+        "inset": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "corner_r": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        },
+        "pattern": {
+          "enum": [
+            "corners",
+            "corners6"
+          ],
+          "default": "corners"
+        }
+      }
+    },
+    "bracket_l": {
+      "type": "object",
+      "required": [
+        "w",
+        "d",
+        "h",
+        "t",
+        "hole"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "w": {
+          "$ref": "#/$defs/dims"
+        },
+        "d": {
+          "$ref": "#/$defs/dims"
+        },
+        "h": {
+          "$ref": "#/$defs/dims"
+        },
+        "t": {
+          "$ref": "#/$defs/dims"
+        },
+        "hole": {
+          "$ref": "#/$defs/hole"
+        }
+      }
+    },
+    "box": {
+      "type": "object",
+      "required": [
+        "w",
+        "d",
+        "h"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "w": {
+          "$ref": "#/$defs/dims"
+        },
+        "d": {
+          "$ref": "#/$defs/dims"
+        },
+        "h": {
+          "$ref": "#/$defs/dims"
+        },
+        "wall": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 2.4
+        },
+        "floor": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 2.4
+        },
+        "corner_r": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        },
+        "hole": {
+          "oneOf": [
+            {
+              "enum": [
+                "M3",
+                "M4",
+                "M5",
+                "M6"
+              ]
+            },
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            {
+              "const": ""
+            }
+          ],
+          "default": ""
+        },
+        "inset": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        }
+      }
+    },
+    "box_with_lid": {
+      "type": "object",
+      "description": "Sudėtinis 2 dalių projektas (box + lid + assembly.scad + joints.json).",
+      "required": [
+        "w",
+        "d",
+        "h"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "w": {
+          "$ref": "#/$defs/dims"
+        },
+        "d": {
+          "$ref": "#/$defs/dims"
+        },
+        "h": {
+          "$ref": "#/$defs/dims"
+        },
+        "wall": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 2.4
+        },
+        "floor": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 2.4
+        },
+        "corner_r": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        },
+        "lid_t": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 3
+        },
+        "lip": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1.8
+        },
+        "clearance": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 0.2
+        },
+        "hole": {
+          "oneOf": [
+            {
+              "enum": [
+                "M3",
+                "M4",
+                "M5",
+                "M6"
+              ]
+            },
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            {
+              "const": ""
+            }
+          ],
+          "default": ""
+        },
+        "inset": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        }
+      }
+    },
+    "lid": {
+      "type": "object",
+      "required": [
+        "w",
+        "d"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "w": {
+          "$ref": "#/$defs/dims"
+        },
+        "d": {
+          "$ref": "#/$defs/dims"
+        },
+        "t": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 3
+        },
+        "lip": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1.8
+        },
+        "clearance": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 0.2
+        },
+        "wall": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 2.4
+        },
+        "corner_r": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        },
+        "hole": {
+          "oneOf": [
+            {
+              "enum": [
+                "M3",
+                "M4",
+                "M5",
+                "M6"
+              ]
+            },
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            {
+              "const": ""
+            }
+          ],
+          "default": ""
+        },
+        "inset": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        }
+      }
+    },
+    "boss": {
+      "type": "object",
+      "required": [
+        "d_out",
+        "d_bore",
+        "h"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "d_out": {
+          "$ref": "#/$defs/dims"
+        },
+        "d_bore": {
+          "$ref": "#/$defs/dims"
+        },
+        "h": {
+          "$ref": "#/$defs/dims"
+        }
+      }
+    },
+    "hole_pattern": {
+      "type": "object",
+      "required": [
+        "nx",
+        "ny",
+        "dx",
+        "dy",
+        "hole",
+        "t"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "nx": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "ny": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "dx": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "dy": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "hole": {
+          "$ref": "#/$defs/hole"
+        },
+        "t": {
+          "$ref": "#/$defs/dims"
+        }
+      }
+    },
+    "snap_hook": {
+      "type": "object",
+      "required": [
+        "beam_l",
+        "beam_w",
+        "beam_t",
+        "hook_h",
+        "undercut"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "beam_l": {
+          "$ref": "#/$defs/dims"
+        },
+        "beam_w": {
+          "$ref": "#/$defs/dims"
+        },
+        "beam_t": {
+          "$ref": "#/$defs/dims"
+        },
+        "hook_h": {
+          "$ref": "#/$defs/dims"
+        },
+        "undercut": {
+          "$ref": "#/$defs/dims"
+        }
+      }
+    },
+    "custom": {
+      "type": "object",
+      "description": "Laisva forma: generatorius jos NEGENERUOJA (exit 4, unsupported_kind). Laukas yra tik tam, kad intake galėtų užfiksuoti neatpažintą prašymą.",
+      "properties": {
+        "note": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

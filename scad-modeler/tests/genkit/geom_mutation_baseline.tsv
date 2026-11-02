@@ -1,0 +1,44 @@
+# Known geometric blind spots: mutants that change geometry (or a no-op parameter)
+# while keeping the original // EXPECTED_* declarations, and pass single-part gates.
+# Every line MUST carry a reason. If a gate is later tightened and kills one of
+# these, geom_mutation.py reports it so the line can be removed.
+# fixture	param	mutation	reason
+box	corner_r	+0.2mm	outer fillet radius does not change bbox, hole count, or genus
+box	corner_r	x0.6	outer fillet radius does not change bbox, hole count, or genus
+box	floor	+0.2mm	internal cavity floor thickness is invisible to bbox and through-hole topology
+box	floor	x0.6	internal cavity floor thickness is invisible to bbox and through-hole topology
+box	wall	+0.2mm	internal cavity wall thickness is invisible to bbox and through-hole topology
+box	wall	x0.6	internal cavity wall thickness is invisible to bbox and through-hole topology
+box_screws	corner_r	+0.2mm	outer fillet radius does not change bbox or corner screw hole centres
+box_screws	corner_r	x0.6	outer fillet radius does not change bbox or corner screw hole centres
+box_screws	floor	+0.2mm	internal cavity floor thickness is invisible to bbox and through-hole topology
+box_screws	floor	x0.6	internal cavity floor thickness is invisible to bbox and through-hole topology
+box_screws	wall	+0.2mm	internal cavity wall thickness is invisible to bbox and corner boss bores
+box_screws	wall	x0.6	internal cavity wall thickness is invisible to bbox and corner boss bores
+bracket_l	t	+0.2mm	leg thickness does not change outer [w,d,h] bbox and +0.2mm keeps declared hole slice points inside the leg
+lid	clearance	+0.2mm	inner lip fit clearance is smaller than outer lid plate [w,d] so single-part bbox is unchanged
+lid	corner_r	+0.2mm	outer fillet radius does not change bbox, hole count, or genus
+lid	corner_r	x0.6	outer fillet radius does not change bbox, hole count, or genus
+lid	inset	+0.2mm	no-op when hole == "" (lid without screws)
+lid	wall	+0.2mm	inner lip ring wall thickness is inside outer [w,d] envelope
+lid	wall	x0.6	inner lip ring wall thickness is inside outer [w,d] envelope
+lid_screws	clearance	+0.2mm	inner lip fit clearance is smaller than outer lid plate [w,d] so single-part bbox is unchanged
+lid_screws	corner_r	+0.2mm	outer fillet radius does not change bbox or corner screw hole centres
+lid_screws	corner_r	x0.6	outer fillet radius does not change bbox or corner screw hole centres
+lid_screws	wall	+0.2mm	inner lip ring wall thickness is inside outer [w,d] envelope
+lid_screws	wall	x0.6	inner lip ring wall thickness is inside outer [w,d] envelope
+plate	chamfer	+0.2mm	0.2mm edge chamfer leaves flat face remnants so outer [w,d,t] bbox is unchanged
+plate	corner_r	+0.2mm	outer fillet radius does not change bbox, hole count, or genus
+plate	corner_r	x0.6	outer fillet radius does not change bbox, hole count, or genus
+plate_chamfer	chamfer	+0.2mm	edge chamfer < t/2 leaves flat face remnants so outer [w,d,t] bbox is unchanged
+plate_chamfer	chamfer	x0.6	edge chamfer < t/2 leaves flat face remnants so outer [w,d,t] bbox is unchanged
+plate_chamfer	corner_r	+0.2mm	outer fillet radius does not change bbox, hole count, or genus
+plate_chamfer	corner_r	x0.6	outer fillet radius does not change bbox, hole count, or genus
+plate_with_holes	corner_r	+0.2mm	outer fillet radius does not change bbox or corner hole centres
+plate_with_holes	corner_r	x0.6	outer fillet radius does not change bbox or corner hole centres
+pwh_corners6	corner_r	+0.2mm	outer fillet radius does not change bbox or hole centres
+pwh_corners6	corner_r	x0.6	outer fillet radius does not change bbox or hole centres
+snap_hook	hook_h	+0.2mm	hook step length along beam is inside overall [beam_w,beam_t,beam_l] bbox
+snap_hook	hook_h	x0.6	hook step length along beam is inside overall [beam_w,beam_t,beam_l] bbox
+snap_hook	undercut	x0.6	beam is recessed by undercut so the hook tip always lands at beam_t (bbox invariant)
+

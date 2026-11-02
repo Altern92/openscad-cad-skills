@@ -1,0 +1,1 @@
+KLAIDA: dangčio skylės su inset 45.0 netelpa į 120.0×80.0 → 94.5 > 80.0 → mažink inset arba didink dangtį

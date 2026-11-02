@@ -1,0 +1,72 @@
+[
+  {
+    "id": 1,
+    "brief": "laikiklis po lentyna 60x40 su 4 M5 skylėmis",
+    "kind": "plate_with_holes",
+    "params": {"w": 60, "d": 40, "t": 6, "hole": "M5", "inset": 8},
+    "note": "įprastas atvejis; inset numatytas 8"
+  },
+  {
+    "id": 2,
+    "brief": "plokštė 100x100x5 suapvalintais kampais",
+    "kind": "plate",
+    "params": {"w": 100, "d": 100, "t": 5, "corner_r": 5},
+    "note": "spindulys parinktas 5, nepatikslintas"
+  },
+  {
+    "id": 3,
+    "brief": "dėžutė 80x60x30 elektronikai, sienelė 2 mm",
+    "kind": "box",
+    "params": {"w": 80, "d": 60, "h": 30, "wall": 2.0, "floor": 2.0, "corner_r": 4},
+    "note": "dugnas prilygintas sienelei; kampai numatyti"
+  },
+  {
+    "id": 4,
+    "brief": "dangtis tai pačiai 80x60 dėžutei",
+    "kind": "lid",
+    "params": {"w": 80, "d": 60, "t": 3, "lip": 1.8, "clearance": 0.2, "wall": 2.0, "corner_r": 4},
+    "note": "wall ir corner_r suderinti su dėžute (kontekstas iš #3)"
+  },
+  {
+    "id": 5,
+    "brief": "L formos laikiklis 50x40x45, 3 mm storio, M4 varžtams",
+    "kind": "bracket_l",
+    "params": {"w": 50, "d": 40, "h": 45, "t": 3, "hole": "M4"},
+    "note": "tiesioginis atvaizdavimas"
+  },
+  {
+    "id": 6,
+    "brief": "įvorė Ø20 su Ø10 kiauryme, 15 aukščio",
+    "kind": "boss",
+    "params": {"d_out": 20, "d_bore": 10, "h": 15},
+    "note": "tiesioginis atvaizdavimas"
+  },
+  {
+    "id": 7,
+    "brief": "plokštė su 3x3 M3 skylių tinkleliu, žingsnis 20 mm",
+    "kind": "hole_pattern",
+    "params": {"nx": 3, "ny": 3, "dx": 20, "dy": 20, "hole": "M3", "t": 5},
+    "note": "storis numatytas 5"
+  },
+  {
+    "id": 8,
+    "brief": "kablys 3D spausdintuvo durelėms, sija 20 mm, 8 mm pločio",
+    "kind": "snap_hook",
+    "params": {"beam_l": 20, "beam_w": 8, "beam_t": 2, "hook_h": 1.5, "undercut": 0.5},
+    "note": "beam_t, hook_h, undercut numatyti (sakinyje nebuvo)"
+  },
+  {
+    "id": 9,
+    "brief": "stalas 800x600x20",
+    "kind": "custom",
+    "params": {"note": "80x60 cm plokštė — už modulių ir FDM ribų"},
+    "note": "sąmoningai ne modulis → generatorius turi atsisakyti"
+  },
+  {
+    "id": 10,
+    "brief": "dangtis 100x50 su 4 M4 skylėmis",
+    "kind": "lid",
+    "params": {"w": 100, "d": 50, "hole": "M4", "inset": 8},
+    "note": "lid su 4 M4 skylėmis kampuose (inset numatytas 8)"
+  }
+]

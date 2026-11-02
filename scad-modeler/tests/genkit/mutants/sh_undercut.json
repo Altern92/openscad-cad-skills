@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "kind": "snap_hook",
+  "params": {
+    "beam_l": 20,
+    "beam_w": 8,
+    "beam_t": 1.8,
+    "hook_h": 2.0,
+    "undercut": 1.0
+  },
+  "assumptions": [
+    "PETG, fiksatorius 2 mm storio PCB"
+  ],
+  "source": {
+    "brief": "spyruoklinis fiksatorius 2 mm plokštei",
+    "date": "2026-11-01"
+  }
+}

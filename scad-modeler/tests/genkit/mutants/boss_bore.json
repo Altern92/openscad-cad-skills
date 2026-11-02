@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "kind": "boss",
+  "params": {
+    "d_out": 24,
+    "d_bore": 1.0,
+    "h": 12
+  },
+  "assumptions": [
+    "įvorė M6 varžtui arba 12 mm velenui"
+  ],
+  "source": {
+    "brief": "įvorė 24 mm išorė, 12 mm kiaurymė, 12 mm aukščio",
+    "date": "2026-11-01"
+  }
+}

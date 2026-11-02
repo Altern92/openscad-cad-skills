@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "kind": "box",
+  "params": { "w": 120, "d": 80, "h": 40, "wall": 2.4, "floor": 2.4, "corner_r": 6 },
+  "assumptions": ["dėžutė be dangčio, viduje elektronika"],
+  "source": { "brief": "atvira dėžutė 120x80x40 su 2.4 mm sienelėmis", "date": "2026-11-01" }
+}

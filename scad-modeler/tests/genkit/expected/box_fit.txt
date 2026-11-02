@@ -1,0 +1,1 @@
+KLAIDA: sienelės 60.0×2 neišsitenka 120.0×80.0 → 120.0 ≥ 80.0 → didink dėžutę arba mažink wall

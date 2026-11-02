@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "kind": "plate_with_holes",
+  "params": {
+    "w": 120,
+    "d": 60,
+    "t": 6,
+    "hole": "M4",
+    "inset": 10,
+    "corner_r": 4,
+    "pattern": "corners6"
+  },
+  "assumptions": [
+    "6 tvirtinimo skylės: 4 kampuose + 2 ilgesnės pusės viduryje"
+  ],
+  "source": {
+    "brief": "plokštė 120x60 su 6 M4 skylėmis",
+    "date": "2026-11-01"
+  }
+}

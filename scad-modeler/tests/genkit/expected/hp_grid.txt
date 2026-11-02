@@ -1,0 +1,1 @@
+KLAIDA: tinklelis 1×1 → 1 < 2 → tinkleliui reikia bent 2 skylių; didink nx arba ny

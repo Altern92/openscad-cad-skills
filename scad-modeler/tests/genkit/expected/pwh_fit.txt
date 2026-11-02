@@ -1,0 +1,1 @@
+KLAIDA: skylės M4 su inset 24.0 netelpa į 80.0×50.0 → 52.5 > 50.0 → mažink inset arba didink plokštę

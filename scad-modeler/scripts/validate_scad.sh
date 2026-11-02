@@ -250,7 +250,7 @@ validate_file() {
     # `// EXPECTED_BBOX: [x, y, z]` -- catches a part that renders fine and
     # *looks* right but is subtly the wrong size (wrong -D override, a units
     # slip, a parameter that didn't thread through correctly).
-    if [ "$is_preview" -eq 0 ] && grep -q '^[[:space:]]*//[[:space:]]*EXPECTED_BBOX' "$scad"; then
+    if [ "$is_preview" -eq 0 ] && grep -q '^[[:space:]]*//[[:space:]]*EXPECTED_BBOX[[:space:]]*:' "$scad"; then
         DIM_DECLARED=$((DIM_DECLARED + 1))
         if ! python3 "$SCRIPT_DIR/check_dimensions.py" --stl "$stl" --scad "$scad"; then
             this_failed=1

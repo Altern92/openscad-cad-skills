@@ -1,0 +1,41 @@
+module	assert	mutant	expected
+boss	1	boss_wall	KLAIDA: sienelė 1.25 mm → 1.25 < 1.5 mm → sumažink d_bore iki 21.0 arba didink d_out
+boss	2	boss_bore	KLAIDA: kiaurymė Ø1.0 mm → 1.0 < 2.0 mm → didink d_bore iki 2.0
+boss	3	boss_h	KLAIDA: įvorė 1.0 mm → 1.0 < 2.0 mm → didink h iki 2.0
+box	1	box_wall	KLAIDA: sienelė 1.0 mm → 1.0 < 1.2 mm (FDM minimumas) → didink wall iki 1.2
+box	2	box_fit	KLAIDA: sienelės 60.0×2 neišsitenka 120.0×80.0 → 120.0 ≥ 80.0 → didink dėžutę arba mažink wall
+box	3	box_floor	KLAIDA: dugnas 50.0 mm → turi būti 1.2 ≤ floor < h=40.0 → nustatyk floor tarp 1.2 ir 40.0
+box	4	box_corner_r	KLAIDA: corner_r 50.0 netelpa į 120.0×80.0 → 100.0 ≥ 80.0 → mažink corner_r
+bracket_l	1	br_hole_unknown	KLAIDA: hole M7 nežinomas žymėjimas → naudok M3, M4, M5, M6 arba Ø mm → pakeisk hole
+bracket_l	2	br_t	KLAIDA: L laikiklio storis 2.0 mm → 2.0 < 2.5 mm → apkrovos neatlaikys; didink t iki 2.5
+bracket_l	3	br_h	KLAIDA: vertikali dalis 5.0 mm → 5.0 ≤ 6.0 mm → per žema 4.0 mm storiui; didink h iki 6.0
+bracket_l	4	br_hole_fit	KLAIDA: skylė Ø5.5 netelpa 8.0×8.0 su 2.0 mm sienele → 9.5 > 8.0 → didink laikiklį arba mažink hole
+bracket_l	5	br_v_hole	KLAIDA: vertikalios lentynos skylė Ø5.5 netelpa h=10.0 → reikia h ≥ 13.5 → didink h arba mažink hole
+hole_pattern	1	hp_hole_unknown	KLAIDA: hole M7 nežinomas žymėjimas → naudok M3, M4, M5, M6 arba Ø mm → pakeisk hole
+hole_pattern	2	hp_grid	KLAIDA: tinklelis 1×1 → 1 < 2 → tinkleliui reikia bent 2 skylių; didink nx arba ny
+hole_pattern	3	hp_dx	KLAIDA: žingsnis dx 5.0 mm → 5.0 < Ø3.4+4.0 → didink dx iki 7.4
+hole_pattern	4	hp_dy	KLAIDA: žingsnis dy 5.0 mm → 5.0 < Ø3.4+4.0 → didink dy iki 7.4
+hole_pattern	5	hp_hole_big	KLAIDA: skylė Ø6.6 per didelė tinkleliui 11.0×22.0 → 6.6 > 5.5 → mažink hole arba didink žingsnius
+lid	1	lid_clearance	KLAIDA: tarpas 0.05 mm → 0.05 < 0.15 mm → FDM detalės nesisujungs; didink clearance iki 0.15
+lid	2	lid_lip	KLAIDA: lizdas 0.5 mm → 0.5 < 1.0 mm → dangtis nulaikys; didink lip iki 1.0
+lid	3	lid_t	KLAIDA: dangčio storis 1.0 mm → 1.0 < 1.6 mm → didink t iki 1.6
+lid	4	lid_wall	KLAIDA: sienelė 0.3 mm per plona tarpui 0.2 mm → 0.3 ≤ 0.4 → didink wall arba mažink clearance
+lid	5	lid_lip_fit	KLAIDA: lizdas 59.6×19.6 per mažas sienelėms 30.0×2 → didink dangtį arba mažink wall
+lid	6	lid_corner_r	KLAIDA: corner_r 50.0 netelpa į 120.0×80.0 → 100.0 ≥ 80.0 → mažink corner_r
+lid	7	lid_hole_range	KLAIDA: hole M6 = Ø6.6 mm → palaikoma 3.0–6.5 mm → naudok M3..M6
+lid	8	lid_inset	KLAIDA: dangčio inset 4.0 mm palieka 1.75 mm sienelę → 1.75 < 2.0 mm → didink inset iki 4.25
+lid	9	lid_hole_fit	KLAIDA: dangčio skylės su inset 45.0 netelpa į 120.0×80.0 → 94.5 > 80.0 → mažink inset arba didink dangtį
+plate	1	plate_t	KLAIDA: storis 1.0 mm → 1.0 < 1.2 mm (FDM minimumas) → didink t iki 1.2
+plate	2	plate_corner_r	KLAIDA: corner_r 50.0 per didelis 120.0×80.0 plokštei → 100.0 ≥ 80.0 → didink plotį arba mažink corner_r
+plate	3	plate_chamfer	KLAIDA: chamfer 6.0 mm → turi būti 0 ≤ chamfer < t=6.0 → mažink chamfer arba didink t
+plate_with_holes	1	pwh_hole_unknown	KLAIDA: hole M7 nežinomas žymėjimas → naudok M3, M4, M5, M6 arba Ø mm → pakeisk hole
+plate_with_holes	2	pwh_range	KLAIDA: hole M6 = Ø6.6 mm → 6.6 < 3.0 arba > 6.5 mm → naudok M3..M6
+plate_with_holes	3	pwh_inset	KLAIDA: inset 4.0 mm palieka 1.75 mm sienelę → 1.75 < 2.0 mm → didink inset iki 4.25
+plate_with_holes	4	pwh_fit	KLAIDA: skylės M4 su inset 24.0 netelpa į 80.0×50.0 → 52.5 > 50.0 → mažink inset arba didink plokštę
+plate_with_holes	5	pwh_t	KLAIDA: storis 1.0 mm → 1.0 < 1.2 mm (FDM minimumas) → didink t iki 1.2
+plate_with_holes	6	pwh_corner_r	KLAIDA: corner_r 30.0 per didelis 80.0×50.0 plokštei → 60.0 ≥ 50.0 → didink plotį arba mažink corner_r
+snap_hook	1	sh_beam_t	KLAIDA: sija 1.0 mm → 1.0 < 1.2 mm → didink beam_t iki 1.2
+snap_hook	2	sh_undercut	KLAIDA: undercut 1.0 mm → 1.0 > 0.54 (30 % sijos) → mažink undercut iki 0.54 arba didink beam_t
+snap_hook	3	sh_hook_h	KLAIDA: hook_h 0.5 mm → 0.5 < undercut + 0.5 = 1.0 mm → didink hook_h iki 1.0
+snap_hook	4	sh_beam_l	KLAIDA: sija per trumpa 5.0 mm → 5.0 < 4×1.8 = 7.2 mm → neturės spyruokliškumo; didink beam_l
+snap_hook	5	sh_hook_l	KLAIDA: hook_h 25.0 mm → 25.0 ≥ beam_l=20.0 mm → didink beam_l arba mažink hook_h

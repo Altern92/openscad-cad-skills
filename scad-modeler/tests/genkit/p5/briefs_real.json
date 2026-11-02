@@ -1,0 +1,82 @@
+[
+  {
+    "id": 1,
+    "section": "A",
+    "brief": "Padaryk 120×80 mm plokštę su 4 M4 skylėmis kampuose, 10 mm nuo krašto, 6 mm storio.",
+    "kind": "plate_with_holes",
+    "params": {"w": 120, "d": 80, "t": 6, "hole": "M4", "inset": 10},
+    "note": "visi parametrai duoti"
+  },
+  {
+    "id": 2,
+    "section": "A",
+    "brief": "Reikia atviros dėžutės 150×100×60 mm, sienelės 2.5 mm, kampus šiek tiek apvalink.",
+    "kind": "box",
+    "params": {"w": 150, "d": 100, "h": 60, "wall": 2.5, "floor": 2.5, "corner_r": 5},
+    "note": "dugnas=2.5, corner_r=5 (prielaida)"
+  },
+  {
+    "id": 3,
+    "section": "A",
+    "brief": "Tam pačiam korpusui — dangtis su įėjimo lizdu, kad laikytųsi.",
+    "kind": "lid",
+    "params": {"w": 150, "d": 100, "t": 3, "lip": 1.8, "clearance": 0.2, "wall": 2.5, "corner_r": 5},
+    "note": "wall/corner_r suderinti su #2"
+  },
+  {
+    "id": 4,
+    "section": "A",
+    "brief": "L formos laikiklis 60×50 mm, 40 mm aukščio, 4 mm storio, su M5 skyle abiejose lentynose.",
+    "kind": "bracket_l",
+    "params": {"w": 60, "d": 50, "h": 40, "t": 4, "hole": "M5"},
+    "note": "prašyta po 1 skylę KIEKVIENOJE lentynoje"
+  },
+  {
+    "id": 5,
+    "section": "A",
+    "brief": "Ventiliacijos plokštė 100×80, 3×4 tinklelis M3 skylių, žingsniai 25 ir 18 mm.",
+    "kind": "hole_pattern",
+    "params": {"nx": 3, "ny": 4, "dx": 25, "dy": 18, "hole": "M3", "t": 3},
+    "note": "storis nenurodytas → 3 mm prielaida"
+  },
+  {
+    "id": 6,
+    "section": "A",
+    "brief": "Įvorė M4 varžtui: 12 mm išorė, 20 mm aukštis, kad varžtas praeitų kiaurai.",
+    "kind": "boss",
+    "params": {"d_out": 12, "d_bore": 4.5, "h": 20},
+    "note": "M4 laisva kiaurymė 4.5 (lentelė)"
+  },
+  {
+    "id": 7,
+    "section": "B",
+    "brief": "Laikiklis po lentyna 80×50, kad laikytų 2 kg, su skylėmis M4.",
+    "kind": "plate_with_holes",
+    "params": {"w": 80, "d": 50, "t": 6, "hole": "M4", "inset": 8},
+    "note": "storis 6 PRIELAIDA 2 kg apkrovai — įrašyta į assumptions"
+  },
+  {
+    "id": 8,
+    "section": "B",
+    "brief": "Dėžutė 100×60×40 su dangčiu ir 4 varžtais kampuose.",
+    "kind": "box_with_lid",
+    "params": {"w": 100, "d": 60, "h": 40, "corner_r": 4, "hole": "M4", "inset": 8},
+    "note": "sudėtinis 2 dalių projektas (box+lid) su 4 M4 varžtais (inset=8, corner_r=4 prielaida)"
+  },
+  {
+    "id": 9,
+    "section": "C",
+    "brief": "Krumpliaratis 20 dantų, modulis 1.5, su veleno anga 6 mm.",
+    "kind": "custom",
+    "params": {"note": "krumpliaratis — BOSL2 gear, ne GenKit modulis"},
+    "note": "už apimties: nukreipti į BOSL2"
+  },
+  {
+    "id": 10,
+    "section": "C",
+    "brief": "Vyris dviem dalims, kad atsidarytų 180 laipsnių.",
+    "kind": "custom",
+    "params": {"note": "vyris = mechanizmas (2 dalys + judesys), ne vienas printuojamas kūnas"},
+    "note": "už apimties: mechanizmas"
+  }
+]

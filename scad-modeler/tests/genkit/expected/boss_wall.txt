@@ -1,0 +1,1 @@
+KLAIDA: sienelė 1.25 mm → 1.25 < 1.5 mm → sumažink d_bore iki 21.0 arba didink d_out

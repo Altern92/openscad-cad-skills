@@ -50,6 +50,20 @@ for dir in "$SCRIPT_DIR"/fixtures/*/; do
     echo ""
 done
 
+# GenKit suite (54 tests: 11 golden, 40 mutants, 1 assembly, 2 gate-mutants)
+if [ -f "$SCRIPT_DIR/genkit/run_all.sh" ]; then
+    echo "--- genkit ---"
+    if SCAD_GATE="$SCAD_MODELER_SCRIPTS/validate_scad.sh" bash "$SCRIPT_DIR/genkit/run_all.sh"; then
+        echo "PASS: genkit"
+        pass=$((pass + 1))
+    else
+        echo "FAIL: genkit"
+        fail=$((fail + 1))
+        failed_names+=("genkit")
+    fi
+    echo ""
+fi
+
 echo "======================================"
 echo "Regression suite: $pass passed, $fail failed."
 if [ "$fail" -gt 0 ]; then

@@ -1,0 +1,1 @@
+KLAIDA: sija 1.0 mm → 1.0 < 1.2 mm → didink beam_t iki 1.2

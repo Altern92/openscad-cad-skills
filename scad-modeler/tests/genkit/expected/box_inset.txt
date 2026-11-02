@@ -1,0 +1,1 @@
+KLAIDA: dėžutės inset 4.0 mm palieka 1.75 mm sienelę → 1.75 < 2.0 mm → didink inset iki 4.25

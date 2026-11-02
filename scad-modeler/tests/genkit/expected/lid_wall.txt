@@ -1,0 +1,1 @@
+KLAIDA: sienelė 0.3 mm per plona tarpui 0.2 mm → 0.3 ≤ 0.4 → didink wall arba mažink clearance

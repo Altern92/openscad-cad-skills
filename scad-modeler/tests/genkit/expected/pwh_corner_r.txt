@@ -1,0 +1,1 @@
+KLAIDA: corner_r 30.0 per didelis 80.0×50.0 plokštei → 60.0 ≥ 50.0 → didink plotį arba mažink corner_r

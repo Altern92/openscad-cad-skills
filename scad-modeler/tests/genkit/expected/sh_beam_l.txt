@@ -1,0 +1,1 @@
+KLAIDA: sija per trumpa 5.0 mm → 5.0 < 4×1.8 = 7.2 mm → neturės spyruokliškumo; didink beam_l

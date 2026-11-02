@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "kind": "plate",
+  "params": {
+    "w": 120,
+    "d": 80,
+    "t": 6,
+    "corner_r": 50
+  },
+  "assumptions": [
+    "plokštė guli ant lygaus paviršiaus"
+  ],
+  "source": {
+    "brief": "paprasta 120x80x6 plokštė suapvalintais kampais",
+    "date": "2026-11-01"
+  }
+}

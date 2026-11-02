@@ -1,0 +1,1 @@
+KLAIDA: dugnas 50.0 mm → turi būti 1.2 ≤ floor < h=40.0 → nustatyk floor tarp 1.2 ir 40.0

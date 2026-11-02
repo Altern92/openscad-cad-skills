@@ -1,0 +1,1 @@
+KLAIDA: hook_h 25.0 mm → 25.0 ≥ beam_l=20.0 mm → didink beam_l arba mažink hook_h

@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "kind": "bracket_l",
+  "params": {
+    "w": 8,
+    "d": 8,
+    "h": 40,
+    "t": 4,
+    "hole": "M5"
+  },
+  "assumptions": [
+    "kampinis laikiklis prie sienos, vertikali apkrova"
+  ],
+  "source": {
+    "brief": "L formos laikiklis 60x50x40, M5 varžtai",
+    "date": "2026-11-01"
+  }
+}

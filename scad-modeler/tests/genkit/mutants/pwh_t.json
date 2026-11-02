@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "plate_with_holes",
+  "params": {
+    "w": 80,
+    "d": 50,
+    "t": 1.0,
+    "hole": "M4",
+    "inset": 8,
+    "corner_r": 5
+  },
+  "assumptions": [
+    "M4 varžtai, laisva prasiskverbimo skylė"
+  ],
+  "source": {
+    "brief": "laikiklis po lentyna 80x50 su 4 M4 skylėmis",
+    "date": "2026-11-01"
+  }
+}

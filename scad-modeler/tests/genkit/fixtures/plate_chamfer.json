@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "kind": "plate",
+  "params": {
+    "w": 100,
+    "d": 60,
+    "t": 8,
+    "corner_r": 6,
+    "chamfer": 1.0
+  },
+  "assumptions": [
+    "viršutinė briauna nuožulni 1 mm, kad nespaustų"
+  ],
+  "source": {
+    "brief": "plokštė 100x60x8 su 1 mm nuožulna viršuje",
+    "date": "2026-11-01"
+  }
+}

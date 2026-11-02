@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "kind": "lid",
+  "params": {
+    "w": 120,
+    "d": 80,
+    "t": 3,
+    "lip": 1.8,
+    "clearance": 0.05,
+    "wall": 2.4,
+    "corner_r": 6
+  },
+  "assumptions": [
+    "dangtis tai pačiai 120x80 dėžutei, FDM tarpas 0.2 mm"
+  ],
+  "source": {
+    "brief": "dangtis 120x80 dėžutei su įėjimo lizdu",
+    "date": "2026-11-01"
+  }
+}

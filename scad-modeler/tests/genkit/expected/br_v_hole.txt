@@ -1,0 +1,1 @@
+KLAIDA: vertikalios lentynos skylė Ø5.5 netelpa h=10.0 → reikia h ≥ 13.5 → didink h arba mažink hole
