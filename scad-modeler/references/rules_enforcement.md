@@ -122,7 +122,7 @@ implemented.
 3. **Re-run from the top** — not just the one gate that failed (cascading
    effect: downstream only passes once upstream is clean).
 4. **Record it** — if a gate let a bug through (a false pass), log an
-   incident in `INCIDENTS.md` (already established practice).
+   incident in `INCIDENTS.json` (already established practice).
 
 ## 4. Why this will work for this skill
 
@@ -136,7 +136,7 @@ job is just to run them and cite the results.
 
 ## 5. A recurring shape of gap: passive correctness without an active connecting step (2026-08-22)
 
-Found by re-reading a cluster of 2026-08-21/22 `INCIDENTS.md` entries side
+Found by re-reading a cluster of 2026-08-21/22 `INCIDENTS.json` entries side
 by side, not from any single incident: three separate fixes that day
 shared the exact same shape, even though they were built independently
 (`doctor.py`+`calibration_coupon()`/R-14, `validation_log.py`,
@@ -152,7 +152,7 @@ unused until a human asked for the action by name, every time:
   caps a part at — but nothing told the model to actually PROPOSE
   printing a coupon. Fixed only after the user reported having to ask,
   personally, every single time.
-- `INCIDENTS.md`'s own header correctly states its purpose ("raw data
+- `INCIDENTS.json`'s own header correctly states its purpose ("raw data
   for a later pattern-review pass") — but nothing captured that raw data
   live; only qualitative write-ups survived, and a real reconstruction
   attempt lost 24 of 26 exact commands/exit codes/timestamps.
@@ -173,7 +173,7 @@ it for a human to notice and ask for by name. This is not itself a new
 gate `check_rules.py` can verify (the "did I propose the action" question
 is about MODEL BEHAVIOR in a specific response, not a file's state) — it's
 a design question to apply when writing the next check, and a lens for a
-future Phase-2-style INCIDENTS.md review to re-apply across the existing
+future Phase-2-style INCIDENTS.json review to re-apply across the existing
 ones.
 
 ## Source log

@@ -3,7 +3,7 @@
 
 ## Why this exists
 
-Real incident (`../INCIDENTS.md`, 2026-08-18): a rear-axle gearbox project had
+Real incident (`../INCIDENTS.json`, 2026-08-18): a rear-axle gearbox project had
 detailed gear-ratio and center-distance numbers calculated and locked into
 `params.scad` before the actual mechanical architecture (which reduction
 scheme, which parts mesh with which) was genuinely settled — prior documents
@@ -31,7 +31,7 @@ measurement. Cite it, if at all, as "the same directional effect shows up in
 software cost data too" — not as if it were derived from CAD or mechanical
 assemblies. Mechanical/hardware change-cost literature supports the
 direction (late changes cost more) but not a clean universal multiplier.
-Getting this citation wrong is exactly the kind of thing `INCIDENTS.md`
+Getting this citation wrong is exactly the kind of thing `INCIDENTS.json`
 exists to catch — don't repeat the error by copying the neat 1/10/100 chart
 into mechanical design contexts as if it were proven there. A second,
 related error to avoid: the "IBM Systems Sciences Institute study" often

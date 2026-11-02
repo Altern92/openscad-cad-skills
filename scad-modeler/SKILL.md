@@ -1,6 +1,6 @@
 ---
 name: scad-modeler
-description: 'Use for complex, multi-part parametric OpenSCAD mechanical assemblies — things with gears, bearings, reductions, multiple interacting printed parts, or where getting a dimension wrong means two parts collide or don''t mesh. Triggers on "gear ratio", "reduction", "bearing", "shaft", "assembly", "BOM", "center distance", "mechanical design", "RC car", "gearbox", "multi-part", "design a mechanism", "which architecture", "gearbox layout", or a brief vague enough that more than one mechanism would satisfy it — or requests to design several parts that must fit together and be validated. For a single simple part, use openscad-cad instead. Adds: gated planning before numbers, calculations before geometry, centralized positions, and dimensional/collision/motion validation. ALWAYS load openscad-cad alongside. ALWAYS read ../INCIDENTS.md before writing geometry.'
+description: 'Use for complex, multi-part parametric OpenSCAD mechanical assemblies — things with gears, bearings, reductions, multiple interacting printed parts, or where getting a dimension wrong means two parts collide or don''t mesh. Triggers on "gear ratio", "reduction", "bearing", "shaft", "assembly", "BOM", "center distance", "mechanical design", "RC car", "gearbox", "multi-part", "design a mechanism", "which architecture", "gearbox layout", or a brief vague enough that more than one mechanism would satisfy it — or requests to design several parts that must fit together and be validated. For a single simple part, use openscad-cad instead. Adds: gated planning before numbers, calculations before geometry, centralized positions, and dimensional/collision/motion validation. ALWAYS load openscad-cad alongside. ALWAYS query ../INCIDENTS.json (via scripts/incidents.py) before writing geometry.'
 ---
 
 # SCAD Modeler — Multi-Part Mechanical Assemblies
@@ -40,8 +40,9 @@ checker by hand shipped 3 disconnected bodies; references/workflow_details.md, f
 1. Read the project's own facts first (`CLAUDE.md`, `AGENTS.md`, README,
    `design_decisions.md`). Ask once for a missing fact; never guess a bearing bore or
    shaft diameter.
-2. Read `../INCIDENTS.md` — **its `## Index` only**, then the entries matching what you
-   build (`grep -n <term>` works). Not after something breaks.
+2. Query `../INCIDENTS.json` via `python3 scripts/incidents.py list` or
+   `python3 scripts/incidents.py search <term>` for entries matching what you
+   build. Not after something breaks.
 3. New designs: write `design_manifest.json` (Stage 0; `validate_scad.sh` runs
    `check_intake.py` on it), classify each component **printed vs purchased**
    (bearings, shafts, fasteners are never printed), and look at 2–3 similar past
@@ -231,7 +232,7 @@ calculation table; open `PATIKRINTI` items; print orientation per part; the
 confidence tier reached (`../openscad-cad/references/confidence-tiers.md`).
 
 A real bug found and fixed this session (wrong test, false pass, hang, wrong claim):
-append it to `../INCIDENTS.md` in its entry format before finishing.
+register it in `../INCIDENTS.json` via `python3 scripts/incidents.py add --title ... --where ... --symptom ... --root-cause ... --fix ...` before finishing.
 
 ## Generator (parametric parts)
 

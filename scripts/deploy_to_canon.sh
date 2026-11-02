@@ -27,14 +27,15 @@ if [ -d "$FORK" ]; then
     awk 'NR==1{print; print "disable-model-invocation: true"; next} /^disable-model-invocation:/{next} 1' \
         "$SRC/openscad-organic/SKILL.md" > "$FORK/SKILL.md"
 fi
-# Verify INCIDENTS.md index is up-to-date before copying to canon.
-if [ -f "$SRC/scad-modeler/tests/tools/incidents_index.py" ]; then
-    python3 "$SRC/scad-modeler/tests/tools/incidents_index.py" check "$SRC/INCIDENTS.md" >/dev/null || {
-        echo "ERROR: INCIDENTS.md index out of sync -- run: python3 scad-modeler/tests/tools/incidents_index.py rebuild INCIDENTS.md" >&2
+# Verify INCIDENTS.json schema before copying to canon.
+if [ -f "$SRC/scad-modeler/scripts/incidents.py" ]; then
+    python3 "$SRC/scad-modeler/scripts/incidents.py" check --file "$SRC/INCIDENTS.json" >/dev/null || {
+        echo "ERROR: INCIDENTS.json failed schema validation -- run: python3 scad-modeler/scripts/incidents.py check" >&2
         exit 1
     }
 fi
-cp "$SRC/INCIDENTS.md" "$DST/INCIDENTS.md"
+cp "$SRC/INCIDENTS.json" "$DST/INCIDENTS.json"
+rm -f "$DST/INCIDENTS.md"
 mkdir -p "$DST/references" && cp "$SRC/references/retrieval.md" "$DST/references/retrieval.md"   # skills read ../references/retrieval.md
 # OpenSCAD_GenKit (SSD) builds on validate_scad.sh's CHECK_RESULT/COVERAGE lines; its
 # handoff (docs/12 §7) asks that a gate change never silently break it.

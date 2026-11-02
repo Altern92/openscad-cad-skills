@@ -49,7 +49,7 @@ mistakes above.
 1. Create `fixtures/<descriptive_name>/`.
 2. Put whatever `.scad` (and `params.scad`, `parts/`, etc.) the checker
    under test needs in it. Prefer a **direct reproduction of a real
-   `INCIDENTS.md` incident** where one exists — that's both a real test
+   `INCIDENTS.json` incident** where one exists — that's both a real test
    and a permanent record that the specific bug can't silently come back.
 3. Write `run_test.sh`: a self-contained script that renders whatever it
    needs (via `$OPENSCAD`, defaulting to `openscad`), runs the checker
@@ -72,9 +72,9 @@ check always fails."
 
 | Fixture | Proves |
 |---|---|
-| `margin_provenance_fail` / `_pass` | `check_margin_provenance.py` catches the real `jackshaft_bearing_wall_at_diff` incident shape (INCIDENTS.md, 2026-08-18) and passes once fixed |
-| `param_context_fail` / `_pass` | `check_param_context.py` catches the real `axle_d` incident shape (INCIDENTS.md, 2026-08-18) and passes once fixed |
-| `scad_lint_computed_default_fail` / `scad_lint_rounded_standard_fail` / `scad_lint_clean_pass` | `check_scad_lint.py` (P2): beam `len = 211` computed by one call and omitted by another (INCIDENTS.md 2026-09-04), 1U 44.5 vs 44.45 (2026-08-23), and no false fire on comments, strings, exact values or fully-passed defaults |
+| `margin_provenance_fail` / `_pass` | `check_margin_provenance.py` catches the real `jackshaft_bearing_wall_at_diff` incident shape (INCIDENTS.json, 2026-08-18) and passes once fixed |
+| `param_context_fail` / `_pass` | `check_param_context.py` catches the real `axle_d` incident shape (INCIDENTS.json, 2026-08-18) and passes once fixed |
+| `scad_lint_computed_default_fail` / `scad_lint_rounded_standard_fail` / `scad_lint_clean_pass` | `check_scad_lint.py` (P2): beam `len = 211` computed by one call and omitted by another (INCIDENTS.json 2026-09-04), 1U 44.5 vs 44.45 (2026-08-23), and no false fire on comments, strings, exact values or fully-passed defaults |
 | `topology_sealed_hole_fail` / `topology_cases` | `check_topology.py` (P12): a bore sealed by a 0.4 mm skin fails; matching count passes; no declaration SKIPs; an open mesh fails |
 | `validate_lint_topology_wired` | both checks report `CHECK_RESULT` lines and set the verdict in single-file and `--all` mode |
 | `libs_lock` | `env_gate.py` (P14): `--write-lock` pins BOSL2 by version and other libraries by tree hash; a different installed version or tree is env=FAIL; no lock, no check |
@@ -86,7 +86,7 @@ check always fails."
 | `motion_sign_fail` | `motion_sweep.py` refuses to sweep a `gear_mesh` pair whose drivers share the same sign |
 | `motion_sign_pass` | a correctly opposite-signed `gear_mesh` pair is not false-flagged |
 | `motion_sign_internal_optout` | `"internal_gear_mesh"` opts a genuinely same-direction pair out of the sign check |
-| `margin_wrong_variable_fail` / `_pass` | `check_margin_provenance.py`'s wrong-variable-family mode catches the real `nas_deck_v3` incident shape (INCIDENTS.md, 2026-09-02) and passes once fixed |
+| `margin_wrong_variable_fail` / `_pass` | `check_margin_provenance.py`'s wrong-variable-family mode catches the real `nas_deck_v3` incident shape (INCIDENTS.json, 2026-09-02) and passes once fixed |
 
 Not yet covered here (older checks, predating this suite — add a fixture
 when touching one of these next): `check_connectivity.py`,
@@ -97,5 +97,5 @@ classification, `check_assumptions.py`,
 `check_rules.py`, `expected_bounds`/`forbidden_regions` in
 `check_collisions.py`. Deliberately not backfilled all at once — add one
 the next time you touch that script, per the same discipline this skill
-already applies to `INCIDENTS.md` itself (don't build speculatively for
+already applies to `INCIDENTS.json` itself (don't build speculatively for
 its own sake; let real need drive it).

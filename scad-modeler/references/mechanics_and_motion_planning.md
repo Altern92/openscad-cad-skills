@@ -181,7 +181,7 @@ when present:
 Tested end-to-end against a real two-part synthetic gear assembly: a clean
 tangent case passes; a deliberately-broken deep-overlap case fails with a
 propagating non-zero exit; a project with no `joints.json` or no `motion`
-array is unaffected (`INCIDENTS.md`, 2026-08-19). Failure of either check
+array is unaffected (`INCIDENTS.json`, 2026-08-19). Failure of either check
 short-circuits: fix at source, re-run `validate_scad.sh --all` from the top.
 
 ---

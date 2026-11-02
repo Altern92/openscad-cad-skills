@@ -107,7 +107,7 @@ flowchart TD
 
 **Why there's a loop in this diagram, not one straight line**: `AllPass -- no --> FixSource --> Validate` is a real cycle,
 not a mistake — it's the "fix at the source, re-run the whole thing from the top" policy this skill enforces
-everywhere (SKILL.md §7, `INCIDENTS.md`), not a one-shot linear pipeline. A design can fail validation, get
+everywhere (SKILL.md §7, `INCIDENTS.json`), not a one-shot linear pipeline. A design can fail validation, get
 fixed, and needs the *entire* chain re-run, not just the one check that failed — so the diagram loops back on
 purpose. Everything else in the graph is a DAG (no other cycles).
 
@@ -157,4 +157,4 @@ lines became 198, and 0 of 11 runs carried a coverage count versus 11 of 11.
 - `mechanics_and_motion_planning.md` — motion taxonomy, fit tables, design manifest schema.
 - `change_propagation.md` — dependency DAG, dirty-root algorithm, user-facing choice-tree output.
 - `rules_enforcement.md` — why agents drift, layered enforcement (prompt/gates/self-check/manifest), failure handling.
-- `../INCIDENTS.md` — append-only log of real bugs found and fixed.
+- `../INCIDENTS.json` — append-only log of real bugs found and fixed.

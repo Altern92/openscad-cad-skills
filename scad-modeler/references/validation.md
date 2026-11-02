@@ -130,7 +130,7 @@ declaration needed: a single printed part must render as one connected
 solid. A fix to one collision can silently break contact between two OTHER
 features that used to touch — a leg widened to clear a gear teeth can lose
 contact with the disc it was supposed to hold up, while the overall bounding
-box and every other check still passes clean (`INCIDENTS.md`, 2026-08-19).
+box and every other check still passes clean (`INCIDENTS.json`, 2026-08-19).
 `scripts/check_connectivity.py` catches this via `trimesh`'s connected-body
 count; declare `// EXPECTED_BODIES: N` only for the rare part that's
 genuinely meant to be more than one disconnected solid in one STL.
@@ -145,7 +145,7 @@ are zero-volume `4.6×1.7×4.6` shells left behind by a magnet-pocket
 like a 2-body part if you ask the wrong property, and the second looks like a
 genuinely split part when it is a boolean artifact. **Fix the boolean rather than
 declaring `EXPECTED_BODIES`** when the extras are degenerate shells
-(`INCIDENTS.md`, 2026-09-12).
+(`INCIDENTS.json`, 2026-09-12).
 
 ### `// PREVIEW_FILE` — for a file that is not a printable part
 
@@ -164,7 +164,7 @@ With that line, `validate_scad.sh` skips connectivity, `EXPECTED_BBOX` and
 `INFO: N file(s) declared PREVIEW_FILE` line. The **render still runs** — a
 preview that stops compiling is still an error. Measured on
 `server_rack_modular_v4`: 16 FAIL lines → 13, and v8: 5 → 3, with every
-remaining FAIL a real one (`INCIDENTS.md`, 2026-09-12).
+remaining FAIL a real one (`INCIDENTS.json`, 2026-09-12).
 
 Do **not** use it to silence a genuine multi-part file. If a file renders two
 *different* printable parts (e.g. `nas_bay.scad` renders `nas_floor()` and
@@ -241,7 +241,7 @@ overlap?" is the wrong question for a printed assembly:
   a fail, but with a ready-to-paste `joints.json` stub, since this shape
   is often a benign design touch (a clamshell split line) that was
   correctly reasoned about but never formalized as a declaration
-  (`INCIDENTS.md`, 2026-08-18/2026-08-22). A gap just past that, up to
+  (`INCIDENTS.json`, 2026-08-18/2026-08-22). A gap just past that, up to
   `--near-miss-tolerance` (default 0.2mm), is a non-fatal **near miss**
   note instead — that band is more often a real design sensitivity than a
   benign touch, so it's surfaced, not auto-suggested. Both are checked
@@ -260,7 +260,7 @@ overlap?" is the wrong question for a printed assembly:
   that same zone plus a separate, unrelated structural collision hiding
   behind the same declared range; confirmed live, not hypothetical: a
   declared gear-mesh contact's overlap split into 7 disjoint regions, one
-  entirely outside the meshing feature's own extent (`INCIDENTS.md`,
+  entirely outside the meshing feature's own extent (`INCIDENTS.json`,
   2026-08-19). Add `"multi_region_ok": true` on the contact entry only for a
   joint that genuinely touches in several places on purpose (a splined
   shaft, say) — but that only bounds the *count* of regions, not *where*
@@ -334,7 +334,7 @@ mode, not a hypothetical: a gearbox frame with three bearing towers built
 as a cylinder with a bore drilled perpendicular through its own center
 axis passed every check above while every one of those three bores was
 sealed behind ~8mm of solid, un-bored material — the part was completely
-unassemblable and nothing in this chain said so (`INCIDENTS.md`,
+unassemblable and nothing in this chain said so (`INCIDENTS.json`,
 2026-08-19, "bearing bores never reached the tower's true exterior
 surface").
 
@@ -369,7 +369,7 @@ two overlapping solids is still one valid, watertight, single-body shell.
 Confirmed: a bearing tower overlapped an unrelated motor-mounting cradle
 in the same part by 419mm³, invisible through several rounds of "all
 green" validation because both were part of one part's `union()`
-(`INCIDENTS.md`, 2026-08-19).
+(`INCIDENTS.json`, 2026-08-19).
 
 For any part assembled from more than one named sub-module (a tower next
 to a wall, a boss next to a cradle, ribs near a boss), export each
@@ -485,7 +485,7 @@ connectivity (one solid), dimensions (exactly the declared size) and collision
 The author had removed the bosses earlier "to make the assembly fit" and never
 restored them, and nothing noticed — because connectivity checks whether a part
 is one body, never whether that body carries attachment features
-(`INCIDENTS.md` 2026-09-11, "side panels: (a) no fastening at all, (b) collided
+(`INCIDENTS.json` 2026-09-11, "side panels: (a) no fastening at all, (b) collided
 with the posts"; server_rack_modular_v4 v8).
 
 Declare each fastener's point in a project-root `attachments.json`:

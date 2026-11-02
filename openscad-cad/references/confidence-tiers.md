@@ -185,5 +185,5 @@ Three things this closes, all confirmed in real sessions:
 and cheap; overclaiming is not recoverable, because the user finds out by
 printing.
 
-Source: INCIDENTS.md 2026-09-10 ("tier ladder unused", rack_v6 session,
+Source: INCIDENTS.json 2026-09-10 ("tier ladder unused", rack_v6 session,
 \`user_corrections.jsonl\` uc-007).

@@ -76,7 +76,7 @@ user to repeat facts that are already written down. If a needed fact is missing,
 once rather than guessing — a wrong bearing bore or shaft diameter is not something a
 render will catch; it only shows up when the part doesn't fit.
 
-**Read `../INCIDENTS.md` now — its `## Index` first, then the entries that match
+**Query `../INCIDENTS.json` now — `python3 scripts/incidents.py list` first, then `python3 scripts/incidents.py search <term>` for entries that match
 what you are about to build.** Not after something breaks. A bug logged there
 and never re-read before writing similar geometry is a bug that will recur —
 confirmed: the same "margin measured to a tower's center instead of its edge"
@@ -86,13 +86,13 @@ a session later even though an earlier instance of it was already logged. Loggin
 a root cause is not the same as having fixed the reasoning that produced it; only
 actually reading the log before writing the next similar feature closes that gap.
 
-**Read the index, not the file.** The index is ~130 lines and lists all 94 entries
-by date with the line number of each — the file itself is 1 500. Opening the whole
-log to find the three entries that matter pays 20k tokens for 200 tokens of value,
+**Query via `scripts/incidents.py`, do not read the whole JSON file.** `python3 scripts/incidents.py list`
+prints a compact ~110-line index (`ID | date | title`), and `python3 scripts/incidents.py search <term>`
+or `python3 scripts/incidents.py show <ID>` returns only the matching structured records.
+Opening the whole log to find the three entries that matter pays 20k tokens for 200 tokens of value,
 and measured on 2026-09-12 that cost is real (see `golden_scad/KOSTAI`; context files
-run +20% with no correctness gain, arXiv 2602.11988). `grep -n <term> INCIDENTS.md` works
-too. Every line number in the index was verified against the file it points at —
-an index that lies is worse than no index.
+run +20% with no correctness gain, arXiv 2602.11988). Because entries live in structured JSON
+(`../INCIDENTS.json`), IDs and fields never drift when new incidents are added.
 
 **New designs only** — before §0.5, run the intake/analysis stage: turn the
 user's brief (plus info gathered from other AIs) into
@@ -108,7 +108,7 @@ variants** to adapt instead of starting from zero. Details:
 Don't write a single formula in §1 until the mechanical concept is settled
 and every part's dependency order is sketched — a real project's calculation
 work was wasted because architecture was decided *during* detailed
-calculation, not before it (`../INCIDENTS.md`, 2026-08-18). Full workflow,
+calculation, not before it (`../INCIDENTS.json`, 2026-08-18). Full workflow,
 templates, and why (with correctly-scoped citations — the popular "10x-100x
 cheaper to fix early" curve is software-cost data, not mechanical, and
 shouldn't be cited as if it were) are in `references/planning.md`. Skip this
@@ -137,7 +137,7 @@ don't collide in their final position. None of that verifies the model is
 component can actually be installed, whether two features that happen to
 share one printed part collide with each other. A design can pass every
 check in §7 and still be impossible to build — confirmed repeatedly in one
-project (`../INCIDENTS.md`, 2026-08-19, three separate entries): a
+project (`../INCIDENTS.json`, 2026-08-19, three separate entries): a
 belt-and-pulley stage that passed every geometry check but could never
 physically be tensioned onto two fixed, non-adjustable pulleys; three
 bearing bores that measured correctly but were sealed behind unbored
@@ -264,7 +264,7 @@ assert(ratio_1 > 5.5 && ratio_1 < 6.5, "Stage 1 ratio drifted from target ~6:1")
 
 **A margin/wall-thickness assert must account for every clearance term the
 geometry actually applies, not just nominal dimensions.** Confirmed real
-failure mode (INCIDENTS.md, 2026-08-18): an assert computed a wall
+failure mode (INCIDENTS.json, 2026-08-18): an assert computed a wall
 thickness from nominal pitch/OD alone and reported a "safe" ~1.6mm margin,
 while the geometry-cutting code separately added two clearance terms
 (spin clearance, press-fit allowance) the assert never saw — the real,
@@ -277,7 +277,7 @@ doesn't apply to a given assert, say so explicitly with `// MARGIN_EXCLUDES_OK: 
 
 **A second, independent way the same failure shows up: an assert checks
 the WRONG variable entirely, not just an incomplete formula.** Confirmed
-real failure mode (INCIDENTS.md, 2026-09-02, `nas_deck_v3`): a new,
+real failure mode (INCIDENTS.json, 2026-09-02, `nas_deck_v3`): a new,
 more-specific local variable (`_deck_socket_depth`) was introduced for
 geometry, but the assert meant to guard it kept referencing the older,
 same-family global (`_socket_depth`/`post_socket_depth`) instead — a
@@ -290,7 +290,7 @@ have one. Same `// MARGIN_EXCLUDES_OK: <var>` opt-out applies.
 **When one `params.scad` value is consumed for a hardware-fit purpose in
 more than one place, declare each context explicitly instead of assuming
 one checked context covers the rest.** Confirmed real failure mode
-(INCIDENTS.md, 2026-08-18): a single `axle_d` fed both a diff-side output
+(INCIDENTS.json, 2026-08-18): a single `axle_d` fed both a diff-side output
 stub (photo-measured, fine at 6mm) and a wheel-hub bearing bore (a fixed
 5mm-ID bearing, incompatible with 6mm) — only the diff-side context was
 ever verified, and the incompatibility went unnoticed until someone
@@ -473,7 +473,7 @@ never propagates a file's top-level variable assignments. Without this,
 `--hardwarnings` turns "Ignoring unknown variable" into a hard render
 failure, but only when going through `at()` — the part file rendered
 standalone looks fine, which is what made this easy to miss (confirmed
-directly building `scad-modeler/examples/gear_reduction/`, `INCIDENTS.md`
+directly building `scad-modeler/examples/gear_reduction/`, `INCIDENTS.json`
 2026-08-19).
 
 If BOSL2 truly isn't available, MCAD's `involute_gears.scad` is another tested
@@ -712,9 +712,9 @@ After every check passes, report:
 
 If a check failed during this session and you fixed it — not a routine
 addition, an actual bug (a wrong test, a hang, a false pass, an inaccurate
-claim caught by cross-checking) — append an entry to `../INCIDENTS.md` before
-finishing, using its entry format. This is raw data for a later pattern-review
-pass, not something to analyze now; just log it accurately.
+claim caught by cross-checking) — register an entry in `../INCIDENTS.json` before
+finishing via `python3 scripts/incidents.py add --title ... --where ... --symptom ... --root-cause ... --fix ...`.
+This is raw data for a later pattern-review pass, not something to analyze now; just log it accurately.
 
 ## Reference files
 
@@ -749,7 +749,7 @@ pass, not something to analyze now; just log it accurately.
   2026-08-21, `--change VAR --joints joints.json --bores bores.json` also
   reports which *declared* contacts/motion/bores are affected, not just
   which part files — a file being affected doesn't by itself say a declared
-  requirement on it needs re-checking (real gap, INCIDENTS.md 2026-08-21).
+  requirement on it needs re-checking (real gap, INCIDENTS.json 2026-08-21).
   Also since 2026-08-21: every `--change` prints an **edit class** (C1-C5,
   weakest to strongest downstream reach — C1 nothing tracked reached, C2 a
   part file only, C3 a declared bore, C4 a declared cross-part contact, C5 a
@@ -762,11 +762,11 @@ pass, not something to analyze now; just log it accurately.
   `--all` re-run remains the safe default whenever the classification
   itself might be incomplete (e.g. an unparsed construct).
 - `scripts/check_margin_provenance.py` — added 2026-08-22 (§2, R-15,
-  INCIDENTS.md Phase-2 Pattern 1): flags a params.scad assert() whose
+  INCIDENTS.json Phase-2 Pattern 1): flags a params.scad assert() whose
   formula omits a clearance term the real geometry applies to one of the
   assert's own dependencies. Heuristic (textual adjacency, not real
   data-flow analysis) — escalate to a human/agent read when it fires.
-  A second mode (added 2026-09-04, INCIDENTS.md `nas_deck_v3`) flags a
+  A second mode (added 2026-09-04, INCIDENTS.json `nas_deck_v3`) flags a
   geometry-consumed local variable with no assert of its own where a
   same-family sibling variable is asserted instead — the "wrong variable
   checked" shape, distinct from "right variable, incomplete formula."
@@ -774,7 +774,7 @@ pass, not something to analyze now; just log it accurately.
 - `tests/` — added 2026-08-22: a persisted regression suite for this
   skill's OWN checker scripts (`bash tests/run_all.sh`), not for a user's
   project. Each `fixtures/<name>/` is usually a direct reproduction of a
-  real `INCIDENTS.md` incident, committed instead of built-and-discarded
+  real `INCIDENTS.json` incident, committed instead of built-and-discarded
   in a scratch directory each time. See `tests/README.md` for the
   convention when adding a new one.
 - `scripts/check_printability.py` — added 2026-08-22 (§7, R-17): FDM
@@ -783,7 +783,7 @@ pass, not something to analyze now; just log it accurately.
   project's own design. Standalone, not auto-wired — see its docstring
   for a confirmed wall-thickness edge-case limitation near sharp features.
 - `scripts/check_param_context.py` — added 2026-08-22 (§2, R-16,
-  INCIDENTS.md Phase-2 Pattern 3): opt-in via `use_param()` declarations;
+  INCIDENTS.json Phase-2 Pattern 3): opt-in via `use_param()` declarations;
   finds a params.scad value shared across ≥2 hardware-fit contexts where
   one context's constraint was never verified by its own file's assert().
 - `scripts/validation_log.py` — added 2026-08-21: every `validate_scad.sh`
@@ -798,7 +798,7 @@ pass, not something to analyze now; just log it accurately.
   after the fact (from `calculations.md` prose alone) lost almost every
   exact command, exit code, and timestamp when tried directly — confirmed
   against a ~26-round real history, 2026-08-21. This is raw material for a
-  later pattern-review pass, same purpose as `INCIDENTS.md`, just captured
+  later pattern-review pass, same purpose as `INCIDENTS.json`, just captured
   live instead of written up afterward — it does not make anything
   "learn" automatically; nothing currently reads this file back in.
 - `references/rules_enforcement.md` — why agents drift from written rules and
@@ -823,7 +823,7 @@ pass, not something to analyze now; just log it accurately.
   `unknown` means a question intake asked was never answered, which the
   same reference file calls the single biggest source of wrong designs).
   Needs `jsonschema`.
-- `../INCIDENTS.md` — append-only log of real bugs found and fixed (§8). Not
+- `../INCIDENTS.json` — append-only log of real bugs found and fixed (§8). Not
   reviewed automatically; a later pass reads it for patterns worth promoting
   into a permanent rule here.
 - `references/hardware.md` — §4.5: positioning purchased hardware

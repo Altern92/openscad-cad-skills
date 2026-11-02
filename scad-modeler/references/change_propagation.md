@@ -11,7 +11,7 @@ it reports which *declared* contacts, motion drivers, and bores are affected
 -- not just which part *files* are (a file being affected doesn't say
 whether a declared requirement on it needs re-checking, which is exactly
 the gap that let a real `worm_wheel_teeth` parameter change go unnoticed
-across multiple validation rounds, INCIDENTS.md 2026-08-19/21). This is
+across multiple validation rounds, INCIDENTS.json 2026-08-19/21). This is
 advisory scoping the model reads and acts on -- there is no automated
 "skip everything else" execution mode, and the fallback-to-full-`--all`
 policy in §3.4 below is still the load-bearing safety net, not this file's

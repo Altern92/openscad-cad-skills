@@ -1,49 +1,58 @@
 #!/usr/bin/env bash
-# INCIDENTS.md ships an index so a reader can find the three relevant entries
-# without paying for all 1 500 lines. An index whose line numbers drift is WORSE
-# than no index: it looks authoritative and sends the reader to the wrong entry.
-#
-# Two properties, both mechanical:
-#   1. every entry heading has an index line, and every index line points at an
-#      entry heading
-#   2. rebuilding is idempotent -- a rebuild that grows the file silently
-#      accumulates stale blocks
-#
-# The idempotency check exists because the first version failed exactly that way:
-# it stripped only the lines that LOOKED like index rows and left the date
-# headings behind, so each rebuild added ~28 lines. `check` passed the whole time,
-# because the numbers it verified were still correct.
+# INCIDENTS.json stores structured incident entries queried via scripts/incidents.py.
+# Verify:
+#   1. INCIDENTS.json passes schema validation (check)
+#   2. list / search / show / add work deterministically
+#   3. check rejects a corrupted entry (negative test)
 set -uo pipefail
 
-INC="$SCAD_MODELER_SCRIPTS/../../INCIDENTS.md"
-GEN="$SCAD_MODELER_SCRIPTS/../tests/tools/incidents_index.py"
+INC="$SCAD_MODELER_SCRIPTS/../../INCIDENTS.json"
+CLI="$SCAD_MODELER_SCRIPTS/incidents.py"
 
-[ -f "$INC" ] || { echo "no INCIDENTS.md at $INC" >&2; exit 1; }
-[ -f "$GEN" ] || { echo "no incidents_index.py at $GEN" >&2; exit 1; }
+[ -f "$INC" ] || { echo "no INCIDENTS.json at $INC" >&2; exit 1; }
+[ -f "$CLI" ] || { echo "no incidents.py at $CLI" >&2; exit 1; }
 
-# --- 1. every link points at an entry heading -------------------------------
-if ! python3 "$GEN" check "$INC"; then
-    echo "the index does not match the file -- run:" >&2
-    echo "  python3 $GEN rebuild $INC" >&2
-    exit 1
-fi
+# --- 1. schema check passes on real INCIDENTS.json --------------------------
+python3 "$CLI" check --file "$INC" || exit 1
 
-# --- 2. rebuild is idempotent -----------------------------------------------
+# --- 2. list / search / show / add on a scratch copy ------------------------
 scratch=$(mktemp -d)
-cp "$INC" "$scratch/inc.md"
-before=$(wc -l < "$scratch/inc.md" | tr -d " ")
-python3 "$GEN" rebuild "$scratch/inc.md" > /dev/null
-once=$(wc -l < "$scratch/inc.md" | tr -d " ")
-python3 "$GEN" rebuild "$scratch/inc.md" > /dev/null
-twice=$(wc -l < "$scratch/inc.md" | tr -d " ")
-rm -rf "$scratch"
+trap 'rm -rf "$scratch"' EXIT
+cp "$INC" "$scratch/inc.json"
 
-if [ "$before" != "$once" ] || [ "$once" != "$twice" ]; then
-    echo "rebuild is not idempotent: $before -> $once -> $twice lines" >&2
-    echo "  a rebuild that grows the file is accumulating stale blocks" >&2
+python3 "$CLI" list --file "$scratch/inc.json" | grep -q "^INC-2026-11-02-01" || {
+    echo "list did not return INC-2026-11-02-01" >&2; exit 1
+}
+python3 "$CLI" search "check_features.py" --file "$scratch/inc.json" | grep -q "INC-2026-11-02-01" || {
+    echo "search did not find check_features.py incident" >&2; exit 1
+}
+python3 "$CLI" show "INC-2026-11-02-01" --file "$scratch/inc.json" | grep -q '"date": "2026-11-02"' || {
+    echo "show did not return JSON for INC-2026-11-02-01" >&2; exit 1
+}
+python3 "$CLI" add \
+    --file "$scratch/inc.json" \
+    --date "2026-11-02" \
+    --title "synthetic test incident" \
+    --where "tests/fixtures/incidents_index_accurate" \
+    --symptom "none" \
+    --root-cause "test" \
+    --fix "none" >/dev/null || { echo "add failed" >&2; exit 1; }
+python3 "$CLI" check --file "$scratch/inc.json" >/dev/null || {
+    echo "check failed after add" >&2; exit 1
+}
+
+# --- 3. corrupted entry must fail check -------------------------------------
+python3 - "$scratch/inc.json" <<'PY'
+import json, sys
+p = sys.argv[1]
+doc = json.load(open(p, encoding="utf-8"))
+doc["entries"][0]["id"] = "BAD-ID"
+json.dump(doc, open(p, "w", encoding="utf-8"))
+PY
+if python3 "$CLI" check --file "$scratch/inc.json" >/dev/null 2>&1; then
+    echo "check passed on invalid incident ID" >&2
     exit 1
 fi
 
-entries=$(grep -c "^### 20" "$INC")
-echo "ok  index covers all $entries entries and rebuild is idempotent"
+echo "ok  INCIDENTS.json validated (check + list + search + show + add + negative check)"
 exit 0

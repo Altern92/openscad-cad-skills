@@ -141,8 +141,8 @@ Before deleting a part, changing a joint/pocket interface, or renaming a module:
 - Descriptive file and variable names once final; a short `README.md` per project: what it
   is, the exact commands, which dimensions are confirmed vs estimated.
 - Before declaring done, check the result against the user's stated dimensions.
-- Something actually went wrong this session (bug, false pass, wrong claim): append an
-  entry to `../INCIDENTS.md`.
+- Something actually went wrong this session (bug, false pass, wrong claim): register an
+  entry in `../INCIDENTS.json` via `python3 ../scad-modeler/scripts/incidents.py add --title ... --where ... --symptom ... --root-cause ... --fix ...`.
 
 ## Reference files
 
@@ -152,4 +152,4 @@ Before deleting a part, changing a joint/pocket interface, or renaming a module:
 - `references/confidence-tiers.md` — what each tier may promise.
 - `references/tolerances.md` — per-side clearances from real parts.
 - `references/patterns.scad` — `true_hole()`, `calibration_coupon()`, pocket/sleeve/duct modules.
-- `../INCIDENTS.md` — append-only bug log shared with scad-modeler.
+- `../INCIDENTS.json` — structured JSON bug log shared with scad-modeler (queried via `../scad-modeler/scripts/incidents.py`).

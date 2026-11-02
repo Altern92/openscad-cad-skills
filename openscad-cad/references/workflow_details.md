@@ -361,7 +361,7 @@ default that another call computes fails `scad_lint`.
 Measuring an STL yourself (a quick extent, a sanity number)? Use
 `scripts/stl_extent.py` from scad-modeler, never an inline parser: OpenSCAD writes ASCII
 STL by default, and a binary-only parser read its header as a triangle count and
-silently returned nothing (INCIDENTS.md 2026-09-08).
+silently returned nothing (INCIDENTS.json 2026-09-08).
 
 `check_printability.py` (added 2026-08-22) checks something neither of the
 above does: whether the resulting geometry can actually be printed on FDM,
@@ -380,7 +380,7 @@ insert, snap fit — anything where the actual printed size, not the CAD
 number, decides whether it works) when no calibration profile exists
 (`doctor.py`'s `find_calibration()` returns none), proactively PROPOSE
 printing a calibration coupon first — do not wait to be asked.** Confirmed
-gap (INCIDENTS.md, 2026-08-21): across a real multi-part project, the model
+gap (INCIDENTS.json, 2026-08-21): across a real multi-part project, the model
 only offered to print a fit-test piece each time the user explicitly asked
 for one, never on its own, even though `references/confidence-tiers.md`
 Tier 3 already names a calibration profile as a hard gate. Use
@@ -400,7 +400,7 @@ saying so is more useful than implying more.
 
 Before deleting a part, changing a joint/pocket interface, or renaming a
 module, run these four steps. Skipping them caused real incidents (carrier
-removal left orphan sockets — D47; see `../INCIDENTS.md`).
+removal left orphan sockets — D47; see `../INCIDENTS.json`).
 
 1. **Dependents**: `grep -rn '^use\|^include' scad/` — which files depend on
    the file being changed.
@@ -435,7 +435,7 @@ Graph navigates elsewhere; here grep navigates, file confirms — D48.)
   rotate the real thing. Ship it by default, not on request — a user asking *"how
   am I supposed to judge this from a picture?"* has already lost a review cycle.
   A top view once reported a flange collision that did not exist: the projection
-  collapsed two different Z heights into one plane (`INCIDENTS.md` 2026-09-10).
+  collapsed two different Z heights into one plane (`INCIDENTS.json` 2026-09-10).
 - Name variables and the file itself descriptively (e.g. `gridfinity_bin_3x2x6.scad`),
   not `model.scad`, once the design is finalized.
 - Give each project folder its own short `README.md`: what it is, the exact
@@ -446,15 +446,15 @@ Graph navigates elsewhere; here grep navigates, file confirms — D48.)
   stated dimensions — measure against what they asked for, don't just trust that
   the code "looks right" syntactically.
 - If something was actually wrong this session — not a routine addition, a
-  bug, a false pass, an inaccurate claim caught by cross-checking — append an
-  entry to `../INCIDENTS.md` before finishing (entry format is in that file).
+  bug, a false pass, an inaccurate claim caught by cross-checking — register an
+  entry in `../INCIDENTS.json` before finishing (via `python3 ../scad-modeler/scripts/incidents.py add --title ... --where ... --symptom ... --root-cause ... --fix ...`).
   Raw data for a later pattern-review pass, not something to analyze now.
 
 ## Reference files
 
 - `references/retrieval.md` (sibling `claude_skills/references/`) — routing table: which skill to load, passport format, abstention rule.
 
-- `../INCIDENTS.md` — append-only log of real bugs found and fixed, shared
+- `../INCIDENTS.json` — structured JSON log of real bugs found and fixed, shared
   with `scad-modeler`. Not reviewed automatically; a later pass reads it for
   patterns worth promoting into a permanent rule.
 - `references/gridfinity-params.md` — full bin/baseplate `-D` parameter
