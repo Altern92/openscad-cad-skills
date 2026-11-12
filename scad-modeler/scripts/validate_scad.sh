@@ -906,6 +906,27 @@ sys.exit(0 if motion else 1)
         fi
     fi
 
+    # Fastener paths (INC-2026-11-08-01): every screw in fasteners.json as a line through the
+    # POSITIONED parts -- head room under later panels, free shank, pilot, thread bite, no two
+    # screws crossing. attachments.json only probes one point per part and missed all of these.
+    if [ -f fasteners.json ]; then
+        if [ -f assembly.scad ] && compgen -G "$BUILD_DIR/positioned/*.stl" >/dev/null; then
+            if python3 "$SCRIPT_DIR/check_fasteners.py" --fasteners fasteners.json; then
+                echo "CHECK_RESULT fasteners=PASS"
+                log_check "fasteners" 0 "check_fasteners.py (via validate_scad.sh)" "PASS"
+            else
+                echo "CHECK_RESULT fasteners=FAIL"
+                log_check "fasteners" 1 "check_fasteners.py (via validate_scad.sh)" "FAIL"
+            fi
+        else
+            echo "CHECK_RESULT fasteners=INCONCLUSIVE"
+            log_check "fasteners" 0 "INCONCLUSIVE" "INCONCLUSIVE: fasteners.json present but no assembly.scad / positioned STLs -- no screw path was examined"
+        fi
+    else
+        echo "CHECK_RESULT fasteners=SKIP"
+        log_check "fasteners" 0 "n/a" "SKIP: no fasteners.json -- copy templates/fasteners.json; until then no screw is checked for head room, crossings or thread bite"
+    fi
+
     # dimensions/features are opt-in PER PART (// EXPECTED_BBOX / EXPECTED_HOLE),
     # and previously said nothing when no part declared them. Same silent-gap
     # class as above.
@@ -1177,6 +1198,19 @@ if [ -d "$BUILD_DIR" ] && [ -w "$BUILD_DIR" ]; then
         printf '"sources":{'
         first=1
         lone=(); [[ "$MODE" == *.scad && "$MODE" != parts/* ]] && lone=("$MODE")
+        # root-level files the lone target use/includes (e.g. panel_lib.scad) were compiled by this run too
+        if [ ${#lone[@]} -gt 0 ] && [ -f "$MODE" ]; then
+            while IFS= read -r dep; do
+                [[ "$dep" == /* || "$dep" == */* ]] && continue
+                [ -f "$dep" ] && [ "$dep" != "$MODE" ] && lone+=("$dep")
+            done < <(grep -oE '^[[:space:]]*(use|include)[[:space:]]*<[^>]+>' "$MODE" | sed -E 's/.*<([^>]+)>/\1/')
+        fi
+        # root-level libraries the parts include as ../X.scad (e.g. panel_lib.scad) are compiled with them
+        if [ ${#lone[@]} -eq 0 ]; then
+            while IFS= read -r dep; do
+                [ -f "$dep" ] && lone+=("$dep")
+            done < <(cat parts/*.scad 2>/dev/null | grep -oE '^[[:space:]]*(use|include)[[:space:]]*<\.\./[^/>]+>' | sed -E 's/.*<\.\.\/([^>]+)>/\1/' | sort -u)
+        fi
         for f in params.scad layout.scad assembly.scad parts/*.scad ${lone[@]+"${lone[@]}"}; do
             [ -f "$f" ] || continue
             h=$(shasum -a 256 "$f" 2>/dev/null | cut -d" " -f1)

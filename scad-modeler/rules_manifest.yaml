@@ -189,3 +189,16 @@ rules:
     applies: "always"
     kind: manual
     gate: null
+
+  - id: R-22
+    rule: "Fastener paths (2026-11-12, INC-2026-11-08-01): every screw declared in fasteners.json has head room (panels mounted later carry head holes), a free shank, a pilot, thread material in its 'into' part, and crosses no other screw -- checked as lines through the positioned assembly"
+    applies: "file_exists:fasteners.json"
+    kind: auto
+    gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
+    success_pattern: "CHECK_RESULT fasteners=PASS"
+
+  - id: R-23
+    rule: "Design constraints (2026-11-12): references/design_constraints.md read before the first geometry and every applicable line answered in calculations.md; anything the user or a print caught that the design missed is added there at once"
+    applies: "always"
+    kind: manual
+    gate: null

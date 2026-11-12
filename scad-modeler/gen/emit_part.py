@@ -369,6 +369,10 @@ def emit_box_with_lid(doc, json_path, kit_root, out_path=None):
     }
     box_scad = emit({"kind": "box", "params": box_params}, json_path, kit_root)
     lid_scad = emit({"kind": "lid", "params": lid_params}, json_path, kit_root)
+    # retention rule (INC-2026-11-07-01): say what holds each part, not only that they touch
+    box_scad += "\n// NO_RETENTION: base part, stands on the table; the lid closes onto it\n"
+    lid_scad += ("\n// NO_RETENTION: held by 4 %s screws into the box corner posts\n" % p["hole"] if p["hole"]
+                 else "\n// NO_RETENTION: rests on the box rim, lip keeps it from sliding (no screws)\n")
 
     kit = os.path.abspath(kit_root)
     box_call = ", ".join(

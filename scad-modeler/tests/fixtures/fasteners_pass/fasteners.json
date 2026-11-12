@@ -1,0 +1,40 @@
+[
+ {
+  "name": "M4 front",
+  "start": [
+   0,
+   20,
+   5
+  ],
+  "axis": [
+   0,
+   -1,
+   0
+  ],
+  "d": 4,
+  "length": 24,
+  "head_d": 8,
+  "head_h": 3.1,
+  "into": "block",
+  "thread_from": 0
+ },
+ {
+  "name": "M4 side",
+  "start": [
+   20,
+   0,
+   15
+  ],
+  "axis": [
+   -1,
+   0,
+   0
+  ],
+  "d": 4,
+  "length": 24,
+  "head_d": 8,
+  "head_h": 3.1,
+  "into": "block",
+  "thread_from": 0
+ }
+]

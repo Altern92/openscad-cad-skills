@@ -107,6 +107,8 @@ if [ -n "$GATE" ]; then
     ok=1
     python3 "$ROOT/gen/emit_part.py" "$TESTS/fixtures/box.json" -o "$ASM/parts/box.scad" >/dev/null 2>&1 || ok=0
     python3 "$ROOT/gen/emit_part.py" "$TESTS/fixtures/lid.json" -o "$ASM/parts/lid.scad" >/dev/null 2>&1 || ok=0
+    printf '\n// NO_RETENTION: base part, stands on the table\n' >> "$ASM/parts/box.scad"
+    printf '\n// NO_RETENTION: rests on the box rim, lip keeps it from sliding\n' >> "$ASM/parts/lid.scad"
     cat > "$ASM/assembly.scad" <<EOF
 // assembly: box + lid (S-6 coplanar scenarijus) — MODE/PART saugomi
 include <$ROOT/kit/lib.scad>

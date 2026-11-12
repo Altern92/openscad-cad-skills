@@ -7,7 +7,7 @@ V="$SCAD_MODELER_SCRIPTS/validate_scad.sh"
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 die() { echo "$1" >&2; echo "$out" >&2; exit 1; }
 cube='cube([20, 10, 5]);'
-decl='// EXPECTED_BBOX: [20, 10, 5]\n// EXPECTED_THROUGH_HOLES: 0\n'
+decl='// EXPECTED_BBOX: [20, 10, 5]\n// EXPECTED_THROUGH_HOLES: 0\n// NO_RETENTION: test fixture, nothing holds it\n'
 
 # AC-1/AC-2/AC-4: undeclared single part fails and names both lines
 mkdir -p "$tmp/bare"; printf '%s\n' "$cube" > "$tmp/bare/p.scad"

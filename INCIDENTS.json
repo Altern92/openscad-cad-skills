@@ -3,6 +3,26 @@
   "description": "Append-only structured log of real bugs found and fixed across OpenSCAD skills (scad-modeler, openscad-cad, openscad-organic). Use scripts/incidents.py to check, list, search, show, or add entries.",
   "entries": [
     {
+      "id": "INC-2026-11-08-01",
+      "date": "2026-11-08",
+      "title": "screw heads under later panels, no head holes; DIN clip window cut its own pad (cnc-valdymo-punktas)",
+      "where": "~/Github/cnc-valdymo-punktas: post joints (M4 base/splice) under panel_front/rear/side; parts/_din_clip_common.scad",
+      "symptom": "user: joint screw heads stick out where the panels mount, panels cannot be screwed flat; printed DIN clip had ~3 mm slop on the rail. Both passed validate --all (14/0) and the pairwise overlap check.",
+      "root_cause": "screws existed only as pilot holes in each part; nothing modelled a screw as a line through the assembled parts, so the head volume under a later panel was never examined. attachments.json probes one point per part. The clip window was cut from Y=-3.6, removing the pad that sets the fit; no probe sat on the pad face.",
+      "fix": "8.5 mm head holes in 5 panels; project screw-path script 60/60. Promoted to scad-modeler check_fasteners.py (gate fasteners: head room, shank, pilot, bite, crossings, instanced parts), templates/fasteners.json, references/design_constraints.md (read at §0, appended at once when a user catches a miss), R-22/R-23. Clip window starts at Y=0 (0.45 mm slop, user-printed OK).",
+      "promoted_to_rule": "yes: fixtures fasteners_head_cross_fail, fasteners_pass; R-22 auto, R-23 manual"
+    },
+    {
+      "id": "INC-2026-11-07-01",
+      "date": "2026-11-07",
+      "title": "Vartai PASS, bet skiriamosios lentynos niekas nelaikė, kampuose 3x3 mm plyšiai, jungties varžtas be skylės ir į lentyną",
+      "where": "cnc-valdymo-punktas (divider_shelf, frame_post_lower/upper, panel_side_*, frame_base boss)",
+      "symptom": "validate_scad.sh --all 14/0 PASS ir check_rules OK kelis kartus iš eilės, kol vartotojo klausimas 'kaip stulpai jungiasi prie plokštumų' privertė perskaityti jungtis: (1) divider_shelf turėjo 4 M3 skyles, po kuriomis nebuvo jokios detalės, lentyna neturėjo vertikalios atramos; (2) priekinis/galinis skydai 251, šoniniai = pagrindo gylis, todėl kiekviename vertikaliame kampe 3x3 mm plyšys per visą 456 mm aukštį; (3) stulpų jungties M4 skylė buvo tik viršutinio stulpo sienelėje, ne kaištyje, ir z=240.5 galvutė būtų atsirėmusi į lentyną (z 233..241); (4) bazės įvorė d8 su neužmodeliuota M4 įvore d5.6 -> 1.2 mm sienelė.",
+      "root_cause": "Patikros tikrina tik tai, kas deklaruota: attachment tikrina deklaruotus taškus, joints deklaruotas poras, collisions tik persidengimą. Nė viena patikra neklausia 'kas laiko kiekvieną detalę kiekviena kryptimi' (lentyna be attachments.json įrašo = jokio FAIL), 'ar korpusas uždaras' (plyšys yra tuščia erdvė, ne kolizija) ar 'ar varžtas turi kur įsisukti ir ar jo galvutė telpa'. Tvirtinimo elementai (įvorės, kaiščio skylė) buvo tik komentaruose, ne geometrijoje, todėl jų negalėjo pamatyti joks matavimas. Vakuuminis PASS.",
+      "fix": "Lower post: 45 deg shelf ledge vidiniame kampe (stulpai pasukti 0/90/180/270), lentyna prisukama M3 į jį; joints.json +4 touching poros, attachments.json +2. Šoniniai skydai pl_len_y = gylis + 2*panel_t (kampai uždari, taško testai 8/8). Kaištis 15->22 mm, M4 savisriegio pilotas kaištyje z=248 (galvutė virš lentynos), assertai. Boss d10 + akla M4 įvorės skylė (sienelė 2.2), panel_fix_z_lower 218->200 (kad nepataikytų į atramą). Taškų testai 42/42 OK, porinė boolean sankirta be naujų, validate --all 14/0, check_rules OK.",
+      "promoted_to_rule": "scad-modeler check_joint_graph.py retention rule (2026-11-07, vartotojo patvirtinta): kiekviena spausdinama detalė turi būti attachments.json \"part\" arba turėti // NO_RETENTION: / // NO_JOINT: priežastį; joints.json kontaktas nebeužtenka. Testai: tests/fixtures/retention (mutantas nužudytas), joint_graph atnaujintas. Pirmas paleidimas cnc-valdymo-punktas rado din_carrier_arduino_uno: joints.json teigė \"bolted down\", skylių nebuvo."
+    },
+    {
       "id": "INC-2026-11-02-01",
       "date": "2026-11-02",
       "title": "check_features.py aklina zona: fiksuotos sienelės kiaurymė (inset = d/2 + wall_min) praeidavo su bet kokiu skersmeniu",

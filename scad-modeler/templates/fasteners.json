@@ -1,0 +1,15 @@
+{
+ "_comment": "Copy to the PROJECT ROOT as fasteners.json. One entry per screw/bolt, in ASSEMBLY coordinates. check_fasteners.py (validate_scad.sh gate 'fasteners') draws each as a line through the positioned parts and checks: head room (a panel mounted later needs a head hole), free shank through clearance holes, a pilot in the tapped part, thread material around the pilot in 'into', and that no two screws cross. 'instances' is needed only when one part file is placed several times (identical corner posts): list every placed name that assembly.scad MODE=\"part\" PART=\"<name>\" accepts. Field details: scripts/check_fasteners.py docstring. Delete _comment keys.",
+ "instances": [],
+ "fasteners": [
+  {"_comment": "M4 pan head through a 3 mm post wall into a printed tenon; the head is later covered by a panel, which must have a head hole",
+   "name": "base M4 front-left",
+   "start": [-113.5, -87, 12],
+   "axis": [0, 1, 0],
+   "d": 4, "length": 20,
+   "head_d": 8, "head_h": 3.1,
+   "into": "frame_base",
+   "thread_from": 3.3,
+   "access_mm": 0}
+ ]
+}

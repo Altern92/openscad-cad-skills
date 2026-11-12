@@ -1,4 +1,5 @@
 ---
+disable-model-invocation: true
 name: scad-modeler
 description: 'Use for complex, multi-part parametric OpenSCAD mechanical assemblies — things with gears, bearings, reductions, multiple interacting printed parts, or where getting a dimension wrong means two parts collide or don''t mesh. Triggers on "gear ratio", "reduction", "bearing", "shaft", "assembly", "BOM", "center distance", "mechanical design", "RC car", "gearbox", "multi-part", "design a mechanism", "which architecture", "gearbox layout", or a brief vague enough that more than one mechanism would satisfy it — or requests to design several parts that must fit together and be validated. For a single simple part, use openscad-cad instead. Adds: gated planning before numbers, calculations before geometry, centralized positions, and dimensional/collision/motion validation. ALWAYS load openscad-cad alongside. ALWAYS query ../INCIDENTS.json (via scripts/incidents.py) before writing geometry.'
 ---
@@ -43,6 +44,8 @@ checker by hand shipped 3 disconnected bodies; references/workflow_details.md, f
 2. Query `../INCIDENTS.json` via `python3 scripts/incidents.py list` or
    `python3 scripts/incidents.py search <term>` for entries matching what you
    build. Not after something breaks.
+   Then read `references/design_constraints.md` (what earlier designs did not think of:
+   head holes, crossing screws, nuts on rails) and answer each line that applies.
 3. New designs: write `design_manifest.json` (Stage 0; `validate_scad.sh` runs
    `check_intake.py` on it), classify each component **printed vs purchased**
    (bearings, shafts, fasteners are never printed), and look at 2–3 similar past
@@ -71,7 +74,8 @@ Every answer becomes a declaration; prose is checked by nothing:
 |---|---|---|
 | Insertion path | `bores.json` — `bore_candidates.py --scad parts/X.scad` writes it from the CSG tree; delete what is not a bore | `check_bore_reachability.py` |
 | Shared-part neighbours | `fusions.json`; `// EXPECTED_BODIES: N` | `check_subfeature_overlap.py`, `check_connectivity.py` |
-| Retention | `attachments.json` (`"to": "<part>"`). Every part needs a joint: contact, attachment, or `// NO_JOINT: <reason>` | `check_attachment.py`, `check_joint_graph.py` |
+| Retention | `attachments.json` (`"to": "<part>"`). Every part needs a joint: contact, attachment, or `// NO_JOINT: <reason>`. A contact only says it touches: every part must ALSO be the `"part"` of an attachment, or carry `// NO_RETENTION: <reason>` / `// NO_JOINT: <reason>` (INC-2026-11-07-01) | `check_attachment.py`, `check_joint_graph.py` |
+| Fasteners (every screw) | `fasteners.json` (assembly coords: head seat, axis, length, `into`) | `check_fasteners.py` (gate `fasteners`: head room, shank, pilot, bite, crossings) |
 | Purchased-part fit | `joints.json` contact with `expected_interference_mm` and `derivation` | `check_collisions.py`, `motion_sweep.py` |
 
 Templates for all four are in `templates/`. Why this step exists (three "done"
@@ -233,6 +237,8 @@ confidence tier reached (`../openscad-cad/references/confidence-tiers.md`).
 
 A real bug found and fixed this session (wrong test, false pass, hang, wrong claim):
 register it in `../INCIDENTS.json` via `python3 scripts/incidents.py add --title ... --where ... --symptom ... --root-cause ... --fix ...` before finishing.
+Something the design did not think of (the user or a print caught it, not a check): add one line
+to `references/design_constraints.md` **at once**, before fixing it, with its check or "manual".
 
 ## Generator (parametric parts)
 

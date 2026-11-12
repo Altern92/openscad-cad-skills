@@ -15,6 +15,17 @@ Names match case-insensitively as substrings, the same rule check_collisions.py
 uses. Parts are parts/*.scad minus PREVIEW_FILE; when build/ holds rendered
 STLs, only parts that rendered count (a shared module library renders nothing).
 
+Retention (INC-2026-11-07-01): a joints.json contact only says two parts TOUCH,
+not that anything HOLDS them -- a divider shelf with flush seams to four panels
+passed every check while nothing supported it. So every part must also say what
+retains it:
+  - attachments.json {"part": "<this part>", ...} (a material point that
+    check_attachment.py verifies), or
+  - `// NO_RETENTION: <reason>` (e.g. "held by gravity in a pocket"), or
+  - `// NO_JOINT: <reason>` (its reason already names what holds it, e.g. a
+    carrier clipped onto a purchased DIN rail).
+Being only the "to" side of an attachment does not count.
+
 The joint graph's components are printed too: two joined clusters that never
 meet are legal here but worth a look.
 
@@ -23,7 +34,7 @@ Usage:
 
 Exit codes:
     0  pass, or SKIP (fewer than 2 parts)
-    3  fail -- a part has no joint and no NO_JOINT reason
+    3  fail -- a part has no joint and no NO_JOINT reason, or nothing declares what retains it
     4  usage error (unreadable joints.json / attachments.json)
 """
 import argparse
@@ -35,6 +46,7 @@ import sys
 
 EXIT_OK, EXIT_FAIL, EXIT_USAGE = 0, 3, 4
 NO_JOINT_RE = re.compile(r"^[ \t]*//[ \t]*NO_JOINT[ \t]*:[ \t]*\S", re.M)
+NO_RETENTION_RE = re.compile(r"^[ \t]*//[ \t]*NO_RETENTION[ \t]*:[ \t]*\S", re.M)
 PREVIEW_RE = re.compile(r"^\s*//\s*PREVIEW_FILE", re.M)
 
 
@@ -51,7 +63,7 @@ def main():
     d = ap.parse_args().project_dir
 
     built = {os.path.splitext(os.path.basename(p))[0] for p in glob.glob(os.path.join(d, "build", "*.stl"))}
-    parts, excused = [], set()
+    parts, excused, ret_excused = [], set(), set()
     for scad in sorted(glob.glob(os.path.join(d, "parts", "*.scad"))):
         name = os.path.splitext(os.path.basename(scad))[0]
         src = open(scad, encoding="utf-8", errors="replace").read()
@@ -60,6 +72,8 @@ def main():
         parts.append(name)
         if NO_JOINT_RE.search(src):
             excused.add(name)
+        if NO_JOINT_RE.search(src) or NO_RETENTION_RE.search(src):
+            ret_excused.add(name)
     if len(parts) < 2:
         print(f"SKIP: joints, {len(parts)} printable part(s) -- a joint graph needs 2+")
         return EXIT_OK
@@ -71,7 +85,7 @@ def main():
         print(f"ERROR: cannot read joint declarations: {e}", file=sys.stderr)
         return EXIT_USAGE
     contacts = joints.get("contacts", []) if isinstance(joints, dict) else (joints or [])
-    edges, singles = [], []
+    edges, singles, holders = [], [], []
     for c in contacts:
         pair = c.get("pair") if isinstance(c, dict) else None
         if isinstance(pair, list) and len(pair) == 2:
@@ -79,6 +93,7 @@ def main():
     for a in attach or []:
         if isinstance(a, dict) and a.get("part") and not str(a.get("name", "")).startswith("_"):
             (edges.append((a["part"], a["to"])) if a.get("to") else singles.append(a["part"]))
+            holders.append(a["part"])
 
     def hits(label):
         return [p for p in parts if str(label).lower() in p.lower()]
@@ -95,6 +110,8 @@ def main():
         joined.update(hits(s))
 
     missing = [p for p in parts if p not in joined and p not in excused]
+    retained = {p for h in holders for p in hits(h)}
+    unretained = [p for p in parts if p not in retained and p not in ret_excused]
     seen, comps = set(), []
     for p in parts:
         if p in seen or p in excused:
@@ -108,12 +125,17 @@ def main():
         comps.append(sorted(comp))
     if len(comps) > 1:
         print(f"INFO: joint graph has {len(comps)} separate groups: " + " | ".join(", ".join(c) for c in comps))
-    if missing:
-        for p in missing:
-            print(f"FAIL: joints, parts/{p}.scad is joined to nothing -- add a joints.json contact or an "
-                  f"attachments.json entry (\"part\"/\"to\"), or `// NO_JOINT: <reason>`")
+    for p in missing:
+        print(f"FAIL: joints, parts/{p}.scad is joined to nothing -- add a joints.json contact or an "
+              f"attachments.json entry (\"part\"/\"to\"), or `// NO_JOINT: <reason>`")
+    for p in unretained:
+        print(f"FAIL: retention, parts/{p}.scad: nothing declares what holds it -- a joints.json contact only says it "
+              f"touches. Add an attachments.json entry with \"part\": \"{p}\" (a material point check_attachment.py "
+              f"verifies) or `// NO_RETENTION: <reason>`")
+    if missing or unretained:
         return EXIT_FAIL
-    print(f"PASS: joints, {len(parts)} part(s) each have a joint ({len(excused)} excused by NO_JOINT)")
+    print(f"PASS: joints, {len(parts)} part(s) each have a joint ({len(excused)} excused by NO_JOINT) "
+          f"and a declared retention ({len(ret_excused)} by NO_JOINT/NO_RETENTION)")
     return EXIT_OK
 
 

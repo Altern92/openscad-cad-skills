@@ -11,11 +11,12 @@ P="$tmp/p"; mkdir -p "$P/parts"
 for n in a b c; do printf '// EXPECTED_BBOX: [5, 5, 5]\n// EXPECTED_THROUGH_HOLES: 0\ncube(5);\n' > "$P/parts/$n.scad"; done
 printf '// PREVIEW_FILE: variants side by side\ncube(1);\n' > "$P/parts/preview_x.scad"
 printf '{"contacts": [{"pair": ["a", "b"], "joint_type": "bolted"}]}\n' > "$P/joints.json"
-printf '[{"name": "c_to_a", "part": "c", "to": "a", "at": [2,2,2], "feature": "m3"}]\n' > "$P/attachments.json"
+AB='{"name": "a_to_b", "part": "a", "to": "b", "at": [2,2,2], "feature": "m3"}, {"name": "b_to_a", "part": "b", "to": "a", "at": [2,2,2], "feature": "m3"}'
+printf '[{"name": "c_to_a", "part": "c", "to": "a", "at": [2,2,2], "feature": "m3"}, %s]\n' "$AB" > "$P/attachments.json"
 j() { (cd "$P" && python3 "$J" --project-dir . 2>&1); }
 
 out=$(j); [ $? -eq 0 ] || die "all joined: not PASS"
-rm "$P/attachments.json"; out=$(j); rc=$?
+printf '[%s]\n' "$AB" > "$P/attachments.json"; out=$(j); rc=$?   # (2026-11-07: a, b keep a retention entry)
 [ "$rc" -eq 3 ] || die "c unjoined: exit $rc, want 3"
 echo "$out" | grep -q 'parts/c.scad' || die "c not named"
 echo "$out" | grep -q 'preview_x' && die "PREVIEW_FILE part counted"
