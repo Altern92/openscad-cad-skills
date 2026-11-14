@@ -35,7 +35,13 @@ assembly.scad. Declare what each such part is bolted to, so a part with no screw
   {"mounts": [{"part": "z_motor_mount", "on": "z_plate", "min": 2}], "fasteners": [...]}
   mount   : >= min (default 1) declared fasteners whose shank passes through `part` (a ring just
             outside the shank meets its material) and whose `into` names `on`   -> "no declared fastener"
+  covered : the part's face resting on the host must not cover a host hole that no declared
+            fastener uses (P20b): sample that face, keep points with no host material just past
+            it but host material all around (a hole, not the host's edge) -> "covers host hole
+            at (x, y, z)". Intended ones go in the mount's "covered_ok": [[x, y, z], ...].
 Host screw heads under the mounted part are the "head blocked" check: declare the host's screws too.
+shortcut: the contact face is the largest flat patch of the part touching the host; a part touching
+its host on several planes is checked on that one plane only.
 
 Checks per fastener (rings of 12 points, every 0.5 mm):
   head    : cylinder head_d/2 x head_h behind `start` empty in all parts       -> "head blocked"
@@ -167,6 +173,55 @@ def mount_count(m, fs, meshes):
     return n
 
 
+def covered_host_holes(m, meshes, n=20000, seed=0):
+    """Centres of host holes under the part's contact face that the part covers (P20b)."""
+    part = [mesh for k, mesh in meshes.items() if str(m["part"]).lower() in k.lower()]
+    host = [mesh for k, mesh in meshes.items() if str(m["on"]).lower() in k.lower()]
+    if len(part) != 1 or not host:
+        return []
+    P = part[0]
+    pts, fi = trimesh.sample.sample_surface_even(P, n, seed=seed) if hasattr(trimesh.sample, "sample_surface_even") else trimesh.sample.sample_surface(P, n)
+    nrm = P.face_normals[fi]
+    inside_host = lambda q: np.any([h.contains(q) for h in host], axis=0)
+    touch = inside_host(pts + 0.3 * nrm)
+    if not touch.any():
+        return []
+    # contact plane = most common (rounded normal, offset) among touching samples
+    key = lambda i: (tuple(np.round(nrm[i], 3)), round(float(nrm[i] @ pts[i]), 1))
+    keys = [key(i) for i in np.flatnonzero(touch)]
+    (nv, off), _ = max(((k, keys.count(k)) for k in set(keys)), key=lambda kv: kv[1])
+    nv = np.array(nv)
+    on_plane = (np.abs(nrm @ nv - 1) < 1e-3) & (np.abs(pts @ nv - off) < 0.1)
+    cand = np.flatnonzero(on_plane & ~touch)
+    if not len(cand):
+        return []
+    q = pts[cand] + 0.3 * nv
+    deep = ~inside_host(q + 1.0 * nv)            # void continues into the host: a hole, not a dent
+    cand, q = cand[deep], q[deep]
+    holes = []
+    for i, c in zip(cand, q):                    # surrounded by host material at some radius
+        if any(inside_host(ring(c, nv, r)).mean() > 0.9 for r in (3.0, 6.0, 10.0)):
+            holes.append(pts[i])
+    if not holes:
+        return []
+    from scipy.spatial import cKDTree
+    H = np.array(holes); tree = cKDTree(H); seen = np.zeros(len(H), bool); out = []
+    for i in range(len(H)):
+        if seen[i]:
+            continue
+        grp, todo = set(), [i]
+        while todo:
+            j = todo.pop()
+            if j in grp:
+                continue
+            grp.add(j); todo += tree.query_ball_point(H[j], 1.5)
+        seen[list(grp)] = True
+        if len(grp) >= 3:
+            out.append(H[list(grp)].mean(axis=0))
+    ok = [np.array(c, float) for c in m.get("covered_ok", [])]
+    return [c for c in out if not any(np.linalg.norm(c - o) < 3.0 for o in ok)]
+
+
 def render_instances(names, outdir="build/positioned"):
     """Render instance names missing from (or older than every .scad in) outdir via assembly.scad."""
     os.makedirs(outdir, exist_ok=True)
@@ -228,6 +283,9 @@ def main():
                   if k == 0 else f"FAIL mount {m['part']} -> {m['on']}: {k} fastener(s), need {need}"); mbad += 1
         else:
             print(f"OK   mount {m['part']} -> {m['on']}: {k} fastener(s)")
+        for c in (covered_host_holes(m, meshes) if k is not None else []):
+            print(f"FAIL mount {m['part']} -> {m['on']}: covers host hole at ({c[0]:.1f}, {c[1]:.1f}, {c[2]:.1f})"
+                  " -- no declared fastener uses it; add a hole/relief, declare its screw, or list it in covered_ok"); mbad += 1
     print(f"fasteners: {len(fs) - nbad}/{len(fs)} OK, {len(cross)} crossing pair(s)"
           + (f", mounts {len(mounts) - mbad}/{len(mounts)} OK" if mounts else ""))
     return 3 if nbad or cross or mbad else 0

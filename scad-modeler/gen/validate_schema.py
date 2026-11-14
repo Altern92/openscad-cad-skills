@@ -6,14 +6,14 @@ Usage:
     python3 gen/validate_schema.py --self-check
 
 Exit codes:
-    0  visi failai validūs
-    4  bent vienas netinkamas (ar naudojimo klaida)
-    5  ENV_FAIL: nėra jsonschema (žr. pranešimą)
+    0  all files valid
+    4  at least one invalid (or a usage error)
+    5  ENV_FAIL: jsonschema missing (see the message)
 
-Kodėl re-exec: sisteminis python3 šiame kompiuteryje neturi jsonschema (audito F6).
-Jei importas nepavyksta, bandome $SCAD_PYTHON, tada scad-modeler venv, tada
-~/.local/share/scad-modeler/venv --- ir persileidžiame su juo. Taip tas pats
-failas veikia ir su `python3`, ir su venv.
+Why re-exec: the system python3 on this machine has no jsonschema (audit F6).
+If the import fails, we try $SCAD_PYTHON, then the scad-modeler venv, then
+~/.local/share/scad-modeler/venv --- and restart with it. That way the same
+file works with both `python3` and the venv.
 """
 import json
 import os
@@ -68,7 +68,7 @@ def main(argv: list[str]) -> int:
         try:
             doc = json.load(open(path, encoding="utf-8"))
         except (OSError, ValueError) as exc:
-            print(f"FAIL {path}: negalima perskaityti ({exc})")
+            print(f"FAIL {path}: cannot read ({exc})")
             failures += 1
             continue
         errors = sorted(

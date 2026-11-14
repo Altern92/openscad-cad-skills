@@ -7,10 +7,10 @@
     "h": 12
   },
   "assumptions": [
-    "įvorė M6 varžtui arba 12 mm velenui"
+    "boss for an M6 screw or a 12 mm shaft"
   ],
   "source": {
-    "brief": "įvorė 24 mm išorė, 12 mm kiaurymė, 12 mm aukščio",
+    "brief": "boss 24 mm outside, 12 mm bore, 12 mm tall",
     "date": "2026-11-01"
   }
 }

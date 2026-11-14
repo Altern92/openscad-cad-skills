@@ -1,1 +1,1 @@
-KLAIDA: tarpas 0.05 mm → 0.05 < 0.15 mm → FDM detalės nesisujungs; didink clearance iki 0.15
+ERROR: clearance 0.05 mm → 0.05 < 0.15 mm → FDM parts will not fit together; increase clearance to 0.15

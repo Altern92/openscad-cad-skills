@@ -1,1 +1,1 @@
-KLAIDA: lizdas 0.5 mm → 0.5 < 1.0 mm → dangtis nulaikys; didink lip iki 1.0
+ERROR: lip 0.5 mm → 0.5 < 1.0 mm → lid will not hold; increase lip to 1.0

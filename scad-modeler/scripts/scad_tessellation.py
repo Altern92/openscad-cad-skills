@@ -37,7 +37,9 @@ should be derived from. Formerly check_dimensions.py used a flat
 `max(0.3mm, 1%)`, which is one to two orders of magnitude looser than the real
 tessellation error and therefore not a meaningful gate.
 """
+import ast
 import math
+import operator
 import os
 import re
 
@@ -177,17 +179,72 @@ def resolve_special_vars(scad_path, fn=None, fa=None, fs=None):
 # a part that is 0.08% off nominal. The real bound is 2*r*(1-cos(pi/$fn)) at
 # the SPHERE's r and $fn: 2*1.25*(1-cos(pi/24)) = 0.0214 mm. Same formula,
 # different inputs -- which is why this is a separate term and not a floor bump.
+#
+# What resolves (NEXT.md 3b item 3, 2026-11-14): the sphere's radius as
+#   r = <expr> | d = <expr> (r = d/2) | positional sphere(<expr>, ...)
+# where <expr> is + - * / and parentheses over numeric literals and top-level
+# scalars of the part or a file it include<>s (one level; a scalar may itself
+# be such an expression of other scalars). Facets from the sphere's own
+# $fn/$fa/$fs; any it lacks come from the file's globals, but ONLY when the
+# minkowski() is top-level code with no $fn/$fa/$fs on its enclosing calls --
+# inside a module a caller can pass its own.
+# What stays SKIPPED (term 0, the part keeps the tight tolerance): function
+# calls, conditionals, vectors, module parameters and any name rebound inside
+# the enclosing module (module header, 'name =' in for/let/local assignment),
+# use<>d files (use does not import variables), cylinder()/circle() and spheres
+# inside a child module. Skipped, never guessed: an invented radius would
+# silently widen the tolerance, the failure this module exists to prevent.
 _MINKOWSKI_RE = re.compile(r"\bminkowski\s*\(")
-_SPHERE_RE = re.compile(r"\bsphere\s*\(([^)]*)\)")
-_NUM_ARG_RE = re.compile(r"\br\s*=\s*([^,)]+)")
-_FN_ARG_RE = re.compile(r"\$fn\s*=\s*([0-9.]+)")
-_ASSIGN_RE = re.compile(r"^[ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*=[ \t]*([0-9.]+)[ \t]*;")
+_SPHERE_RE = re.compile(r"\bsphere\s*\(")
+_BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.S)
+_INCLUDE_LINE_RE = re.compile(r"^\s*(include|use)\s*<([^>]+)>.*$", re.M)
+_STMT_ASSIGN_RE = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=(?!=)\s*(.+?)\s*$", re.S)
+_ARG_RE = re.compile(r"^\s*(\$?[A-Za-z_][A-Za-z0-9_]*)\s*=(?!=)\s*(.*?)\s*$", re.S)
+_SPECIAL_ANY_RE = re.compile(r"\$f[nas]\b")
+_MODULE_HDR_RE = re.compile(r"\bmodule\s+[A-Za-z_][A-Za-z0-9_]*\s*\(([^)]*)\)")
+_BINOPS = {ast.Add: operator.add, ast.Sub: operator.sub,
+           ast.Mult: operator.mul, ast.Div: operator.truediv}
 
 
-def parse_scalar_vars(scad_path, _depth=0, _seen=None):
-    """Numeric top-level assignments (name -> float), following include one
-    level. Enough to resolve 'sphere(r = fillet_post/2, ...)' when the
-    parameter is a plain literal in the part or its params.scad.
+def _strip_comments(text):
+    return re.sub(r"//[^\n]*", "", _BLOCK_COMMENT_RE.sub("", text))
+
+
+def _eval_expr(expr, lookup):
+    """+ - * / and parentheses over numbers and names (lookup(name) -> float
+    or None). None for anything else, an unknown name, or division by zero.
+    OpenSCAD and Python agree on this subset; '^', '%', calls, '?:' and
+    vectors fall outside it and return None.
+    """
+    try:
+        tree = ast.parse(expr.strip(), mode="eval").body
+    except (SyntaxError, ValueError):
+        return None
+
+    def ev(n):
+        if isinstance(n, ast.Constant) and type(n.value) in (int, float):
+            return float(n.value)
+        if isinstance(n, ast.Name):
+            return lookup(n.id)
+        if isinstance(n, ast.UnaryOp) and isinstance(n.op, (ast.UAdd, ast.USub)):
+            v = ev(n.operand)
+            return None if v is None else (-v if isinstance(n.op, ast.USub) else v)
+        if isinstance(n, ast.BinOp) and type(n.op) in _BINOPS:
+            a, b = ev(n.left), ev(n.right)
+            if a is None or b is None or (isinstance(n.op, ast.Div) and b == 0):
+                return None
+            return _BINOPS[type(n.op)](a, b)
+        return None
+
+    v = ev(tree)
+    return v if v is not None and math.isfinite(v) else None
+
+
+def _scalar_exprs(scad_path, _depth=0, _seen=None):
+    """Top-level 'name = expr;' statements (name -> expr text) of a file and,
+    one level deep, the files it include<>s. use<> is not followed: OpenSCAD
+    does not import a used file's variables. Assignments inside module bodies
+    or other braces are local and ignored. The file's own win over includes.
     """
     if _seen is None:
         _seen = set()
@@ -195,111 +252,188 @@ def parse_scalar_vars(scad_path, _depth=0, _seen=None):
     if real in _seen or _depth > 1:
         return {}
     _seen.add(real)
-    found = {}
-    included = {}
     try:
-        with open(scad_path, "r", encoding="utf-8") as f:
-            for raw in f:
-                line = _LINE_COMMENT_RE.sub("", raw)
-                m = _INCLUDE_RE.match(line)
-                if m:
-                    if _depth < 1:
-                        dep = os.path.join(os.path.dirname(scad_path), m.group(1))
-                        if os.path.isfile(dep):
-                            included.update(parse_scalar_vars(dep, _depth + 1, _seen))
-                    continue
-                m = _ASSIGN_RE.match(line)
-                if m:
-                    try:
-                        found[m.group(1)] = float(m.group(2))
-                    except ValueError:
-                        pass
+        text = _strip_comments(open(scad_path, "r", encoding="utf-8").read())
     except OSError:
-        return included
-    included.update(found)
-    return included
+        return {}
+    exprs = {}
+    for m in _INCLUDE_LINE_RE.finditer(text):
+        if m.group(1) == "include" and _depth < 1:
+            dep = os.path.join(os.path.dirname(scad_path), m.group(2))
+            if os.path.isfile(dep):
+                exprs.update(_scalar_exprs(dep, _depth + 1, _seen))
+    text = _INCLUDE_LINE_RE.sub("", text)
+    depth, buf = 0, []
+    for c in text:
+        if c == "{":
+            depth += 1
+            buf = []
+        elif c == "}":
+            depth -= 1
+            buf = []
+        elif depth == 0:
+            if c == ";":
+                m = _STMT_ASSIGN_RE.match("".join(buf))
+                if m:
+                    exprs[m.group(1)] = m.group(2)
+                buf = []
+            else:
+                buf.append(c)
+    return exprs
 
 
-def _resolve_radius(expr, scalars):
-    """'1.25' | 'fillet_post/2' | 'w/2' -> float, or None if not resolvable.
-    Returns None rather than guessing: an invented radius would silently widen
-    the tolerance, which is the failure mode this whole module exists to avoid.
+def parse_scalar_vars(scad_path):
+    """Top-level scalars (name -> float) of a part and its include<>s, with
+    computed ones ('fillet = wall * 0.75;') evaluated from the others. Names
+    whose value is not plain arithmetic over resolvable names are left out.
+    Values are the FINAL assignment, as in OpenSCAD.
     """
-    expr = expr.strip()
-    try:
-        return float(expr)
-    except ValueError:
-        pass
-    m = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)\s*/\s*([0-9.]+)$", expr)
-    if m and m.group(1) in scalars:
-        try:
-            return scalars[m.group(1)] / float(m.group(2))
-        except (ValueError, ZeroDivisionError):
+    exprs = _scalar_exprs(scad_path)
+    out, busy = {}, set()
+
+    def get(name):
+        if name in out:
+            return out[name]
+        if name not in exprs or name in busy:   # unknown or circular
             return None
-    if expr in scalars:
-        return scalars[expr]
-    return None
+        busy.add(name)
+        v = _eval_expr(exprs[name], get)
+        busy.discard(name)
+        if v is not None:
+            out[name] = v
+        return v
+
+    for name in exprs:
+        get(name)
+    return out
 
 
-def minkowski_sphere_deficit(scad_path, _depth=0, _seen=None, _scalars=None):
+def _close(text, i, open_ch, close_ch):
+    """Index of the bracket closing the one at text[i], or -1."""
+    depth = 0
+    for j in range(i, len(text)):
+        if text[j] == open_ch:
+            depth += 1
+        elif text[j] == close_ch:
+            depth -= 1
+            if depth == 0:
+                return j
+    return -1
+
+
+def _split_args(s):
+    out, depth, cur = [], 0, []
+    for c in s:
+        if c in "([{":
+            depth += 1
+        elif c in ")]}":
+            depth -= 1
+        if c == "," and depth == 0:
+            out.append("".join(cur))
+            cur = []
+        else:
+            cur.append(c)
+    out.append("".join(cur))
+    return [a for a in out if a.strip()]
+
+
+def _top_stmt_start(text, pos):
+    """(start of the top-level statement containing pos, brace depth at pos)."""
+    depth, start = 0, 0
+    for i in range(pos):
+        c = text[i]
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                start = i + 1
+        elif c == ";" and depth == 0:
+            start = i + 1
+    return start, depth
+
+
+def minkowski_sphere_deficit(scad_path, _scalars=None):
     """Largest bounding-box shortfall contributed by a faceted sphere inside a
     minkowski() sum, in mm for ONE axis. 0.0 when the file has no minkowski()
     with a resolvable sphere -- the caller then keeps its existing tolerance.
+    Resolved and skipped radius forms: see the comment block above.
     """
-    if _seen is None:
-        _seen = set()
-    real = os.path.realpath(scad_path)
-    if real in _seen or _depth > 1:
-        return 0.0
-    _seen.add(real)
     if _scalars is None:
         _scalars = parse_scalar_vars(scad_path)
-
     try:
-        text = open(scad_path, "r", encoding="utf-8").read()
+        text = _strip_comments(open(scad_path, "r", encoding="utf-8").read())
     except OSError:
         return 0.0
 
-    lines = [_LINE_COMMENT_RE.sub("", l) for l in text.splitlines()]
     worst = 0.0
-    for i, line in enumerate(lines):
-        if not _MINKOWSKI_RE.search(line):
+    for mk in _MINKOWSKI_RE.finditer(text):
+        # Block form 'minkowski() { ... }': walk to the matching close BRACE so
+        # a sphere after the block cannot be attributed to it.
+        close_p = _close(text, mk.end() - 1, "(", ")")
+        if close_p < 0:
             continue
-        # Walk to the matching close BRACE of the minkowski() block, so a
-        # sphere after the block cannot be attributed to it. Braces, not
-        # parens: the block form is 'minkowski() { ... }' and its own
-        # parentheses are already balanced on the first line -- walking parens
-        # stops immediately and finds no sphere at all (hit exactly this while
-        # building it: deficit came back 0.0 for node.scad).
-        depth = 0
-        started = False
-        body = []
-        for j in range(i, min(i + 60, len(lines))):
-            seg = lines[j]
-            body.append(seg)
-            for ch in seg:
-                if ch == "{":
-                    depth += 1
-                    started = True
-                elif ch == "}":
-                    depth -= 1
-            if started and depth <= 0:
-                break
-        for seg in body:
-            for m in _SPHERE_RE.finditer(seg):
-                args = m.group(1)
-                fn_m = _FN_ARG_RE.search(args)
-                r_m = _NUM_ARG_RE.search(args)
-                if not fn_m or not r_m:
+        rest = text[close_p + 1:]
+        if not rest.lstrip().startswith("{"):
+            continue
+        b0 = close_p + 1 + (len(rest) - len(rest.lstrip()))
+        b1 = _close(text, b0, "{", "}")
+        if b1 < 0:
+            continue
+        stmt_start, depth = _top_stmt_start(text, mk.start())
+        before = text[stmt_start:mk.start()]   # enclosing module header/calls
+        params = set()
+        for h in _MODULE_HDR_RE.finditer(before):
+            params.update(re.findall(r"[A-Za-z_][A-Za-z0-9_]*", h.group(1)))
+
+        for sm in _SPHERE_RE.finditer(text, b0, b1):
+            a1 = _close(text, sm.end() - 1, "(", ")")
+            if a1 < 0:
+                continue
+            # Names rebound between the statement start and this call
+            # (module params, for/let, local assignment) shadow file scalars.
+            scope = before + text[mk.start():sm.start()]
+
+            def lookup(name, scope=scope):
+                if name in params or re.search(r"\b%s\s*=(?!=)" % re.escape(name), scope):
+                    return None
+                return _scalars.get(name)
+
+            named, positional = {}, []
+            for a in _split_args(text[sm.end():a1]):
+                m = _ARG_RE.match(a)
+                if m:
+                    named[m.group(1)] = m.group(2)
+                else:
+                    positional.append(a)
+            r_srcs = [e for e in (named.get("r"), positional[0] if positional else None) if e]
+            if len(r_srcs) + ("d" in named) != 1:
+                continue   # no radius, or r and d both given
+            if r_srcs:
+                r = _eval_expr(r_srcs[0], lookup)
+            else:
+                d = _eval_expr(named["d"], lookup)
+                r = None if d is None else d / 2.0
+            if r is None or r <= 0:
+                continue
+
+            special = {}
+            for k in ("fn", "fa", "fs"):
+                if "$" + k in named:
+                    special[k] = _eval_expr(named["$" + k], lookup)
+                    if special[k] is None:
+                        break      # unresolvable facet setting: skip this sphere
+            else:
+                if not special.get("fn", 0) > 0:
+                    if depth > 0 or _SPECIAL_ANY_RE.search(scope):
+                        continue   # caller/enclosing $fn could override globals
+                    g = resolve_special_vars(scad_path)
+                    for k, v in zip(("fn", "fa", "fs"), g[:3]):
+                        special.setdefault(k, v)
+                if special.get("fa", DEFAULT_FA) <= 0 or special.get("fs", DEFAULT_FS) <= 0:
                     continue
-                try:
-                    n = float(fn_m.group(1))
-                except ValueError:
-                    continue
-                if n < 3:
-                    continue
-                r = _resolve_radius(r_m.group(1), _scalars)
-                if r is None or r <= 0:
-                    continue
+                n = fragments_for_r(r, special.get("fn", 0.0),
+                                    special.get("fa", DEFAULT_FA),
+                                    special.get("fs", DEFAULT_FS))
                 worst = max(worst, 2.0 * r * (1.0 - math.cos(math.pi / n)))
     return worst

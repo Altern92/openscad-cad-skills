@@ -85,11 +85,11 @@ Path printed under the change, one line per affected node, grouped by layer (par
 
 `[FAIL]` on an assert short-circuits downstream render steps and points at `calculations.md`. Leaf nodes under "Unaffected" prove the lazy scope — the user sees at a glance that only the meshing/printed-mate chain re-runs.
 
-## Šaltinių žurnalas
+## Source log
 
-| ID | Teiginys | Šaltinis | Tipas | Būsena |
+| ID | Claim | Source | Type | Status |
 |---|---|---|---|---|
-| P-001 | Topo order + only-dirty recompute (FreeCAD recompute engine) | opendeep.wiki FreeCAD core | pirminis | su šaltiniu |
-| P-002 | tree-sitter-openscad — npm pkg v0.5.1 (taip pat @holistic-stack v0.1.0; GitHub nymann/tree-sitter-openscad) | npmjs.com/package/tree-sitter-openscad, github.com/nymann/tree-sitter-openscad | pirminis | su šaltiniu |
-| P-003 | openscad-language-server is an LSP, not a static extractor | lib.rs/crates/openscad-language-server | pirminis | su šaltiniu |
-| P-004 | Printed-assembly fit classes (clearance/press/interference) | aon3d.com/engineering-fits | pirminis | su šaltiniu |
+| P-001 | Topo order + only-dirty recompute (FreeCAD recompute engine) | opendeep.wiki FreeCAD core | primary | sourced |
+| P-002 | tree-sitter-openscad — npm pkg v0.5.1 (also @holistic-stack v0.1.0; GitHub nymann/tree-sitter-openscad) | npmjs.com/package/tree-sitter-openscad, github.com/nymann/tree-sitter-openscad | primary | sourced |
+| P-003 | openscad-language-server is an LSP, not a static extractor | lib.rs/crates/openscad-language-server | primary | sourced |
+| P-004 | Printed-assembly fit classes (clearance/press/interference) | aon3d.com/engineering-fits | primary | sourced |

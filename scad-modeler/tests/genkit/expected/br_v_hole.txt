@@ -1,1 +1,1 @@
-KLAIDA: vertikalios lentynos skylė Ø5.5 netelpa h=10.0 → reikia h ≥ 13.5 → didink h arba mažink hole
+ERROR: vertical flange hole Ø5.5 does not fit h=10.0 → need h ≥ 13.5 → increase h or reduce hole

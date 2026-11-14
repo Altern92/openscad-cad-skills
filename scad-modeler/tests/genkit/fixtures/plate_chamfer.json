@@ -9,10 +9,10 @@
     "chamfer": 1.0
   },
   "assumptions": [
-    "viršutinė briauna nuožulni 1 mm, kad nespaustų"
+    "top edge chamfered 1 mm so it does not dig in"
   ],
   "source": {
-    "brief": "plokštė 100x60x8 su 1 mm nuožulna viršuje",
+    "brief": "plate 100x60x8 with a 1 mm chamfer on top",
     "date": "2026-11-01"
   }
 }

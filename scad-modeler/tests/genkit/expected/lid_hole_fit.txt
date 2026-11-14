@@ -1,1 +1,1 @@
-KLAIDA: dangčio skylės su inset 45.0 netelpa į 120.0×80.0 → 94.5 > 80.0 → mažink inset arba didink dangtį
+ERROR: lid holes with inset 45.0 do not fit in 120.0×80.0 → 94.5 > 80.0 → reduce inset or enlarge the lid

@@ -198,6 +198,18 @@ too loose and would pass a part that was genuinely the wrong size. Pass
 `--abs-tol/--rel-tol` to opt back into a flat tolerance for a part whose
 declared bbox is deliberately a rounded nominal. No `EXPECTED_BBOX` = skipped.
 
+A `minkowski() { ...; sphere(...); }` fillet adds its own term on top of that
+bound: `2*r*(1-cos(pi/n))` at the **sphere's** radius and facet count, from
+`scad_tessellation.minkowski_sphere_deficit()`. The radius resolves when it is
+`r = `, `d = ` or positional, written as `+ - * /` and parentheses over number
+literals and top-level scalars of the part or a file it `include`s (one level;
+those scalars can be computed from each other the same way). The facet count
+comes from the sphere's own `$fn`/`$fa`/`$fs`. The file's global values fill in
+only when the `minkowski()` is top-level code. Anything else is **skipped, not
+guessed**: function calls, module parameters or names rebound in the enclosing
+module, `use`d files, `cylinder()`/`circle()`, a sphere inside a child module.
+A skipped sphere adds 0, so the part keeps the tight tolerance.
+
 **A bounding box is nearly blind to the error that actually breaks fits.**
 OpenSCAD puts a polygon vertex at angle 0 (verified in upstream
 `primitives.cc`), so the bbox touches the ideal radius on any axis where a

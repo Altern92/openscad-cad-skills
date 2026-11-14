@@ -106,3 +106,30 @@ actually re-sent, the cost driver).
   around it. Fixed (`collisions_two_face_tenon`); runs 2–3 were 0.84 M and 0.61 M.
 - Harness base before any skill read is ~42.5 k of the final context, so the skill
   text now is ~22 KB of input against that floor.
+
+## 2026-11-14: re-run after P15–P21 (n = 1 per task)
+
+Same 5 tasks, Sonnet subagents (Claude Code Agent tool), installed skills at commit 66aab44
+(P20 mounts, P21 motion groups, GenKit in repo). Graded by `agent_eval.py grade`.
+
+| Task | grade | subagent tokens | tool calls | wall |
+|---|---|---:|---:|---:|
+| clear_span_tenons | PASS | 85 544 | 12 | 92 s |
+| standoffs_on_holes | PASS | 71 595 | 5 | 31 s |
+| flip_keeps_hole | PASS | 71 857 | 7 | 35 s |
+| lightening_cutout | PASS | 70 477 | 5 | 25 s |
+| honest_report | PASS | 78 270 | 8 | 52 s |
+| **total / mean** | **5/5** | **75 549** | **7.4** | **47 s** |
+
+Reading:
+- No regression: 5/5, like the P18/P19 arms. Tokens are the harness `subagent_tokens` figure, not
+  the per-turn context sum used for P19 (69 050), so the two are not strictly comparable. The new
+  checks did not make agents read more files: every run read the two SKILL.md files and the validator output.
+- Two agents (clear_span_tenons, honest_report) cleared `joints=FAIL` with `// NO_RETENTION:`,
+  and both said in REPORT.md that this acknowledges, but does not solve, retention. That is the
+  intended use of the escape hatch, and it was reported honestly. honest_report also found that the
+  model has no hinge geometry, and said it is not ready to print.
+- Every run quoted `check_rules.py`'s COVER line ("3 of 16" or "7 of 15" rules fired) instead of
+  claiming full coverage.
+
+Limits: n = 1; Sonnet, not the day-to-day model; small tasks (1–3 parts).

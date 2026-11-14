@@ -1,1 +1,1 @@
-KLAIDA: sienelė 0.3 mm per plona tarpui 0.2 mm → 0.3 ≤ 0.4 → didink wall arba mažink clearance
+ERROR: wall 0.3 mm too thin for clearance 0.2 mm → 0.3 ≤ 0.4 → increase wall or reduce clearance

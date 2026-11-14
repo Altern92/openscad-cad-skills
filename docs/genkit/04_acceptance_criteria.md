@@ -8,7 +8,7 @@ Every AC has a **command** and an **unambiguous result**. An AC that cannot be r
 |---|---|---|---|
 | AC-01 | Documentation read and approved | `NEXT.md` P0 checkboxes | all `[x]` |
 | AC-02 | `requirements.json` schema frozen | `python3 gen/validate_schema.py tests/fixtures/*.json` | 8/8 `OK`, 0 errors |
-| AC-03 | Error format frozen | `grep -c "KLAIDA:" docs/05_tests_and_errors.md` | ≥ 3 examples; format `KLAIDA: … → … → …` |
+| AC-03 | Error format frozen | `grep -c "ERROR:" docs/05_tests_and_errors.md` | ≥ 3 examples; format `ERROR: … → … → …` |
 | AC-04 | Conventions written down | `grep -c "mm" docs/03_module_api.md` | > 0 |
 
 ## P1 — Kit v0

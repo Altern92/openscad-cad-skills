@@ -1,7 +1,7 @@
 <!-- RAG-passport: file=NEXT.md | skill=all | applies_to=[future-work, roadmap, known-gaps] | version=2026-09-12 | source=07_Pilna_skill_analize + PRES_PO eval + AB_IRANKIAI -->
 # NEXT — ką daryti toliau (2026-09-12 būklė; §0 eilė atnaujinta 2026-11-14)
 
-> **2026-11-14:** aktuali yra §0 eilė. §1 (golden set) ir §6 (kainos kilimas) iš esmės uždengė P7 (`bench/PIPELINE_BENCH_2026-11-01.md`, `bench/AGENT_EVAL_2026-11-01.md`), P18 ir P19 (SKILL.md 56,7→12,8 KB ir 25→8,4 KB); jie palikti istorijai. Atviri lieka §3b, §4 ir §0 „Toliau“. Skaičiai žemiau (45 fixture'ai ir pan.) pasenę: 2026-11-14 suite 93/93.
+> **2026-11-14:** aktuali yra §0 eilė. §1 (golden set) ir §6 (kainos kilimas) iš esmės uždengė P7 (`bench/PIPELINE_BENCH_2026-11-01.md`, `bench/AGENT_EVAL_2026-11-01.md`), P18 ir P19 (SKILL.md 56,7→12,8 KB ir 25→8,4 KB); jie palikti istorijai. Atviri lieka §3b, §4 ir §0 „Toliau“. Skaičiai žemiau (45 fixture'ai ir pan.) pasenę: 2026-11-14 suite 95/95.
 
 Būsena šiandien: trys skill'ai, 23 pasai, **45** regresijos fixture'iai, 18 R-taisyklių,
 `scad-modeler/SKILL.md` **853** eil. Testai **45/45**. Įrankių A/B (11 projektų × 2 versijos):
@@ -47,10 +47,10 @@ Baigus punktą: pažymėti `[x]` su commit'u, ne trinti (ši eilė istorijai).
 - [x] ~~**P22 Diegimas neatsuka naujesnių dev failų**~~ PAKEISTA 2026-11-14 (G1–G3, H1–H5): GenKit gyvena tik šiame repo (`docs/genkit/`, `scad-modeler/gen/examples/`, `scripts/run_geom_mutation_monthly.sh`), `deploy_genkit.sh` ištrintas, SSD nebėra šaltinis. Diegimas tik per `install.sh` iš GitHub `origin/main` (nešvarus/nepushintas medis = atsisakoma, `--dev` apeina su WARNING); `deploy_to_canon.sh` = `install.sh --manual-only` + DSH fork; `scripts/test_install.sh` 6/6. (INC-2026-11-13-09). `deploy_genkit.sh` kopijuoja SSD GenKit → dev be patikros; 2026-11-13 jis ištrynė INC-2026-11-07-01 pataisą. Siūlomi AC: (1) prieš rsync, jei dev failas skiriasi nuo git HEAD arba HEAD versija skiriasi nuo GenKit šaltinio, kurio nėra HEAD istorijoje → STOP su failų sąrašu, nieko nekopijuota; (2) `--force` tik sąmoningam perrašymui; (3) fixture: senesnis šaltinis + naujesnis HEAD = STOP, vienodi = OK.
 
 ### Toliau (atvira, 2026-11-14)
-- [ ] **Agentų eval su cost-of-pass po P15–P21** — laukia vartotojo leidimo mokamiems paleidimams (`bench/agent_eval.py`).
-- [ ] **Host skylių inventorius (P20 tęsinys)** — nedeklaruotos host skylės/galvos po montuojama dalimi (dabar matomos tik deklaruoti varžtai).
-- [ ] **PETG tolerancijos** (§4.2) — tik išmatavus.
-- [ ] **Exit kodų suvienodinimas** (§4.1) — tik su suderinamumo sluoksniu.
+- [x] **Agentų eval po P15–P21** ✅ 2026-11-14: 5/5 PASS (Sonnet subagentai, ne mokamas API), vid. 75 549 subagent tokenų, 7,4 įrankių kvietimo, 47 s → `bench/AGENT_EVAL_2026-11-01.md` skyrius „2026-11-14“. n = 1.
+- [x] **Host skylių inventorius (P20b)** ✅ 2026-11-14: `check_fasteners.py` `mounts` dabar randa host skyles po dalies kontaktiniu paviršiumi, kurių nenaudoja joks deklaruotas varžtas („covers host hole at (x, y, z)“), išimtys `covered_ok`. Fixture `fasteners_mount_covers_host_hole_fail` + mutantas. Ribotumas: tikrinama viena (didžiausia) kontakto plokštuma.
+- [ ] **PETG tolerancijos** (§4.2) — tik išmatavus: išspausdinti `calibration_coupon()` (`openscad-cad/references/patterns.scad`, Pattern 5) PETG, pamatuoti, įrašyti į `openscad-cad/references/tolerances.md` § PETG pagal formatą (printeris, medžiaga, sluoksnis, ėminys, measured vs reported). Vartotojo darbas.
+- [ ] **Exit kodų suvienodinimas** (§4.1) — 2026-11-14 sąmoningai nedaryta: `validate_scad.sh` ir fixture'ai remiasi esamais kodais, vartotojui nauda nulinė, rizika sulaužyti skriptus. Daryti tik kartu su `check_*.py` v2.
 
 ## 1. Golden set'as nematuoja — perrašyti (prioritetas: aukštas)
 
@@ -137,10 +137,10 @@ BE renderio. Pigus patikrinimas, bet nėra įrodymo, kad reikalingas — kol kas
    **2026-09-12 patikrinta:** ant projekto, sukurto **su skill'u**, 5 iš 6 „niekada neįsijungiančių"
    taisyklių suveikia **PASS** (R-01, R-02, R-06, R-11, R-12). Ankstesnis radinys buvo matuotas
    neteisingame korpuse — 11 senų projektų. Žr. `_wiki/scad/06_zurnalas.md` klaidą E.
-2. **`assembly.scad` MODE sutartis** — 4-5 projektuose `MODE = 1;` vietoj
+2. **`assembly.scad` MODE sutartis** (2026-11-14 patikrinta: `MODE = 1;` liko tik `server_rack_modular_v4/scad` ir `v4/v5/scad`, kuriuos pakeitė v6–v8; senų versijų netaisome, naujuose projektuose `templates/assembly.scad` jau apsaugotas) — 4-5 projektuose `MODE = 1;` vietoj
    apsaugoto. Šablonas `templates/assembly.scad` dabar yra. Kol nesutvarkyta,
    `collisions` ten nepasileidžia (teisingai — tripwire pagauna).
-3. **bbox tolerancija** — `minkowski` narys pridėtas, bet sprendžiami tik
+3. **bbox tolerancija** (2026-11-14 išplėsta: `scad_tessellation.py` saugiai (ast allow-list) sprendžia `d=`, pozicinį r, aritmetiką, include skaliarus, sferos `$fn/$fa/$fs`; modulio parametrai, funkcijos, `use<>` lieka praleidžiami; fixture `minkowski_radius_forms`; 48 realūs failai – tie patys deficitai) — `minkowski` narys pridėtas, bet sprendžiami tik
    paprasti spindulio reiškiniai. Sudėtingesni praleidžiami (tyčia, ne spėjama).
 4. **Kaina nepermatuota po nuotėkio fix'o.** Prieš matavimą: +89,5%. Nuotėkis
    (`INCIDENTS.md` runtime kataloge) pašalintas, bet **naujo evalo nebuvo**. Be to,

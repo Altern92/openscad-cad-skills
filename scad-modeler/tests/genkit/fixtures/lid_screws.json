@@ -13,10 +13,10 @@
     "inset": 10
   },
   "assumptions": [
-    "dangtis su 4 M4 varžtais kampuose, tas pats 120x80 korpusas"
+    "lid with 4 M4 screws in the corners, same 120x80 body"
   ],
   "source": {
-    "brief": "dangtis 120x80 su 4 M4 skylėmis kampuose",
+    "brief": "lid 120x80 with 4 M4 holes in the corners",
     "date": "2026-11-01"
   }
 }

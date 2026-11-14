@@ -1,1 +1,1 @@
-KLAIDA: tinklelis 1×1 → 1 < 2 → tinkleliui reikia bent 2 skylių; didink nx arba ny
+ERROR: grid 1×1 → 1 < 2 → a grid needs at least 2 holes; increase nx or ny

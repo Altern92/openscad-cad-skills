@@ -186,12 +186,12 @@ short-circuits: fix at source, re-run `validate_scad.sh --all` from the top.
 
 ---
 
-## Šaltinių žurnalas
+## Source log
 
-| ID | Teiginys | Šaltinis (URL) | Tipas | Data | Būsena |
+| ID | Claim | Source (URL) | Type | Date | Status |
 |---|---|---|---|---|---|
-| M-001 | FDM tarpų (press/transition/slip/running) klasės ir korekcijos | https://www.aon3d.com/applications/engineering-fits-how-to-design-for-3d-printed-assemblies/ ; https://tools.creative3dp.com/tools/press-fit-calculator/ | pirminis | 2026-08-19 | su šaltiniu |
-| M-002 | Slip tarpas ~0.1mm padidėja dėl struktūrinio backlash; slankiojimo tarpai | https://www.ftcwiki.org/manufacturing-and-assembly/machining/tolerances | pirminis | 2026-08-19 | su šaltiniu |
-| M-003 | Judančių spausdintų dalių poveikis (trintis, tarpai, dizaino taisyklės) | https://thevirtualfoundry.com/3d-print-moving-parts/ | pirminis | 2026-08-19 | su šaltiniu |
-| M-004 | NopSCADlib vitaminų (guoliai, varžtai) realūs matmenys + BOM | https://github.com/nophead/NopSCADlib ; https://deepwiki.com/nophead/NopSCADlib/4-component-library-(vitamins) | pirminis | 2026-08-19 | su šaltiniu |
-| M-005 | Vizualus patikrinimas nepakankamas; verifikacijos kilpa gerina CAD generavimą (CADCode-Verify) | https://huggingface.co/papers/2410.05340 | pirminis | 2026-08-19 | su šaltiniu |
+| M-001 | FDM fit classes (press/transition/slip/running) and corrections | https://www.aon3d.com/applications/engineering-fits-how-to-design-for-3d-printed-assemblies/ ; https://tools.creative3dp.com/tools/press-fit-calculator/ | primary | 2026-08-19 | sourced |
+| M-002 | Slip clearance ~0.1mm grows with structural backlash; sliding clearances | https://www.ftcwiki.org/manufacturing-and-assembly/machining/tolerances | primary | 2026-08-19 | sourced |
+| M-003 | Effects of moving printed parts (friction, clearances, design rules) | https://thevirtualfoundry.com/3d-print-moving-parts/ | primary | 2026-08-19 | sourced |
+| M-004 | Real dimensions of NopSCADlib vitamins (bearings, screws) + BOM | https://github.com/nophead/NopSCADlib ; https://deepwiki.com/nophead/NopSCADlib/4-component-library-(vitamins) | primary | 2026-08-19 | sourced |
+| M-005 | Visual inspection is insufficient; a verification loop improves CAD generation (CADCode-Verify) | https://huggingface.co/papers/2410.05340 | primary | 2026-08-19 | sourced |

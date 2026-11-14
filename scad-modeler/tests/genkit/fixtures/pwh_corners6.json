@@ -11,10 +11,10 @@
     "pattern": "corners6"
   },
   "assumptions": [
-    "6 tvirtinimo skylės: 4 kampuose + 2 ilgesnės pusės viduryje"
+    "6 mounting holes: 4 in the corners + 2 at the middle of the longer sides"
   ],
   "source": {
-    "brief": "plokštė 120x60 su 6 M4 skylėmis",
+    "brief": "plate 120x60 with 6 M4 holes",
     "date": "2026-11-01"
   }
 }

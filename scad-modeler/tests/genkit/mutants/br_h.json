@@ -9,10 +9,10 @@
     "hole": "M5"
   },
   "assumptions": [
-    "kampinis laikiklis prie sienos, vertikali apkrova"
+    "corner bracket on a wall, vertical load"
   ],
   "source": {
-    "brief": "L formos laikiklis 60x50x40, M5 varžtai",
+    "brief": "L bracket 60x50x40, M5 screws",
     "date": "2026-11-01"
   }
 }

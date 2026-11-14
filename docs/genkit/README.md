@@ -13,7 +13,7 @@ work: 12 fixtures → gates `0 failed, 0 inconclusive`. `bash tests/run_all.sh` 
 P5 (10 real briefs): **8/10 (80 %)** one-shot, 0 false "done", 2 honest refusals
 (`docs/08`, ADR-006 in `docs/02`).
 
-Runtime error messages are in **Lithuanian** (the user's language); docs and code comments are
+Runtime error messages are in **English** (since 2026-11-14; Lithuanian before); docs and code comments are
 in English.
 
 ## Why

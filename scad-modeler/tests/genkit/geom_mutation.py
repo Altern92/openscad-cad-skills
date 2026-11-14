@@ -94,7 +94,7 @@ def gate_run(job):
         if r.returncode != 0:
             log = r.stderr + r.stdout
             # Only a kit assert() counts as a kill; a parser/IO error is a harness bug.
-            msg = next((l for l in log.splitlines() if "KLAIDA" in l), None)
+            msg = next((l for l in log.splitlines() if '"ERROR: ' in l), None)
             if msg is None or "assert" not in log.lower():
                 first = next((l for l in log.splitlines() if "ERROR" in l), "render failed")
                 return (fixture, param, label, "error", first.strip()[:120])

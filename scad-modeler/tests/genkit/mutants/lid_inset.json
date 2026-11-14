@@ -13,10 +13,10 @@
     "inset": 4
   },
   "assumptions": [
-    "dangtis tai pačiai 120x80 dėžutei, FDM tarpas 0.2 mm"
+    "lid for the same 120x80 box, FDM clearance 0.2 mm"
   ],
   "source": {
-    "brief": "dangtis 120x80 dėžutei su įėjimo lizdu",
+    "brief": "lid 120x80 for the box, with an insertion lip",
     "date": "2026-11-01"
   }
 }

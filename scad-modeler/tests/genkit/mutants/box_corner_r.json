@@ -10,10 +10,10 @@
     "corner_r": 50
   },
   "assumptions": [
-    "dėžutė be dangčio, viduje elektronika"
+    "box without a lid, electronics inside"
   ],
   "source": {
-    "brief": "atvira dėžutė 120x80x40 su 2.4 mm sienelėmis",
+    "brief": "open box 120x80x40 with 2.4 mm walls",
     "date": "2026-11-01"
   }
 }

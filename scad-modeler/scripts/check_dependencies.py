@@ -4,8 +4,9 @@ what order, when a variable in params.scad (or any .scad) changes.
 
 Why this exists
 ----------------
-The user's core requirement: "visada būna pasirinkimų medis — jei kazkur
-kazka pakeite, zinotu, kokios detales susijusios ir ka reikia perskaiciuoti."
+The user's core requirement (translated from Lithuanian): "there is always a
+dependency tree -- if something changes somewhere, it knows which parts are
+related and what must be recalculated."
 The blanket rule ("re-run validate_scad.sh --all after ANY change") is safe
 but blind: a one-parameter edit re-renders and re-checks everything, and the
 model cannot say *what* the edit affected. This script makes the dependency

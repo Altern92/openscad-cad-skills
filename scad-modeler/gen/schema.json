@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://genkit.local/requirements.schema.json",
   "title": "OpenSCAD GenKit — requirements.json",
-  "description": "Vieno dizaino parametrų sutartis. Schema tikrina TIPUS ir STRUKTŪRĄ; geometrines ribas (pvz. t >= 1.2) tikrina OpenSCAD assert() — todėl schema sąmoningai neleidžia būti naudojama kaip geometrijos vartams. Žr. docs/03_moduliu_api.md.",
+  "description": "Parameter contract for one design. The schema checks TYPES and STRUCTURE; geometric limits (e.g. t >= 1.2) are checked by OpenSCAD assert() — so the schema deliberately cannot be used as a geometry gate. See docs/03_module_api.md.",
   "type": "object",
   "required": [
     "version",
@@ -403,7 +403,7 @@
     },
     "box_with_lid": {
       "type": "object",
-      "description": "Sudėtinis 2 dalių projektas (box + lid + assembly.scad + joints.json).",
+      "description": "Composite 2-part project (box + lid + assembly.scad + joints.json).",
       "required": [
         "w",
         "d",
@@ -629,7 +629,7 @@
     },
     "custom": {
       "type": "object",
-      "description": "Laisva forma: generatorius jos NEGENERUOJA (exit 4, unsupported_kind). Laukas yra tik tam, kad intake galėtų užfiksuoti neatpažintą prašymą.",
+      "description": "Free form: the generator does NOT generate it (exit 4, unsupported_kind). The field exists only so intake can record an unrecognised request.",
       "properties": {
         "note": {
           "type": "string"

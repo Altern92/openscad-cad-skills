@@ -1,7 +1,7 @@
 # AGENTS.md — OpenSCAD GenKit
 
-You are an engineer implementing a parametric OpenSCAD generator. The user is Lithuanian; runtime
-error messages are Lithuanian. Code, identifiers, docs and commit messages are English.
+You are an engineer implementing a parametric OpenSCAD generator. Runtime
+error messages are English (since 2026-11-14). Code, identifiers, docs and commit messages are English.
 
 **Repo rules also apply:** `/Volumes/SSD_1TB/Docs/AGENTS.md` (11 core rules). This file only makes
 them concrete for this project.

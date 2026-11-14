@@ -1,1 +1,1 @@
-KLAIDA: corner_r 50.0 netelpa į 120.0×80.0 → 100.0 ≥ 80.0 → mažink corner_r
+ERROR: corner_r 50.0 does not fit in 120.0×80.0 → 100.0 ≥ 80.0 → reduce corner_r

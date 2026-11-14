@@ -1,14 +1,14 @@
-// kit/hole_pattern.scad — tinklelis nx × ny skylių plokštėje (P1).
+// kit/hole_pattern.scad — nx × ny grid of holes in a plate (P1).
 //
-// Lokali pradžia: apatinio paviršiaus centras.
-// Plokštė = nx*dx × ny*dy; skylės — celių centruose (žingsniai dx, dy).
-// bbox = [nx*dx, ny*dy, t]; kiaurymių skaičius = nx * ny.
+// Local origin: bottom face centre.
+// Plate = nx*dx × ny*dy; holes at the cell centres (pitches dx, dy).
+// bbox = [nx*dx, ny*dy, t]; through-hole count = nx * ny.
 //
-// PASTABA (2026-11-01): pradinė docs/03 bbox formulė
-// "(nx-1)*dx + hole_d" skyles darė LIESTINES plokštės kraštui (sienelė 0 mm,
-// ne watertight — vartai pagavo topology FAIL). 4-as assert naudoja nx*dx —
-// tas pats celių skaičius. Sutarta: plokštė = nx*dx × ny*dy, sienelė
-// (dx - hole_d)/2 ≥ 2 mm pagal assert 2/3.
+// NOTE (2026-11-01): the original docs/03 bbox formula
+// "(nx-1)*dx + hole_d" made the holes TANGENT to the plate edge (wall 0 mm,
+// not watertight — the gates caught topology FAIL). The 4th assert uses nx*dx —
+// the same cell count. Agreed: plate = nx*dx × ny*dy, wall
+// (dx - hole_d)/2 ≥ 2 mm per asserts 2/3.
 
 include <lib.scad>
 
@@ -19,22 +19,22 @@ module kit_hole_pattern(nx, ny, dx, dy, hole, t) {
     d = ny * dy;
 
     assert(hole_d > 0,
-        str("KLAIDA: hole ", hole, " nežinomas žymėjimas → naudok M3, M4, M5, M6 arba Ø mm → pakeisk hole"));
+        str("ERROR: hole ", hole, " unknown designation → use M3, M4, M5, M6 or Ø mm → change hole"));
     assert(nx >= 1 && ny >= 1 && nx * ny >= 2,
-        str("KLAIDA: tinklelis ", nx, "×", ny, " → ", nx * ny,
-            " < 2 → tinkleliui reikia bent 2 skylių; didink nx arba ny"));
+        str("ERROR: grid ", nx, "×", ny, " → ", nx * ny,
+            " < 2 → a grid needs at least 2 holes; increase nx or ny"));
     assert(dx >= hole_d + 2 * wall_min,
-        str("KLAIDA: žingsnis dx ", kit_fmt(dx), " mm → ", kit_fmt(dx), " < Ø",
-            kit_fmt(hole_d), "+", kit_fmt(2 * wall_min), " → didink dx iki ",
+        str("ERROR: pitch dx ", kit_fmt(dx), " mm → ", kit_fmt(dx), " < Ø",
+            kit_fmt(hole_d), "+", kit_fmt(2 * wall_min), " → increase dx to ",
             kit_fmt(hole_d + 2 * wall_min)));
     assert(dy >= hole_d + 2 * wall_min,
-        str("KLAIDA: žingsnis dy ", kit_fmt(dy), " mm → ", kit_fmt(dy), " < Ø",
-            kit_fmt(hole_d), "+", kit_fmt(2 * wall_min), " → didink dy iki ",
+        str("ERROR: pitch dy ", kit_fmt(dy), " mm → ", kit_fmt(dy), " < Ø",
+            kit_fmt(hole_d), "+", kit_fmt(2 * wall_min), " → increase dy to ",
             kit_fmt(hole_d + 2 * wall_min)));
     assert(hole_d <= 0.5 * kit_min2(w, d),
-        str("KLAIDA: skylė Ø", kit_fmt(hole_d), " per didelė tinkleliui ", kit_fmt(w), "×",
+        str("ERROR: hole Ø", kit_fmt(hole_d), " too large for grid ", kit_fmt(w), "×",
             kit_fmt(d), " → ", kit_fmt(hole_d), " > ", kit_fmt(0.5 * kit_min2(w, d)),
-            " → mažink hole arba didink žingsnius"));
+            " → reduce hole or increase the pitches"));
 
     difference() {
         linear_extrude(height = t, convexity = 4) square([w, d], center = true);
@@ -44,7 +44,7 @@ module kit_hole_pattern(nx, ny, dx, dy, hole, t) {
     }
 }
 
-// --- bbox ir deklaracijų pagalbinės (turi sutapti su gen/emit_part.py) ------
+// --- bbox and declaration helpers (must match gen/emit_part.py) -------------
 
 function kit_bbox_hole_pattern(nx, ny, dx, dy, hole, t) = [nx * dx, ny * dy, t];
 

@@ -56,12 +56,12 @@ the `missing` list and **writes no file** (exit 4).
 
 > **Message format.** The `assert` lines below state the *condition* and *what the message must
 > say*. The full message must follow `docs/05_tests_and_errors.md` §Format:
-> `KLAIDA: <number with unit> → <number> < <limit> → <suggestion>`.
+> `ERROR: <number with unit> → <number> < <limit> → <suggestion>`.
 > Example, first `plate` assert:
 > ```openscad
-> assert(t >= 1.2, str("KLAIDA: storis ", t, " mm → ", t, " < 1.2 mm (FDM minimumas) → didink t iki 1.2"));
+> assert(t >= 1.2, str("ERROR: thickness ", t, " mm → ", t, " < 1.2 mm (FDM minimum) → increase t to 1.2"));
 > ```
-> Messages are Lithuanian (user-facing); the format is fixed.
+> Messages are in English (user-facing, since 2026-11-14); the format is fixed.
 
 ## 1. `plate`
 

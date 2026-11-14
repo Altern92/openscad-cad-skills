@@ -1,13 +1,13 @@
-// kit/lib.scad — bendri pagalbiniai (P1, AC-05).
+// kit/lib.scad — shared helpers (P1, AC-05).
 //
-// Skylų lentelė yra VIENINTELIS šaltinis: generatorius (gen/emit_part.py)
-// jos NEDUBLIUOJA — jis perduoda tik žymėjimą ("M4"), o skersmenį išsprendžia
-// kit_hole_d(). Keisti lentelę draudžiama be sprendimo įrašo
-// (docs/03_moduliu_api.md §Skylų lentelė).
+// The hole table is the ONLY source: the generator (gen/emit_part.py) does
+// NOT duplicate it — it passes only the designation ("M4"), and kit_hole_d()
+// resolves the diameter. Changing the table requires a decision record
+// (docs/03_module_api.md §Hole table).
 //
-// Šis failas geometrijos nekuria — tik funkcijas ir pagalbinius modulius.
+// This file creates no geometry — only functions and helper modules.
 
-// --- Skylų lentelė (ISO 273 medium clearance) -------------------------------
+// --- Hole table (ISO 273 medium clearance) ----------------------------------
 
 function kit_hole_lookup(hole) =
     hole == "M3" ? 3.4
@@ -16,24 +16,24 @@ function kit_hole_lookup(hole) =
   : hole == "M6" ? 6.6
   : -1;
 
-// Grąžina skylės skersmenį mm: žymėjimas → lentelė, skaičius → kaip yra,
-// nežinomas žymėjimas → -1 (modulis tada `assert`ina).
+// Returns the hole diameter in mm: designation → table, number → as is,
+// unknown designation → -1 (the module then `assert`s).
 function kit_hole_d(hole) =
     is_string(hole) ? kit_hole_lookup(hole) : hole;
 
 function kit_min2(a, b) = a < b ? a : b;
 function kit_max2(a, b) = a > b ? a : b;
 
-// Skaičius pranešimams: 1–2 skaitmenys po kablelio (docs/05 §Formatas).
+// Number for messages: 1–2 decimal places (docs/05 §Format).
 // 1 -> "1.0", 1.2 -> "1.2", 1.75 -> "1.75".
 function kit_fmt(x) =
     let (s = str(round(x * 100) / 100),
          dot = search(".", s))
     dot == [] ? str(s, ".0") : s;
 
-// --- Geometrijos pagalbiniai (be „stebuklingų" skaičių) ---------------------
+// --- Geometry helpers (no "magic" numbers) ----------------------------------
 
-// Apvalintas 2D stačiakampis, centruotas (0,0). r = 0 → aštrūs kampai.
+// Rounded 2D rectangle, centred on (0,0). r = 0 → sharp corners.
 module kit_round2d(w, d, r = 0) {
     if (r > 0) {
         hull()
@@ -45,13 +45,13 @@ module kit_round2d(w, d, r = 0) {
     }
 }
 
-// Apvalintas blokas: apatinis paviršius z = 0, centras (0,0).
+// Rounded block: bottom face z = 0, centre (0,0).
 module kit_round_block(w, d, h, r = 0) {
     linear_extrude(height = h, convexity = 4)
         kit_round2d(w, d, r);
 }
 
-// 4 kampų skylių centrai (inset — nuo krašto iki skylės centro).
+// Hole centres at the 4 corners (inset — from edge to hole centre).
 function kit_corner_points(w, d, inset) =
     [ [ w / 2 - inset,  d / 2 - inset],
       [-w / 2 + inset,  d / 2 - inset],

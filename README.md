@@ -1,12 +1,128 @@
 # openscad-cad-skills
 
-Claude Code skills for parametric OpenSCAD design — from a single part to a
-multi-part mechanical assembly, with automated geometry verification before
-export.
+[Claude Code](https://docs.anthropic.com/en/docs/claude-code) skills for parametric OpenSCAD
+design, from a single part to a multi-part mechanical assembly. The model is checked
+automatically before export: dimensions, holes, collisions, screws and full motion sweeps.
 
 ![Example: single-stage spur gear reduction](scad-modeler/examples/gear_reduction/preview.png)
 
-*A working example — see [`scad-modeler/examples/gear_reduction/`](scad-modeler/examples/gear_reduction/).*
+*A working example: [`scad-modeler/examples/gear_reduction/`](scad-modeler/examples/gear_reduction/).*
+
+A *skill* is a folder of instructions and scripts that Claude Code loads when a request matches
+it. You ask in plain language ("design a wall bracket for a 40 mm pipe", "a 6:1 gearbox for
+this motor"). The skill makes Claude plan, calculate, write the `.scad`, render it, and run the
+checks below before it reports the part as done.
+
+## Status
+
+**Beta, used on real projects.** Developed since 2026-08 and used on enclosures, gearboxes,
+racks, figurines and a large CNC machine frame. Every check exists because a real model passed
+review and was still wrong; each such case is logged in [`INCIDENTS.json`](INCIDENTS.json) (~120 entries).
+
+| Measure | Value |
+|---|---|
+| Regression suite (`scad-modeler/tests/run_all.sh`) | 95 tests: 94 fixtures + GenKit suite (golden parts, 40 mutants), all green; CI on every push |
+| Planted-defect benchmark ([`bench/PIPELINE_BENCH_2026-11-01.md`](bench/PIPELINE_BENCH_2026-11-01.md)) | 35/35 defects caught by the named check, 0/9 false alarms on clean controls |
+| Agent evaluation ([`bench/AGENT_EVAL_2026-11-01.md`](bench/AGENT_EVAL_2026-11-01.md)) | 15/15 tasks passed (n = 3 × 5) |
+| Checkers | 23 `check_*.py` scripts + motion sweep, wired into one command (`validate_scad.sh`) and a 23-rule gate |
+
+Known gaps (see [Limits](#limits)): no strength calculations, no slicer gates, no measured PETG
+tolerances yet, motion checking samples rather than proves. Planned work is tracked in
+`NEXT.md` (in Lithuanian, the maintainer's working notes).
+
+## Install
+
+Requirements: macOS or Linux, [Claude Code](https://docs.anthropic.com/en/docs/claude-code),
+`git`, OpenSCAD **2025 or newer with the Manifold backend** (macOS: `brew install --cask
+openscad@snapshot`; the plain `openscad` cask is too old for `--backend=Manifold`; headless
+Linux also needs `xvfb`), and [`uv`](https://docs.astral.sh/uv/) for the Python environment.
+
+1. Install the skills **from GitHub**. This is the only supported way. It installs exactly a
+   commit on `origin/main` into `~/.claude/skills` and then runs the installed test suite:
+
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/Altern92/openscad-cad-skills/main/install.sh | bash
+   # or from a clone:
+   git clone https://github.com/Altern92/openscad-cad-skills.git && bash openscad-cad-skills/install.sh
+   ```
+
+2. Create the Python environment the checkers use (`~/.local/share/scad-modeler/venv`; found
+   automatically, no activation needed):
+
+   ```bash
+   bash ~/.claude/skills/scad-modeler/scripts/setup_env.sh
+   ```
+
+3. Check what this machine can do:
+
+   ```bash
+   python3 ~/.claude/skills/scad-modeler/scripts/doctor.py     # OpenSCAD, libraries, Python packages
+   python3 ~/.claude/skills/scad-modeler/scripts/selftest.py   # runs the whole chain on a known part
+   ```
+
+4. In Claude Code, describe the part. `openscad-cad` and `scad-modeler` load on matching
+   requests (or call them by name: `/openscad-cad`, `/scad-modeler`).
+
+`install.sh [--manual-only] [--no-test] [--dev] [TARGET]`. `--manual-only` makes the two main
+skills load only when called by name. A clone with uncommitted or unpushed changes is refused
+(`--dev` overrides it, with a warning). Do not symlink or copy the skill folders by hand: a stale
+second copy once overwrote newer code. To update, run the same command again. Other harnesses:
+pass the skills folder as `TARGET` (e.g. `bash install.sh ~/.dsh/skills` for DeepSeek Harness).
+
+If you use OpenSCAD libraries (BOSL2, NopSCADlib), pin them per project with `env_gate.py
+--write-lock`: a BOSL2 update once moved a gear's anchor and the render still "succeeded".
+
+## Skills
+
+| Skill | For |
+|-------|-----|
+| `openscad-cad` | A single part: insert, bracket, cover, enclosure, Gridfinity bin. Writing, rendering, exporting, dimensional checks. |
+| `scad-modeler` | Multi-part assemblies: gears, bearings, shafts, frames, machines. Adds calculations before geometry, centralized parameters and positions, collision, screw and motion checks, and the GenKit generator. |
+| `openscad-organic` | Organic figurines: characters, creatures, miniatures. hull/skin/sweep techniques, FDM detail minimums, proportion and silhouette checks. |
+
+`scad-modeler` builds on `openscad-cad` (render/export commands and tolerance data live there),
+so install them together; `install.sh` does.
+
+## GenKit: parts from parameters
+
+For common shapes the agent does not hand-write OpenSCAD. It fills in a small JSON spec, and
+`gen/emit_part.py` emits a `.scad` from tested kit modules, together with the declarations
+(`EXPECTED_BBOX`, hole counts) that the checks need, derived from the same numbers:
+
+```bash
+cd ~/.claude/skills/scad-modeler
+python3 gen/emit_part.py tests/genkit/fixtures/box.json -o /tmp/box.scad
+bash scripts/validate_scad.sh /tmp/box.scad
+```
+
+Kinds: `plate`, `plate_with_holes`, `bracket_l`, `box`, `lid`, `boss`, `hole_pattern`,
+`snap_hook`, and the composite `box_with_lid` (box, lid, `assembly.scad`, `joints.json`).
+Anything else is `custom`: hand-written, with declarations required. Schema: `gen/schema.json`;
+one example per kind in `tests/genkit/fixtures/`; design docs in [`docs/genkit/`](docs/genkit/).
+On 10 real user briefs GenKit produced a correct part in one shot 8 times and refused honestly
+twice (0 false "done").
+
+## Running the checks by hand
+
+Claude runs these for you. To run them yourself, from a project root with `parts/*.scad`:
+
+```bash
+bash ~/.claude/skills/scad-modeler/scripts/validate_scad.sh --all     # whole project
+bash ~/.claude/skills/scad-modeler/scripts/validate_scad.sh part.scad # one file
+```
+
+The bundled example:
+
+```bash
+cd ~/.claude/skills/scad-modeler/examples/gear_reduction
+bash ../../scripts/validate_scad.sh --all
+```
+
+Declaration files in the project root switch on the deeper checks: `joints.json` (contacts and
+motion, with group drivers `"parts": [...]` and a `"static"` list), `fasteners.json` (every
+screw, plus `mounts`), `bores.json`, `attachments.json`, `acceptance.json`. Templates:
+`scad-modeler/templates/`. Parts built by a Python/trimesh script count too: export them to
+`build/positioned/<name>.stl`.
 
 ## Why this exists
 
@@ -78,143 +194,6 @@ antecedent fire, and whether they were the majority (`PERVASIVE`). Formal verifi
 every `assert` with a `cover` on its antecedent for the same reason: a property whose
 trigger never fires is a verification gap, not a success.
 
-## Regression suite
-
-```bash
-bash scad-modeler/tests/run_all.sh      # 45 fixtures, ~3 min
-```
-
-Each fixture is a self-contained `run_test.sh` that builds a project in a temp dir and
-asserts on the real outcome, including the failures. Two of them exist specifically to prove
-a check **can** fail — a checker that has never been observed failing is indistinguishable
-from one that does not work.
-
-This is the high-level shape; the exact "which check applies to my
-situation right now" decision tree — all ~15 scripts, every trigger
-condition — lives in
-[`scad-modeler/references/validation_decision_tree.md`](scad-modeler/references/validation_decision_tree.md).
-
-## Skills
-
-| Skill | For |
-|-------|-----|
-| `openscad-cad` | A single part: an insert, bracket, cover, enclosure, Gridfinity bin. Writing, rendering, exporting, dimensional checks. |
-| `scad-modeler` | Multi-part assemblies: gears, bearings, shafts. Adds mandatory calculations before geometry, centralized parameters and positions, collision/clearance/motion checking. |
-| `openscad-organic` | Organic figurines: characters, creatures, miniatures. hull/skin/sweep techniques and FDM detail minimums. |
-
-`scad-modeler` builds on `openscad-cad` — render/export commands and
-tolerance data live there. For a single part, use `openscad-cad` directly;
-its validation scripts live in `scad-modeler/scripts/` but work fine
-against a single part too.
-
-Validation scripts (all in `scad-modeler/scripts/`): `doctor.py`,
-`selftest.py`, `check_dimensions.py`, `check_features.py`,
-`check_connectivity.py`, `check_collisions.py`, `motion_sweep.py`,
-`check_bore_reachability.py`, `check_attachment.py`, `check_printability.py`,
-`check_subfeature_overlap.py`. `validate_scad.sh --all` runs the wired-in ones;
-the others are opt-in by declaration file (`bores.json`, `attachments.json`,
-`fusions.json`) or manual. See `scad-modeler/references/validation.md`.
-
-## Navigation
-
-Three orientation files, all cheap to read:
-
-- `references/retrieval.md` — which skill to load, the passport format every
-  reference chunk carries, and the abstention rule.
-- `scad-modeler/references/validation_decision_tree.md` — "which check applies
-  right now", as a flowchart.
-- `NEXT.md` — what is known and not yet done, with the evidence for each item.
-  Read it before starting a large change so a known gap does not get
-  rediscovered; update it by deleting finished items, not by marking them.
-
-## Quickstart
-
-```bash
-git clone https://github.com/Altern92/openscad-cad-skills.git
-cd openscad-cad-skills
-pip install -r requirements.txt
-python3 scad-modeler/scripts/doctor.py     # what this machine can actually do
-python3 scad-modeler/scripts/selftest.py   # does the whole chain really work
-
-cd scad-modeler/examples/gear_reduction
-bash ../../scripts/validate_scad.sh --all  # render + validate a real 2-gear assembly
-```
-
-Then, to use the skills from Claude Code, install them **from GitHub** (this is the only supported
-install path; it installs exactly a commit on `origin/main`, including GenKit `kit/`, `gen/` and
-`tests/genkit/`, and then runs the installed regression suite):
-
-```bash
-bash install.sh                      # from a clone -> ~/.claude/skills
-# or, without a clone:
-curl -fsSL https://raw.githubusercontent.com/Altern92/openscad-cad-skills/main/install.sh | bash
-```
-
-Options: `install.sh [--manual-only] [--no-test] [--dev] [TARGET]`. A clone with uncommitted or
-unpushed changes is refused (`--dev` overrides, with a warning). Do not symlink or copy the skill
-folders by hand, and do not install from any other local copy: on 2026-11-13 a stale second copy
-was synced over newer code and rolled a fix back. Python dependencies: `bash
-~/.claude/skills/scad-modeler/scripts/setup_env.sh` (needs `uv`).
-
-DeepSeek Harness (DSH): `bash install.sh ~/.dsh/skills`.
-
-Install both together: `openscad-cad` is referenced by `scad-modeler`'s
-scripts, and those in turn use `openscad-cad/references/patterns.scad`. The
-DSH frontmatter format is nearly identical (same `name`/`description`
-fields); `scad-modeler`'s description can't contain `: ` (colon+space) — DSH
-parses that as a YAML key-value pair and rejects the skill.
-
-### Dependencies
-
-OpenSCAD (macOS: `brew install --cask openscad@snapshot` — not the plain
-`openscad` cask, which is too old to have the `--backend=Manifold` flag
-this skill depends on), plus `xvfb` on headless Linux.
-
-Python, for the validation scripts:
-
-```bash
-pip install -r requirements.txt
-```
-
-Not all of these are required for every check: `trimesh` is needed for
-everything, `shapely` for bore measurement, `python-fcl`/`scipy` for
-collisions, `manifold3d` for measuring a declared interference exactly,
-`rtree` for bore-reachability scans, `pyyaml`/`jsonschema` for the intake
-and rules-enforcement gates. Whatever's missing, the corresponding check is
-simply unavailable, and the tools say so (`doctor.py` reports exactly which
-checks each missing package unlocks).
-
-### Stop gate (Claude Code, optional)
-
-`scad-modeler/hooks/scad_stop_gate.py` refuses to let a Claude Code session end
-while a `.scad` file it edited has not been through `validate_scad.sh` in its
-current form (it compares sha256 against `build/.validation_state.json`). A FAIL
-verdict does not block; it blocks at most once per stop. Add to `~/.claude/settings.json`:
-
-```json
-"hooks": {"Stop": [{"hooks": [{"type": "command",
-  "command": "python3 /path/to/scad-modeler/hooks/scad_stop_gate.py", "timeout": 10}]}]}
-```
-
-`SCAD_STOP_GATE=0` turns it off for one session.
-
-## Verify before trusting it
-
-```bash
-python3 scad-modeler/scripts/doctor.py      # what this machine can do at all
-python3 scad-modeler/scripts/selftest.py    # does the whole chain actually work
-```
-
-`doctor.py` detects OpenSCAD, libraries (by their real entry-point file, not
-by folder name — a folder with the right name isn't evidence of a working
-install), Python packages, and a calibration profile, and reports the
-highest confidence tier this environment can support.
-
-`selftest.py` builds a part with answers known in advance, runs the whole
-chain, and checks that every tool reaches the right verdict — including that
-the bore check **must fail** on a deliberately uncompensated bore. A check
-that never fails proves nothing.
-
 ## What these skills actually verify
 
 `scad-modeler`'s validation chain, in the order it runs (see
@@ -231,6 +210,13 @@ tree — which check applies to which situation):
 | `check_subfeature_overlap.py` | two sub-features overlapping inside one part's own `union()` — invisible to every other check |
 | `check_collisions.py` | unintended interference, insufficient clearance, and declared contacts checked against real penetration depth (not volume — see below) and against touching in more than one disjoint region |
 | `motion_sweep.py` | interference and clearance **through a full motion cycle**, not one static pose, with gear-tooth periodicity collapse and adaptive refinement near the tightest clearance |
+| `check_topology.py` | sealed or missing through-holes: the mesh genus must equal a declared `EXPECTED_THROUGH_HOLES` |
+| `check_fasteners.py` | every declared screw as a line through the positioned parts: head room under later panels, free shank, pilot, thread bite, crossing screws; `mounts` fails a part bolted to nothing |
+| `check_joint_graph.py` | a part with no declared joint (screw, press fit, glue, magnet) to the rest of the assembly |
+| `check_sensitivity.py` | a hard-coded constant: re-renders with a declared parameter ×1.5 and fails if nothing changed |
+| `acceptance.py` | acceptance numbers (bbox, hole count) approved by the user and locked by sha256, so the agent cannot "fix" the declaration instead of the part |
+| `check_scad_lint.py` | rounded standard constants (EIA 44.45 mm) and computed dimensions with silent defaults |
+| `check_proportions.py` / `check_silhouette.py` | `openscad-organic`: proportions against a source table, silhouette IoU against a reference image |
 | `check_intake.py` / `check_plan.py` / `check_assumptions.py` / `check_service_envelope.py` | the requirements spec, the architecture decision, unresolved critical assumptions, and service-envelope completeness — the failure categories that don't show up in geometry at all |
 | `check_dependencies.py` | which downstream parameters/parts a given edit actually affects, so a one-parameter change doesn't require blind faith in a full re-render |
 | `check_rules.py` | runs the whole rules manifest and requires its output be cited before a final report — see `references/rules_enforcement.md` for why prompts alone don't hold up under context load |
@@ -243,7 +229,48 @@ depth range is *also* required to touch in exactly one contiguous region by
 default, since a max-over-all-contact-points depth can't otherwise
 distinguish one legitimate contact zone from that zone plus a separate,
 unrelated structural collision hiding behind the same range — both were
-real, confirmed gaps, not hypothetical (`INCIDENTS.md`, 2026-08-19).
+real, confirmed gaps, not hypothetical (`INCIDENTS.json`, 2026-08-19).
+
+## Stop gate (Claude Code, optional)
+
+`scad-modeler/hooks/scad_stop_gate.py` refuses to let a Claude Code session end
+while a `.scad` file it edited has not been through `validate_scad.sh` in its
+current form (it compares sha256 against `build/.validation_state.json`). A FAIL
+verdict does not block; it blocks at most once per stop. Add to `~/.claude/settings.json`:
+
+```json
+"hooks": {"Stop": [{"hooks": [{"type": "command",
+  "command": "python3 /path/to/scad-modeler/hooks/scad_stop_gate.py", "timeout": 10}]}]}
+```
+
+`SCAD_STOP_GATE=0` turns it off for one session.
+
+## Repository layout
+
+| Path | What |
+|---|---|
+| `openscad-cad/`, `scad-modeler/`, `openscad-organic/` | the three skills (`SKILL.md` + `references/` + scripts) |
+| `scad-modeler/scripts/` | checkers, `validate_scad.sh`, `doctor.py`, `selftest.py`, `setup_env.sh` |
+| `scad-modeler/kit/`, `scad-modeler/gen/` | GenKit modules and generator |
+| `scad-modeler/tests/` | regression suite: `fixtures/` (one real incident each), `genkit/`, `mutants.tsv` |
+| `INCIDENTS.json` | every logged failure: symptom, root cause, fix, and the check that now catches it |
+| `bench/` | planted-defect benchmark and agent evaluation |
+| `docs/superpowers/specs/` | acceptance criteria for each change |
+| `install.sh` | the GitHub installer |
+| `NEXT.md` | maintainer's work queue (Lithuanian) |
+
+## Development
+
+```bash
+bash scad-modeler/tests/run_all.sh   # 95 tests, a few minutes
+bash scripts/test_install.sh         # installer guard
+```
+
+Each fixture is a self-contained `run_test.sh` that reproduces a real incident and asserts the
+real outcome, including failures. `tests/mutants.tsv` names, for every checker, a fixture that
+must fail when that checker is replaced by `exit 0`: a checker never observed failing is
+indistinguishable from one that does not work. Changes go through written acceptance criteria
+(`docs/superpowers/specs/`), are pushed to `main`, and are then installed with `install.sh`.
 
 ## Limits
 

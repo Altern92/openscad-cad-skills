@@ -97,13 +97,13 @@ Philosophy: standard high-precision hardware is a **vitamin** (NopSCADlib term)
 cylinder ([NopSCADlib vitamins](https://github.com/nophead/NopSCADlib),
 [DeepWiki](https://deepwiki.com/nophead/NopSCADlib/4-component-library-(vitamins))).
 
-| Kriterijus | Spausdinti (`.scad` modulis) | Pirkti / vitaminas (NopSCADlib) | Sprendimo riba |
+| Criterion | Print (`.scad` module) | Buy / vitamin (NopSCADlib) | Decision threshold |
 |---|---|---|---|
-| **Apkrova** | Statiniai korpusai, žemo sukimo momento laikikliai | Ašys, velenai, konstrukcinės tvirtinimo detalės | Jei šlytis/tempimas rizikuoja sluoksnių atsisluoksniavimu → plienas |
-| **Tikslumas** | ISO ≥ IT11 (tarpas ≥ 0.2mm) | Guolių kakliukai, velenai (ISO h6/h7/g6) | Jei tolerancija < 0.1mm → vitaminas + spausdinta kišenė |
-| **Trintis / greitis** | Įvorės žemais sūkiais (<60 rpm), slankikliai | Rutuliniai guoliai (608, 625), žalvario įvorės | Nuolatinis sukimasis arba μ < 0.15 → rutulinis guolis |
-| **Kaina / įsigijimas** | Individuali geometrija, vienetiniai | M3/M4 varžtai, šiluminiai įdėklai, GT2 skriemuliai/diržai | Jei standartinė detalė kainuoja < ~1€ → vitaminas |
-| **Įgyvendinamumas** | Savaiminės atramos ≤45°, tiltai <15mm | Lygūs strypai, sraigtai, spyruoklės | Vidiniai spiraliniai keliai / nespaudinami iškyšos → pirkta |
+| **Load** | Static housings, low-torque brackets | Axles, shafts, structural fasteners | If shear/tension risks layer delamination → steel |
+| **Precision** | ISO ≥ IT11 (clearance ≥ 0.2mm) | Bearing journals, shafts (ISO h6/h7/g6) | If tolerance < 0.1mm → vitamin + printed pocket |
+| **Friction / speed** | Low-speed bushings (<60 rpm), sliders | Ball bearings (608, 625), brass bushings | Continuous rotation or μ < 0.15 → ball bearing |
+| **Cost / sourcing** | Custom geometry, one-offs | M3/M4 screws, heat-set inserts, GT2 pulleys/belts | If the standard part costs < ~1€ → vitamin |
+| **Feasibility** | Self-supporting ≤45°, bridges <15mm | Smooth rods, lead screws, springs | Internal helical paths / unprintable overhangs → buy |
 
 **Output of this stage**: a `purchased_components` array in
 `design_manifest.json` (name, qty, key dims — see
@@ -156,11 +156,11 @@ pretend a variant exists.
 
 ---
 
-## Šaltinių žurnalas
+## Source log
 
-| ID | Teiginys | Šaltinis (URL) | Tipas | Data | Būsena |
+| ID | Claim | Source (URL) | Type | Date | Status |
 |---|---|---|---|---|---|
-| I-001 | Vitaminų filosofija: standartinės detalės modeliuojamos realiais matmenimis, BOM generuojama | https://github.com/nophead/NopSCADlib ; https://deepwiki.com/nophead/NopSCADlib/4-component-library-(vitamins) | pirminis | 2026-08-19 | su šaltiniu |
-| I-002 | FDM tarpų klasės (press/slip/transition) — sprendimo kriterijai | https://www.aon3d.com/applications/engineering-fits-how-to-design-for-3d-printed-assemblies/ | pirminis | 2026-08-19 | su šaltiniu |
-| I-003 | Judančių spausdintų dalių apribojimai (trintis, nusidėvėjimas) | https://thevirtualfoundry.com/3d-print-moving-parts/ | pirminis | 2026-08-19 | su šaltiniu |
-| I-004 | ~~Embedding modelio naudojimas paieškai — DashScope qwen3.7-text-embedding~~ NEBENAUDOJAMA 2026-08-19: §3 pakeista tiesioginiu README skaitymu, žr. aukščiau kodėl | https://help.aliyun.com/zh/model-studio/model-pricing.md | pirminis | 2026-08-19 | pakeista |
+| I-001 | Vitamin philosophy: standard parts are modelled with real dimensions, BOM is generated | https://github.com/nophead/NopSCADlib ; https://deepwiki.com/nophead/NopSCADlib/4-component-library-(vitamins) | primary | 2026-08-19 | sourced |
+| I-002 | FDM fit classes (press/slip/transition) — decision criteria | https://www.aon3d.com/applications/engineering-fits-how-to-design-for-3d-printed-assemblies/ | primary | 2026-08-19 | sourced |
+| I-003 | Limits of moving printed parts (friction, wear) | https://thevirtualfoundry.com/3d-print-moving-parts/ | primary | 2026-08-19 | sourced |
+| I-004 | ~~Embedding model used for retrieval — DashScope qwen3.7-text-embedding~~ NO LONGER USED 2026-08-19: §3 replaced by reading the README directly, see above for why | https://help.aliyun.com/zh/model-studio/model-pricing.md | primary | 2026-08-19 | replaced |

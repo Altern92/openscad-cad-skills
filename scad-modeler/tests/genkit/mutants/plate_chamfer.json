@@ -9,10 +9,10 @@
     "chamfer": 6
   },
   "assumptions": [
-    "plokštė guli ant lygaus paviršiaus"
+    "plate lies on a flat surface"
   ],
   "source": {
-    "brief": "paprasta 120x80x6 plokštė suapvalintais kampais",
+    "brief": "simple 120x80x6 plate with rounded corners",
     "date": "2026-11-01"
   }
 }

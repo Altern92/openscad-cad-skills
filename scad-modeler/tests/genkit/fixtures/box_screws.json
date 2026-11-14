@@ -12,10 +12,10 @@
     "inset": 10
   },
   "assumptions": [
-    "dėžutė su 4 M4 varžtų statramsčiais kampuose, suderinta su lid_screws"
+    "box with 4 M4 screw posts in the corners, matched to lid_screws"
   ],
   "source": {
-    "brief": "dėžutė 120x80x40 su 4 M4 varžtų skylėmis kampuose",
+    "brief": "box 120x80x40 with 4 M4 screw holes in the corners",
     "date": "2026-11-02"
   }
 }

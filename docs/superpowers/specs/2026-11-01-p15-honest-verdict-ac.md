@@ -1,7 +1,7 @@
 # P15: honest verdict -- declarations required, no empty PASS, INCONCLUSIVE is not success (AC)
 
 Date: 2026-11-01. Tier: bounded (validate_scad.sh, check_rules.py, templates, docs). Approved in advance
-("darome viska pagal tavo rekomendacijas"; audit follow-up "jei yra kas naudingo pridek ir test vystyma").
+("we do everything according to your recommendations"; audit follow-up "if there is anything useful, add it and continue development"; both translated from Lithuanian).
 Origin: an external audit (MBP, 2026-11-01), every claim re-checked on the mini before use.
 
 ## Evidence (re-measured on the mini, examples/gear_reduction)

@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
-"""gen/emit_part.py — requirements.json -> .scad + deklaracijos (P1 plonas pjūvis).
+"""gen/emit_part.py — requirements.json -> .scad + declarations (P1 thin slice).
 
-Naudojimas:
+Usage:
     python3 gen/emit_part.py tests/fixtures/plate_with_holes.json -o out/pwh.scad
     python3 gen/emit_part.py --check tests/fixtures/lid.json
-    python3 gen/emit_part.py <json> -o out/x.scad --kit-root /kitas/kit
+    python3 gen/emit_part.py <json> -o out/x.scad --kit-root /other/kit
 
-Exit kodai:
-    0  failas sugeneruotas (arba --check praėjo ir nieko nerašė)
-    4  blogas įėjimas: schema, trūkstami parametrai, unsupported_kind
-    5  ENV_FAIL: nėra jsonschema (žr. pranešimą)
+Exit codes:
+    0  file generated (or --check passed and wrote nothing)
+    4  bad input: schema, missing parameters, unsupported_kind
+    5  ENV_FAIL: jsonschema missing (see the message)
 
-Sutartis su skill'u: sugeneruotas failas turi tik `.scad` kodą ir
-`// EXPECTED_*` komentarus (docs/03, AGENTS.md 11). Deklaracijos skaičiuojamos
-IŠ TŲ PAČIŲ parametrų, kaip `kit_bbox_<name>()` OpenSCAD'e — dublikatas yra
-sąmoningas: Python neturi OpenSCAD vykdyklės, o sutapimą pagauna
-`check_dimensions.py` ir `check_topology.py` vartai (AC-29).
+Contract with the skill: the generated file holds only `.scad` code and
+`// EXPECTED_*` comments (docs/03, AGENTS.md 11). Declarations are computed
+FROM THE SAME parameters as `kit_bbox_<name>()` in OpenSCAD — the duplication is
+deliberate: Python has no OpenSCAD evaluator, and a mismatch is caught by the
+`check_dimensions.py` and `check_topology.py` gates (AC-29).
 
-Skylų Ø čia NIEKADA nerašomi: generatorius perduoda tik žymėjimą ("M4"),
-lentelė gyvena kit/lib.scad (AC-31).
+Hole Ø values are NEVER written here: the generator passes only the designation
+("M4"); the table lives in kit/lib.scad (AC-31).
 """
 import argparse
 import json
@@ -33,12 +33,12 @@ DEFAULT_KIT = os.path.join(PROJECT, "kit")
 # Declared bbox tolerance (mm) -> `// EXPECTED_BBOX_TOL:`; see emit().
 BBOX_TOL_MM = 0.01
 
-# --- Registras: ką generatorius moka (P1: 8 moduliai) -----------------------
-# "order" — parametrų tvarka išvedime (schema properties tvarka).
-# "defaults" — schemos `default` reikšmės (jsonschema jų NETAIKO, todėl
-# turime tai daryti patys; kitaip bbox formulei trūktų lip/t/corner_r).
-# bbox/through gauna (params, holes) — `holes` yra skylų lentelė, nuskaityta
-# IŠ kit/lib.scad (vienintelis šaltinis; generatorius Ø nerašo, AC-31).
+# --- Registry: what the generator supports (P1: 8 modules) ------------------
+# "order" — parameter order in the output (schema properties order).
+# "defaults" — the schema `default` values (jsonschema does NOT apply them, so
+# we must do it ourselves; otherwise the bbox formula would lack lip/t/corner_r).
+# bbox/through get (params, holes) — `holes` is the hole table, read
+# FROM kit/lib.scad (the only source; the generator writes no Ø, AC-31).
 
 
 def bbox_plate(p, holes):
@@ -90,8 +90,8 @@ def through_boss(p, holes):
 
 
 def bbox_hole_pattern(p, holes):
-    # Plokštė = nx*dx × ny*dy (skylės celių centruose). Žr. kit/hole_pattern.scad
-    # pastabą apie 2026-11-01 kontrakto pataisą.
+    # Plate = nx*dx × ny*dy (holes at the cell centres). See the kit/hole_pattern.scad
+    # note on the 2026-11-01 contract fix.
     return [p["nx"] * p["dx"], p["ny"] * p["dy"], p["t"]]
 
 
@@ -168,7 +168,7 @@ KINDS = {
 
 
 def load_hole_table(kit_root):
-    """Skaito skylų lentelę IŠ kit/lib.scad (vienintelis šaltinis, AC-05/AC-31)."""
+    """Reads the hole table FROM kit/lib.scad (the only source, AC-05/AC-31)."""
     path = os.path.join(kit_root, "lib.scad")
     table = {}
     try:
@@ -183,7 +183,7 @@ def load_hole_table(kit_root):
 def hole_d(hole, holes):
     if isinstance(hole, str):
         if hole not in holes:
-            raise KeyError(f"skylės žymėjimas {hole!r} nerastas kit/lib.scad lentelėje")
+            raise KeyError(f"hole designation {hole!r} not found in the kit/lib.scad table")
         return holes[hole]
     return float(hole)
 
@@ -218,7 +218,7 @@ def load_jsonschema():
 
 
 def fmt_num(x):
-    """Stabilus skaičiaus formatas: 80 -> "80", 4.75 -> "4.75", 4.8000 -> "4.8"."""
+    """Stable number format: 80 -> "80", 4.75 -> "4.75", 4.8000 -> "4.8"."""
     if isinstance(x, bool):
         return "true" if x else "false"
     if isinstance(x, int):
@@ -284,15 +284,15 @@ def emit(doc, json_path, kit_root):
         f"// EXPECTED_BBOX_TOL: {fmt_num(BBOX_TOL_MM)}",
         f"// EXPECTED_THROUGH_HOLES: {through}",
     ]
-    # boss: docs/03 reikalauja HOLE deklaracijos (matuojama across-flats).
+    # boss: docs/03 requires a HOLE declaration (measured across flats).
     if kind == "boss":
         decls.append('// EXPECTED_HOLE: [0, 0, 0, "Z", %s]' % fmt_num(p["d_bore"]))
     elif kind == "bracket_l":
-        # F1 (auditas docs/13): be šių dviejų eilučių vartai nemato, KURIOJE
-        # plokštumoje skylė yra — P5 bug'as (abi skylės horizontaliai) praėjo
-        # visus vartus, nes sutapo tik THROUGH_HOLES skaičius.
+        # F1 (audit docs/13): without these two lines the gates cannot see WHICH
+        # plane a hole is in — the P5 bug (both holes horizontal) passed
+        # every gate, because only the THROUGH_HOLES count matched.
         hd = hole_d(p["hole"], holes)
-        inset = hd / 2 + 2.0  # sutampa su kit/bracket_l.scad wall_min = 2.0
+        inset = hd / 2 + 2.0  # matches kit/bracket_l.scad wall_min = 2.0
         hole_y = -p["d"] / 2 + inset
         hole_vz = p["h"] - inset
         decls.append('// EXPECTED_HOLE: [0, %s, %s, "Z", %s]' % (
@@ -342,7 +342,7 @@ def emit(doc, json_path, kit_root):
     ]
     call = ", ".join(f"{k} = {fmt_param(v)}" for k, v in call_items)
     lines = [
-        f"// GENERUOTA: gen/emit_part.py iš {json_path}",
+        f"// GENERATED: gen/emit_part.py from {json_path}",
         f"// kind: {kind}",
         f"include <{os.path.join(kit, 'lib.scad')}>",
         f"include <{os.path.join(kit, kind + '.scad')}>",
@@ -357,7 +357,7 @@ def emit(doc, json_path, kit_root):
 
 
 def emit_box_with_lid(doc, json_path, kit_root, out_path=None):
-    """Sudėtinis 2 dalių projektas (auditas §5 #2, P5 #8):
+    """Composite 2-part project (audit §5 #2, P5 #8):
     parts/box.scad + parts/lid.scad + assembly.scad + joints.json.
     """
     p = resolve_params("box_with_lid", doc["params"])
@@ -381,8 +381,8 @@ def emit_box_with_lid(doc, json_path, kit_root, out_path=None):
     )
     lid_call = ", ".join(f"{k} = {fmt_param(v)}" for k, v in lid_params.items())
     asm_scad = "\n".join([
-        f"// GENERUOTA: gen/emit_part.py iš {json_path}",
-        "// kind: box_with_lid (2 dalių surinkimas)",
+        f"// GENERATED: gen/emit_part.py from {json_path}",
+        "// kind: box_with_lid (2-part assembly)",
         f"include <{os.path.join(kit, 'lib.scad')}>",
         f"include <{os.path.join(kit, 'box.scad')}>",
         f"include <{os.path.join(kit, 'lid.scad')}>",
@@ -407,8 +407,8 @@ def emit_box_with_lid(doc, json_path, kit_root, out_path=None):
         'else if (MODE == "part") {',
         '    if (PART == "box") part_box();',
         '    else if (PART == "lid") part_lid();',
-        '    else assert(false, str("KLAIDA: nežinoma dalis \'", PART, "\'"));',
-        '} else assert(false, str("KLAIDA: nežinomas MODE \'", MODE, "\'"));',
+        '    else assert(false, str("ERROR: unknown part \'", PART, "\'"));',
+        '} else assert(false, str("ERROR: unknown MODE \'", MODE, "\'"));',
         "",
     ])
     joints = {
@@ -417,9 +417,9 @@ def emit_box_with_lid(doc, json_path, kit_root, out_path=None):
             "joint_type": "touching",
             "expected_interference_mm": [0.0, 0.0],
             "derivation": (
-                "dangčio plokštė guli ant dėžutės krašto (ir kampinių statramsčių) "
-                f"ties z = {fmt_num(p['h'])} mm; lizdas įeina į ertmę su "
-                f"{fmt_num(p['clearance'])} mm tarpu"
+                "lid plate rests on the box rim (and the corner posts) "
+                f"at z = {fmt_num(p['h'])} mm; the lip enters the cavity with "
+                f"{fmt_num(p['clearance'])} mm clearance"
             ),
         }]
     }
@@ -446,17 +446,17 @@ def emit_box_with_lid(doc, json_path, kit_root, out_path=None):
 
 def main(argv):
     ap = argparse.ArgumentParser(
-        description="requirements.json -> OpenSCAD dalis su deklaracijomis")
-    ap.add_argument("json", help="requirements.json failas")
-    ap.add_argument("-o", "--output", help="kuria rašyti .scad (privaloma, jei ne --check)")
+        description="requirements.json -> OpenSCAD part with declarations")
+    ap.add_argument("json", help="requirements.json file")
+    ap.add_argument("-o", "--output", help="where to write the .scad (required unless --check)")
     ap.add_argument("--kit-root", default=DEFAULT_KIT,
-                    help="kit/ katalogas (numatytas: <projektas>/kit)")
+                    help="kit/ directory (default: <project>/kit)")
     ap.add_argument("--check", action="store_true",
-                    help="tik patikrinti įėjimą; nieko nerašyti (AC-33)")
+                    help="only check the input; write nothing (AC-33)")
     args = ap.parse_args(argv)
 
     if not args.check and not args.output:
-        ap.error("reikia -o/--output (arba --check)")
+        ap.error("need -o/--output (or --check)")
 
     jsonschema = load_jsonschema()
     schema = load_schema()
@@ -465,27 +465,27 @@ def main(argv):
         with open(args.json, encoding="utf-8") as fh:
             doc = json.load(fh)
     except (OSError, ValueError) as exc:
-        print(f"FAIL {args.json}: negalima perskaityti ({exc})", file=sys.stderr)
+        print(f"FAIL {args.json}: cannot read ({exc})", file=sys.stderr)
         return 4
 
     kind = doc.get("kind")
     if kind == "custom":
         print(
-            "unsupported_kind: custom — GenKit generuoja 8 parametrinius modulius ir box_with_lid\n"
+            "unsupported_kind: custom — GenKit generates 8 parametric modules and box_with_lid\n"
             f"  ({args.json})\n"
-            "  Ką daryti:\n"
-            "   1) krumpliaračiai / vyriai / laisvos formos → BOSL2 (gear, hinges) arba\n"
-            "      rankinis .scad su // EXPECTED_* deklaracijomis (docs/03 §custom);\n"
-            "   2) dėžutė su dangčiu (ir varžtais) → naudok kind=\"box_with_lid\"; kitiems\n"
-            "      sudėtiniams prašymams išskaidyk po vieną (box, lid, plate_with_holes,\n"
+            "  What to do:\n"
+            "   1) gears / hinges / free-form shapes → BOSL2 (gear, hinges) or\n"
+            "      a hand-written .scad with // EXPECTED_* declarations (docs/03 §custom);\n"
+            "   2) box with lid (and screws) → use kind=\"box_with_lid\"; split other\n"
+            "      composite requests into one module each (box, lid, plate_with_holes,\n"
             "      bracket_l, boss, hole_pattern, snap_hook);\n"
-            "   3) neužpildyti parametrai → įrašyk juos į params (mūsų spartusis kelias\n"
-            "      yra sąžininga prielaida `assumptions`, o ne tylus spėjimas).",
+            "   3) unfilled parameters → put them in params (our fast path\n"
+            "      is an honest `assumptions` entry, not a silent guess).",
             file=sys.stderr)
         return 4
     if kind not in KINDS:
         known = ", ".join(sorted(KINDS))
-        print(f"unsupported_kind: {kind} — palaikoma: {known}",
+        print(f"unsupported_kind: {kind} — supported: {known}",
               file=sys.stderr)
         return 4
 

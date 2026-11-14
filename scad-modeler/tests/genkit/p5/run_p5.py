@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""tests/p5/run_p5.py — P5 bėgimas pagal docs/08 protokolą.
+"""tests/p5/run_p5.py — P5 run following the docs/08 protocol.
 
-Kiekvienam prašymui: requirements.json (jau paruoštas ranka, BE iteracijų) →
-generatorius → vartai. Fiksuoja: ar 1-as ratas PASS, ar atsisakyta sąžiningai.
+For each request: requirements.json (already prepared by hand, NO iterations) →
+generator → gates. Records: whether round 1 PASSed, or it was honestly refused.
 
-Naudojimas:
-    python3 tests/p5/run_p5.py            # bėgimas + markdown lentelė
-    python3 tests/p5/run_p5.py --json     # tik JSON suvestinė
+Usage:
+    python3 tests/p5/run_p5.py            # run + markdown table
+    python3 tests/p5/run_p5.py --json     # JSON summary only
 
-Pastaba: briefs.json čia yra SINTETINIAI prašymai (žr. docs/08 §Sintetinis
-bėgimas). Tikra P5 reikalauja vartotojo sakinių ir pildoma atskirai.
+Note: briefs.json here holds SYNTHETIC requests (see docs/08 §Synthetic
+run). A real P5 needs user sentences and is filled in separately.
+The briefs*.json files stay in Lithuanian on purpose: they are recorded user briefs (input data).
 """
 import json
 import os
@@ -66,7 +67,7 @@ def main():
                 r = run([sys.executable, os.path.join(ROOT, "gen/emit_part.py"), jpath,
                          "-o", os.path.join(TMP, f"p5_{b['id']}.scad")])
                 row["refused"] = r.returncode == 4
-                row["detail"] = "atsisakyta (unsupported_kind) — teisinga elgsena"
+                row["detail"] = "refused (unsupported_kind) — correct behaviour"
                 rows.append(row)
                 continue
 
@@ -87,7 +88,7 @@ def main():
                 row["first_pass"] = ok
                 if not ok:
                     fails = [l for l in out.splitlines() if l.startswith("CHECK_RESULT") and "FAIL" in l]
-                    row["detail"] = "; ".join(fails[:3]) or "vartai nepaleido"
+                    row["detail"] = "; ".join(fails[:3]) or "gates did not run"
             rows.append(row)
     finally:
         shutil.rmtree(TMP, ignore_errors=True)
@@ -99,14 +100,14 @@ def main():
         return 0
 
     print(f"BRIEFS: {os.path.relpath(path, ROOT)}")
-    print("| # | Prašymas | Modulis | 1-as ratas PASS? | Atsisakė? | Pastabos |")
+    print("| # | Request | Module | Round 1 PASS? | Refused? | Notes |")
     print("|---|---|---|---|---|---|")
     for r in rows:
         mark = "✓" if r["first_pass"] else ("—" if r["refused"] else "✗")
         ref = "✓" if r["refused"] else "—"
         print(f"| {r['id']} | {r['brief']} | {r['kind']} | {mark} | {ref} | {r['detail']} |")
     print()
-    print(f"Vieno karto sėkmė: {ok}/{len(rows)}; sąžiningai atsisakyta: {refused}")
+    print(f"First-pass success: {ok}/{len(rows)}; honestly refused: {refused}")
     return 0
 
 

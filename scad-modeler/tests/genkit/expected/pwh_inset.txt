@@ -1,1 +1,1 @@
-KLAIDA: inset 4.0 mm palieka 1.75 mm sienelę → 1.75 < 2.0 mm → didink inset iki 4.25
+ERROR: inset 4.0 mm leaves 1.75 mm wall → 1.75 < 2.0 mm → increase inset to 4.25

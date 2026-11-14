@@ -1,9 +1,9 @@
-// kit/bracket_l.scad — L formos laikiklis (P1).
+// kit/bracket_l.scad — L-shaped bracket (P1).
 //
-// Lokali pradžia: apatinio paviršiaus centras. bbox = [w, d, h].
-// Horizontali plokštė: w×d×t, z ∈ [0, t].
-// Vertikali plokštė: w×t×h, gale (y ∈ [d/2 - t, d/2]).
-// Deklaruojamos 2 kiaurymės — abi horizontalioje plokštėje.
+// Local origin: bottom face centre. bbox = [w, d, h].
+// Horizontal plate: w×d×t, z ∈ [0, t].
+// Vertical plate: w×t×h, at the back (y ∈ [d/2 - t, d/2]).
+// 2 through-holes are declared — both in the horizontal plate.
 
 include <lib.scad>
 
@@ -11,51 +11,51 @@ module kit_bracket_l(w, d, h, t, hole) {
     hole_d = kit_hole_d(hole);
     wall_min = 2.0;
     min_side = kit_min2(w, d);
-    // Po VIENĄ kiaurymę KIEKVIENOJE lentynoje (taip prašoma realiuose
-    // prašymuose: „su skyle abiejose lentynose").
-    //   horizontali: ašis Z, centras (0, hole_y)
-    //   vertikali:   ašis Y, centras (0, h - hole_inset)
+    // ONE through-hole in EACH flange (as real requests ask:
+    // "with a hole in both flanges").
+    //   horizontal: axis Z, centre (0, hole_y)
+    //   vertical:   axis Y, centre (0, h - hole_inset)
     hole_inset = hole_d / 2 + wall_min;
     hole_y = -d / 2 + hole_inset;
     hole_vz = h - hole_inset;
 
     assert(hole_d > 0,
-        str("KLAIDA: hole ", hole, " nežinomas žymėjimas → naudok M3, M4, M5, M6 arba Ø mm → pakeisk hole"));
+        str("ERROR: hole ", hole, " unknown designation → use M3, M4, M5, M6 or Ø mm → change hole"));
     assert(t >= 2.5,
-        str("KLAIDA: L laikiklio storis ", kit_fmt(t), " mm → ", kit_fmt(t),
-            " < ", kit_fmt(2.5), " mm → apkrovos neatlaikys; didink t iki ", kit_fmt(2.5)));
+        str("ERROR: L bracket thickness ", kit_fmt(t), " mm → ", kit_fmt(t),
+            " < ", kit_fmt(2.5), " mm → will not carry the load; increase t to ", kit_fmt(2.5)));
     assert(h > t + 2,
-        str("KLAIDA: vertikali dalis ", kit_fmt(h), " mm → ", kit_fmt(h), " ≤ ",
-            kit_fmt(t + 2), " mm → per žema ", kit_fmt(t), " mm storiui; didink h iki ",
+        str("ERROR: vertical part ", kit_fmt(h), " mm → ", kit_fmt(h), " ≤ ",
+            kit_fmt(t + 2), " mm → too low for ", kit_fmt(t), " mm thickness; increase h to ",
             kit_fmt(t + 2)));
     assert(hole_d + 2 * wall_min <= min_side,
-        str("KLAIDA: skylė Ø", kit_fmt(hole_d), " netelpa ", kit_fmt(w), "×", kit_fmt(d),
-            " su ", kit_fmt(wall_min), " mm sienele → ", kit_fmt(hole_d + 2 * wall_min),
-            " > ", kit_fmt(min_side), " → didink laikiklį arba mažink hole"));
+        str("ERROR: hole Ø", kit_fmt(hole_d), " does not fit ", kit_fmt(w), "×", kit_fmt(d),
+            " with ", kit_fmt(wall_min), " mm wall → ", kit_fmt(hole_d + 2 * wall_min),
+            " > ", kit_fmt(min_side), " → enlarge the bracket or reduce hole"));
     assert(hole_vz - hole_d / 2 >= t + wall_min,
-        str("KLAIDA: vertikalios lentynos skylė Ø", kit_fmt(hole_d), " netelpa h=",
-            kit_fmt(h), " → reikia h ≥ ", kit_fmt(t + wall_min + hole_d / 2 + hole_inset),
-            " → didink h arba mažink hole"));
+        str("ERROR: vertical flange hole Ø", kit_fmt(hole_d), " does not fit h=",
+            kit_fmt(h), " → need h ≥ ", kit_fmt(t + wall_min + hole_d / 2 + hole_inset),
+            " → increase h or reduce hole"));
 
     difference() {
         union() {
-            // Horizontali plokštė.
+            // Horizontal plate.
             kit_round_block(w, d, t, 0);
-            // Vertikali plokštė ties galu.
+            // Vertical plate at the back.
             translate([0, d / 2 - t / 2, h / 2])
                 cube([w, t, h], center = true);
         }
-        // Horizontali lentyna: kiaurymė per Z.
+        // Horizontal flange: through-hole along Z.
         translate([0, hole_y, -1])
             cylinder(h = t + 2, d = hole_d, $fn = 64);
-        // Vertikali lentyna: kiaurymė per Y.
+        // Vertical flange: through-hole along Y.
         translate([0, d / 2 - t - 1, hole_vz])
             rotate([-90, 0, 0])
                 cylinder(h = t + 2, d = hole_d, $fn = 64);
     }
 }
 
-// --- bbox ir deklaracijų pagalbinės (turi sutapti su gen/emit_part.py) ------
+// --- bbox and declaration helpers (must match gen/emit_part.py) -------------
 
 function kit_bbox_bracket_l(w, d, h, t, hole) = [w, d, h];
 

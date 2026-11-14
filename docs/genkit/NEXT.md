@@ -83,7 +83,7 @@ assert would never be exercised.
 
 ```bash
 python3 tests/p5/run_p5.py --briefs tests/p5/briefs_real.json
-# Vieno karto sėkmė: 7/10; sąžiningai atsisakyta: 3
+# First-pass success: 7/10; honestly refused: 3
 ```
 
 The real run found one bug the gates missed: `bracket_l` put both holes in the horizontal leg

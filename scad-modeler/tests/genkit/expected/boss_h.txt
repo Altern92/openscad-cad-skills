@@ -1,1 +1,1 @@
-KLAIDA: įvorė 1.0 mm → 1.0 < 2.0 mm → didink h iki 2.0
+ERROR: boss 1.0 mm → 1.0 < 2.0 mm → increase h to 2.0

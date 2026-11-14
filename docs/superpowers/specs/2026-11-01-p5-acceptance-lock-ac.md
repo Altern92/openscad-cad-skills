@@ -1,7 +1,7 @@
 # P5: approved acceptance criteria the agent cannot weaken (AC)
 
 Date: 2026-11-01. Tier: feature (new script, validate_scad.sh gate, stop-hook rule). Approved in advance
-("tesk implementacija ir imkis visu savo rekomenduojamu sprendimu").
+("continue the implementation and adopt all your recommended solutions", translated from Lithuanian).
 Origin: NEXT.md P5 + the Rust-proposal note: `EXPECTED_*` lines are written by the same agent in the same
 `.scad`, so a failing part can be "fixed" by editing its declaration. P15 made declarations required; this
 makes the approved numbers immutable without the user.

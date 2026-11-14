@@ -1,1 +1,1 @@
-KLAIDA: L laikiklio storis 2.0 mm → 2.0 < 2.5 mm → apkrovos neatlaikys; didink t iki 2.5
+ERROR: L bracket thickness 2.0 mm → 2.0 < 2.5 mm → will not carry the load; increase t to 2.5

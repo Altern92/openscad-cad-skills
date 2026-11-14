@@ -9,10 +9,10 @@
     "undercut": 1.0
   },
   "assumptions": [
-    "PETG, fiksatorius 2 mm storio PCB"
+    "PETG, latch for a 2 mm thick PCB"
   ],
   "source": {
-    "brief": "spyruoklinis fiksatorius 2 mm plokštei",
+    "brief": "spring latch for a 2 mm board",
     "date": "2026-11-01"
   }
 }

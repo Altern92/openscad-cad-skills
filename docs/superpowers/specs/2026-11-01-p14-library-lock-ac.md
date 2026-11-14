@@ -1,7 +1,7 @@
 # P14: library version lock (AC)
 
 Date: 2026-11-01. Tier: bounded (extends env_gate.py and validate_scad.sh). Approved in advance by the
-user ("darome viska pagal tavo rekomendacijas ir sprendimus").
+user ("we do everything according to your recommendations and decisions", translated from Lithuanian).
 
 ## Evidence (measured 2026-11-01)
 - 76 real parts on SSD_1TB rendered with BOSL2 2.0.782 and 2.0.750: 73 identical (volume, bbox, chi);

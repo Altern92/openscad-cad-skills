@@ -1,9 +1,9 @@
-// examples/all_modules.scad — visi 8 kit v0 moduliai viename render'yje.
+// examples/all_modules.scad — all 8 kit v0 modules in one render.
 //
-// Tai PREVIEW_FILE: rodinys, ne spausdinama detalė. Vartai dėl to
-// nevertina connectivity/bbox (žr. validate_scad.sh PREVIEW_FILE atšaką).
-// Kiekvienas modulis kviečiamas su savo fixture parametrais, išdėstyti
-// eilėje, kad render'is būtų vizualiai patikrinamas.
+// This is a PREVIEW_FILE: a view, not a printable part. So the gates
+// do not check connectivity/bbox (see the PREVIEW_FILE branch in validate_scad.sh).
+// Each module is called with its own fixture parameters, laid out
+// in a row so the render can be checked visually.
 
 // PREVIEW_FILE
 
@@ -39,7 +39,7 @@ translate([0, 120, 0])
 translate([160, 120, 0])
     kit_lid(w = 120, d = 80, t = 3, lip = 1.8, clearance = 0.2, wall = 2.4);
 
-// 6. boss Ø24, kiaurymė Ø12, h 12
+// 6. boss Ø24, bore Ø12, h 12
 translate([320, 120, 0])
     kit_boss(d_out = 24, d_bore = 12, h = 12);
 

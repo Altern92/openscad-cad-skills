@@ -5,33 +5,33 @@
 Every `assert` message has three parts:
 
 ```
-KLAIDA: <what is wrong> → <number with unit> < <limit> → <suggestion>
+ERROR: <what is wrong> → <number with unit> < <limit> → <suggestion>
 ```
 
 **Examples (must match this shape exactly):**
 
 ```
-KLAIDA: inset 4 mm palieka 1.9 mm sienelę → 1.9 < 2.0 mm → didink inset iki 5.1 arba plotį iki 84 mm
+ERROR: inset 4 mm leaves 1.9 mm wall → 1.9 < 2.0 mm → increase inset to 5.1 or width to 84 mm
 ```
 
 ```
-KLAIDA: storis 1.0 mm → 1.0 < 1.2 mm (FDM minimumas) → didink t iki 1.2
+ERROR: thickness 1.0 mm → 1.0 < 1.2 mm (FDM minimum) → increase t to 1.2
 ```
 
 ```
-KLAIDA: undercut 0.8 mm → 0.8 > 0.3×beam_t=0.6 → mažink undercut iki 0.6 arba didink beam_t iki 2.7
+ERROR: undercut 0.8 mm → 0.8 > 0.3×beam_t=0.6 → reduce undercut to 0.6 or increase beam_t to 2.7
 ```
 
 ### Rules
 
-1. Messages are **Lithuanian** (user-facing); numbers carry units (`mm`, `Ø`).
+1. Messages are in **English** (user-facing; English since 2026-11-14, Lithuanian before); numbers carry units (`mm`, `Ø`).
 2. Always say **what to do** — never "invalid parameters".
 3. No internal variable names without a value.
 4. Numbers formatted with 1–2 decimals.
 
 ### Where they live
 
-`tests/expected/<mutant>.txt` — **only the message part** (no OpenSCAD `ERROR:` prefix, no file name).
+`tests/expected/<mutant>.txt` — **only the message part** (no OpenSCAD `ERROR: Assertion ... failed:` prefix, no file name).
 The harness compares with `grep -F`.
 
 ## Test structure
@@ -79,14 +79,14 @@ depending on `HOME` state.
 
 | Mutant | Module | Changed parameter | Expected message (start) |
 |---|---|---|---|
-| `plate_t` | plate | `t: 6 → 1.0` | `KLAIDA: storis 1.0 mm` |
-| `plate_corner_r` | plate | `corner_r: 8 → 50` | `KLAIDA: corner_r 50.0 per didelis` |
-| `pwh_inset` | plate_with_holes | `inset: 8 → 4` | `KLAIDA: inset 4.0 mm palieka` |
-| `br_t` | bracket_l | `t: 4 → 2.0` | `KLAIDA: L laikiklio storis 2.0` |
-| `box_wall` | box | `wall: 2.4 → 1.0` | `KLAIDA: sienelė 1.0` |
-| `lid_clearance` | lid | `clearance: 0.2 → 0.05` | `KLAIDA: tarpas 0.05` |
-| `boss_wall` | boss | `d_out: 24 → 13` | `KLAIDA: sienelė 1.25` |
-| `sh_undercut` | snap_hook | `undercut: 0.5 → 1.0` | `KLAIDA: undercut 1.0` |
+| `plate_t` | plate | `t: 6 → 1.0` | `ERROR: thickness 1.0 mm` |
+| `plate_corner_r` | plate | `corner_r: 8 → 50` | `ERROR: corner_r 50.0 too large for` |
+| `pwh_inset` | plate_with_holes | `inset: 8 → 4` | `ERROR: inset 4.0 mm leaves` |
+| `br_t` | bracket_l | `t: 4 → 2.0` | `ERROR: L bracket thickness 2.0` |
+| `box_wall` | box | `wall: 2.4 → 1.0` | `ERROR: wall 1.0` |
+| `lid_clearance` | lid | `clearance: 0.2 → 0.05` | `ERROR: clearance 0.05` |
+| `boss_wall` | boss | `d_out: 24 → 13` | `ERROR: wall 1.25` |
+| `sh_undercut` | snap_hook | `undercut: 0.5 → 1.0` | `ERROR: undercut 1.0` |
 
 The full mapping is in `tests/assert_coverage.tsv` (40 rows).
 

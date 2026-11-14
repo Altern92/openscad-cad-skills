@@ -1,6 +1,6 @@
 # P20–P22 + GenKit in repo + GitHub install — Acceptance Criteria (2026-11-14)
 
-Approval: the user wrote on 2026-11-14 "atnaujink tuos punktus ir pratesk vystyma! padaryk kad genkit butu jo nuolatine dalis! ir visada isidiegtu per github jeiu kas ateityje ji bandys isirasineti!". That covers the P20/P21 AC proposed in NEXT.md §0 and the two new requests. P22 was replaced by G1–G3: once GenKit lives only in this repo, nothing syncs from the SSD any more.
+Approval: the user wrote on 2026-11-14 "update those items and continue development! make genkit a permanent part of it! and make it always install via GitHub if anyone tries to install it in the future!" (translated from Lithuanian). That covers the P20/P21 AC proposed in NEXT.md §0 and the two new requests. P22 was replaced by G1–G3: once GenKit lives only in this repo, nothing syncs from the SSD any more.
 
 ## GenKit is part of the repo (replaces P22)
 - **G1** Given `scripts/deploy_to_canon.sh`, when it runs, then it never reads `/Volumes/.../OpenSCAD_GenKit`, and `scripts/deploy_genkit.sh` is gone. Check: `grep -c OpenSCAD_GenKit scripts/*.sh` → 0. Reason: INC-2026-11-13-09, where the SSD copy rolled back a fix.

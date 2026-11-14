@@ -1,1 +1,1 @@
-KLAIDA: hole M6 = Ø6.6 mm → palaikoma 3.0–6.5 mm → naudok M3..M6
+ERROR: hole M6 = Ø6.6 mm → supported 3.0–6.5 mm → use M3..M6
