@@ -76,6 +76,8 @@ Every answer becomes a declaration; prose is checked by nothing:
 | Shared-part neighbours | `fusions.json`; `// EXPECTED_BODIES: N` | `check_subfeature_overlap.py`, `check_connectivity.py` |
 | Retention | `attachments.json` (`"to": "<part>"`). Every part needs a joint: contact, attachment, or `// NO_JOINT: <reason>`. A contact only says it touches: every part must ALSO be the `"part"` of an attachment, or carry `// NO_RETENTION: <reason>` / `// NO_JOINT: <reason>` (INC-2026-11-07-01) | `check_attachment.py`, `check_joint_graph.py` |
 | Fasteners (every screw) | `fasteners.json` (assembly coords: head seat, axis, length, `into`) | `check_fasteners.py` (gate `fasteners`: head room, shank, pilot, bite, crossings) |
+| Parts made in a Python/trimesh script | export to `build/positioned/<name>.stl`; `fasteners.json` `mounts` (part → host) | `check_fasteners.py` (`mounts`: ≥1 screw through it into the host; host heads under it = head blocked) |
+| Machine axes (groups) | `joints.json` driver `"parts": [...]` + top-level `"static": [...]` | `motion_sweep.py` (unassigned part = FAIL) |
 | Purchased-part fit | `joints.json` contact with `expected_interference_mm` and `derivation` | `check_collisions.py`, `motion_sweep.py` |
 
 Templates for all four are in `templates/`. Why this step exists (three "done"

@@ -25,3 +25,5 @@ check_proportions	organic_checks
 check_silhouette	organic_checks
 check_joint_graph	retention
 check_fasteners	fasteners_head_cross_fail
+motion_sweep	motion_groups_unassigned_fail
+check_fasteners	fasteners_mount_unfastened_fail

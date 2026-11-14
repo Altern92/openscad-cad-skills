@@ -15,7 +15,7 @@ ways a render never shows: a bore sealed behind unbored material, two
 sub-features overlapping inside one part's `union()` (invisible, since
 `union()` of two overlapping solids is still one valid watertight shell), a
 gear pair that's fine at rest but collides 40° into its rotation. Every one
-of those is a real, logged incident in [`INCIDENTS.md`](INCIDENTS.md), not a
+of those is a real, logged incident in [`INCIDENTS.json`](INCIDENTS.json), not a
 hypothetical.
 
 **The differentiator: this is the only agent skill setup we know of that
@@ -140,23 +140,23 @@ cd scad-modeler/examples/gear_reduction
 bash ../../scripts/validate_scad.sh --all  # render + validate a real 2-gear assembly
 ```
 
-Then, to use the skills from Claude Code (run this from the repo root):
+Then, to use the skills from Claude Code, install them **from GitHub** (this is the only supported
+install path; it installs exactly a commit on `origin/main`, including GenKit `kit/`, `gen/` and
+`tests/genkit/`, and then runs the installed regression suite):
 
 ```bash
-cd openscad-cad-skills   # back to the repo root, if you're still in the example dir
-ln -s "$PWD/openscad-cad"  ~/.claude/skills/openscad-cad
-ln -s "$PWD/scad-modeler"  ~/.claude/skills/scad-modeler
+bash install.sh                      # from a clone -> ~/.claude/skills
+# or, without a clone:
+curl -fsSL https://raw.githubusercontent.com/Altern92/openscad-cad-skills/main/install.sh | bash
 ```
 
-DeepSeek Harness (DSH):
+Options: `install.sh [--manual-only] [--no-test] [--dev] [TARGET]`. A clone with uncommitted or
+unpushed changes is refused (`--dev` overrides, with a warning). Do not symlink or copy the skill
+folders by hand, and do not install from any other local copy: on 2026-11-13 a stale second copy
+was synced over newer code and rolled a fix back. Python dependencies: `bash
+~/.claude/skills/scad-modeler/scripts/setup_env.sh` (needs `uv`).
 
-```bash
-mkdir -p ~/.dsh/skills
-ln -s "$PWD/openscad-cad"  ~/.dsh/skills/openscad-cad
-ln -s "$PWD/scad-modeler"  ~/.dsh/skills/scad-modeler
-ln -s "$PWD/INCIDENTS.md"  ~/.dsh/skills/INCIDENTS.md
-ln -s "$PWD/requirements.txt" ~/.dsh/skills/requirements.txt
-```
+DeepSeek Harness (DSH): `bash install.sh ~/.dsh/skills`.
 
 Install both together: `openscad-cad` is referenced by `scad-modeler`'s
 scripts, and those in turn use `openscad-cad/references/patterns.scad`. The

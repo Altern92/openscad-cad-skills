@@ -1,0 +1,4 @@
+{"static": ["rail", "home_sensor"],
+ "motion": [{"id": "x_axis", "range_deg": [0, 150], "step_deg": 5, "min_clearance_mm": 0.5,
+   "drivers": [{"parts": ["carriage_plate", "carriage_block"], "type": "prismatic",
+                "axis": [1, 0, 0], "ratio": 1.0}]}]}

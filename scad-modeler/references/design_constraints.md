@@ -32,6 +32,21 @@ If it can become a check, make it one. A line without a check is a reminder; a c
   "outer" face somewhere else. — check: `fasteners` with `instances` — source: cnc-valdymo-punktas
   2026-11-08
 
+- **For every cable leaving the box, ask where it ends before choosing a panel plug.** A cable that runs
+  all the way to a far machine gets a cable gland (PG/M), not a connector. Size the gland from the
+  cable Ø, and keep the locknut (across corners) clear of rails and its neighbours. — check: manual +
+  `assert()` on the nut size — source: cnc-valdymo-punktas 2026-11-13 (GX12/GX16 → PG7/PG9)
+
+- **Before choosing where a new part bolts on, list every hole, screw head and pin already in the
+  host face under its footprint.** For each one: reuse it, leave a relief (head Ø + 1 mm), or move the
+  part. The new part gets its own fasteners (holes in the part, tapped or nut in the host).
+  — check: `fasteners` (head) once declared; manual ray/section per hole — source: Big_CNC Z motor
+  mount 2026-11-13, INC-2026-11-13-02
+- **A part built outside parts/*.scad (a trimesh/Python script on an imported assembly) still goes
+  into fasteners.json and the collision/motion checks.** Otherwise R-22 never sees it. — check:
+  `check_fasteners` `mounts` (export to build/positioned/, declare part → host; no screw = FAIL)
+  — source: INC-2026-11-13-02
+
 ## Joints and retention
 
 - **A part that slides over or into another needs a locator and a screw.** A locator alone falls
@@ -44,6 +59,39 @@ If it can become a check, make it one. A line without a check is a reminder; a c
   face + `fit coupon` — source: cnc-valdymo-punktas 2026-11-08 (DIN clip window cut the pad)
 - **Neighbouring cut features keep a minimum wall between them**, or they merge into one hole.
   — check: `subfeature_overlap` (fusions.json) — source: INC-2026-08-21-09
+
+## Purchased parts
+
+- **Read the datasheet's mounting conditions before choosing a mount**: shielded or non-flush
+  sensor and its metal-free zone, allowed shaft radial load, minimum bend radius, clearance and
+  service space. Write the numbers in `calculations.md` with the source. — check: manual — source:
+  Big_CNC LJ12A3-4 recessed in aluminium 2026-11-13, INC-2026-11-13-03
+
+## Motion
+
+- **Every part added to an assembly with moving axes is swept over the full stroke of every axis
+  that moves it or past it, at the moment it is added.** One static pose proves nothing. Re-run the
+  sweep whenever a part is added to a moving group. — check: `motion_sweep` / an asserted sweep in
+  the build script — source: Big_CNC Z sensor 2026-11-13, INC-2026-11-13-04
+- **Moving groups are declared by name, not by a bounding box, and the sweep asserts that every
+  newly added part is in the group it should move with.** — check: `motion_sweep` driver `"parts"` + `"static"` (unassigned = FAIL) — source:
+  INC-2026-11-13-05
+- **A sensor or target that the moving part passes needs a gap the sensor can read and the
+  mechanics can keep** (not "1 mm and hope"). Prefer a flush sensor and a target tab. — check:
+  sweep min-gap assert + sensing range from the datasheet — source: INC-2026-11-13-04
+
+## Evidence
+
+- **Every hole or feature you claim is shown so the user can see it**: a section or a ray check per
+  hole, not only a preview render. OpenSCAD `--preview` of an imported STL hides blind holes.
+  — check: ray per hole (open along its axis) + section PNG — source: Big_CNC M6 holes 2026-11-13,
+  INC-2026-11-13-06
+
+## Loads
+
+- **A number taken from an earlier revision or from research (belt tension, preload, torque) is
+  checked against the limit of the part that carries it** before it goes into the design.
+  — check: manual, in `calculations.md` — source: Big_CNC belt tension 2026-11-13, INC-2026-11-13-08
 
 ## Printing and fit
 
@@ -59,3 +107,6 @@ If it can become a check, make it one. A line without a check is a reminder; a c
   `dependencies`, `references/change_propagation.md` — source: INC-2026-08-21-08
 - **A cable hole or a gland does not sit under a fan frame, a rail or a clip.** — check: an
   `assert()` in params — source: cnc-valdymo-punktas 2026-11-08 (lid)
+- **A part reused from an older design revision gets an inventory of its existing features (keep /
+  reuse / plug) before it is changed.** Leftover holes are found by the user otherwise. — check:
+  manual list + ray check per plug — source: Big_CNC side plate 2026-11-13, INC-2026-11-13-07

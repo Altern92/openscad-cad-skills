@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "kind": "plate_with_holes",
+  "params": { "w": 80, "d": 50, "t": 6, "hole": "M4", "inset": 8, "corner_r": 5 },
+  "assumptions": ["plokštė tvirtinama prie MDF lentos, apkrova ~2 kg"],
+  "source": { "brief": "laikiklis po lentyna 80x50, 4 M4 skylės", "date": "2026-11-01" }
+}

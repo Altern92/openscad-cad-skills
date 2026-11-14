@@ -29,6 +29,14 @@ renders one positioned STL per part FILE, so wrap the list as
   {"instances": ["frame_post_lower_fl", ...], "fasteners": [...]}
 and every instance name is rendered with assembly.scad MODE="part" PART="<name>" into build/positioned/.
 
+Parts made outside parts/*.scad (P20, INC-2026-11-13-02): a Python/trimesh script exports each part
+to build/positioned/<name>.stl and the same checks apply; validate_scad.sh runs them without an
+assembly.scad. Declare what each such part is bolted to, so a part with no screws at all FAILs:
+  {"mounts": [{"part": "z_motor_mount", "on": "z_plate", "min": 2}], "fasteners": [...]}
+  mount   : >= min (default 1) declared fasteners whose shank passes through `part` (a ring just
+            outside the shank meets its material) and whose `into` names `on`   -> "no declared fastener"
+Host screw heads under the mounted part are the "head blocked" check: declare the host's screws too.
+
 Checks per fastener (rings of 12 points, every 0.5 mm):
   head    : cylinder head_d/2 x head_h behind `start` empty in all parts       -> "head blocked"
   access  : cylinder head_d/2 x access_mm behind the head empty                 -> "tool access blocked"
@@ -142,6 +150,23 @@ def crossings(fs):
     return bad
 
 
+def mount_count(m, fs, meshes):
+    """Declared fasteners that pass through part m['part'] and bite into m['on']."""
+    part = [mesh for n, mesh in meshes.items() if str(m["part"]).lower() in n.lower()]
+    if not part:
+        return None
+    n = 0
+    for f in fs:
+        if str(m["on"]).lower() not in str(f.get("into") or "").lower():
+            continue
+        s, ax = np.array(f["start"], float), np.array(f["axis"], float)
+        ax /= np.linalg.norm(ax)
+        r = float(f["d"]) / 2 + 0.75
+        if any(pm.contains(ring(s + t * ax, ax, r)).any() for t in samples(0.05, float(f["length"])) for pm in part):
+            n += 1
+    return n
+
+
 def render_instances(names, outdir="build/positioned"):
     """Render instance names missing from (or older than every .scad in) outdir via assembly.scad."""
     os.makedirs(outdir, exist_ok=True)
@@ -166,6 +191,9 @@ def main():
     try:
         data = json.load(open(a.fasteners))
         inst = data.get("instances", []) if isinstance(data, dict) else []
+        mounts = data.get("mounts", []) if isinstance(data, dict) else []
+        for m in mounts:
+            m["part"], m["on"]
         fs = [f for f in (data["fasteners"] if isinstance(data, dict) else data) if "start" in f]
         for f in fs:
             for k in ("name", "axis", "d", "length"):
@@ -190,8 +218,19 @@ def main():
     cross = crossings(fs)
     for c in cross:
         print("FAIL " + c)
-    print(f"fasteners: {len(fs) - nbad}/{len(fs)} OK, {len(cross)} crossing pair(s)")
-    return 3 if nbad or cross else 0
+    mbad = 0
+    for m in mounts:
+        k, need = mount_count(m, fs, meshes), int(m.get("min", 1))
+        if k is None:
+            print(f"FAIL mount {m['part']} -> {m['on']}: part matches no positioned STL"); mbad += 1
+        elif k < need:
+            print(f"FAIL mount {m['part']} -> {m['on']}: no declared fastener goes through it into {m['on']}"
+                  if k == 0 else f"FAIL mount {m['part']} -> {m['on']}: {k} fastener(s), need {need}"); mbad += 1
+        else:
+            print(f"OK   mount {m['part']} -> {m['on']}: {k} fastener(s)")
+    print(f"fasteners: {len(fs) - nbad}/{len(fs)} OK, {len(cross)} crossing pair(s)"
+          + (f", mounts {len(mounts) - mbad}/{len(mounts)} OK" if mounts else ""))
+    return 3 if nbad or cross or mbad else 0
 
 
 if __name__ == "__main__":

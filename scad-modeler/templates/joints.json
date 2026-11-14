@@ -1,5 +1,7 @@
 {
   "_comment": "Joint declarations for check_collisions.py and motion_sweep.py. Part names are matched case-insensitively as substrings of each STL's basename, so 'bearing_608' matches 'build/bearing_608.stl'. Delete this _comment and replace the examples. The older bare-list form (contacts only, no motion) is still accepted.",
+  "static": ["frame", "home_sensor"],
+  "_static_comment": "P21: once 'static' exists, every STL must be named by a driver ('part' or a group 'parts': [...]) or listed here, else motion_sweep FAILs before sweeping. A machine axis is one driver with \"parts\": [every part it carries]; parts within one group are not checked against each other.",
 
   "contacts": [
     {

@@ -53,6 +53,23 @@ Declare a genuinely same-direction mesh (internal/planetary) with
 `"joint_type": "internal_gear_mesh"` instead of `"gear_mesh"` to opt out.
 For a `prismatic` driver, `ratio` is millimetres per degree of sweep parameter.
 
+GROUPS AND ASSIGNMENT (P21, 2026-11-14)
+---------------------------------------
+A machine axis moves many parts as one body (gantry: side plates, beam, drive, carriage).
+Name them, do not select them by bounding box -- a bbox silently dropped a Z drive from its
+group and the sweep reported a false 1.2 mm (INC-2026-11-13-05):
+
+    {"static": ["frame", "home_sensor"],
+     "motion": [{"id": "x_axis", "range_deg": [0, 650], "step_deg": 10,
+                 "drivers": [{"parts": ["x_carriage", "z_plate", "z_motor"],
+                              "type": "prismatic", "axis": [1, 0, 0], "ratio": 1.0}]}]}
+
+`"parts"` moves every listed part with one transform; pairs inside one group are not checked
+against each other (they are bolted together). Once a top-level `"static"` list exists, every
+STL must be named by some driver or by `static`, otherwise FAIL before any sweep: a part added
+later and never assigned is exactly the one that hides a collision. Without `"static"` the old
+behaviour stays (unnamed parts are static) and a NOTE says so.
+
 Parts named in `contacts` are swept too, but may overlap by up to the top of their
 `expected_interference_mm` range (0.05 mm when none is given) at every position,
 measured as the P16 bounded depth. A declared hinge therefore no longer hides a lid
@@ -110,6 +127,29 @@ def load_joints(path):
     if isinstance(data, list):          # the contacts-only format
         return [e for e in data if "pair" in e], []
     return data.get("contacts", []), data.get("motion", [])
+
+
+def expand_groups(motions):
+    """{"parts": [a, b]} -> one driver per part, all sharing a group id (P21)."""
+    for mi, m in enumerate(motions):
+        out = []
+        for di, d in enumerate(m.get("drivers") or []):
+            if isinstance(d.get("parts"), list) and "part" not in d:
+                g = f"{mi}.{di}"
+                out += [dict({k: v for k, v in d.items() if k != "parts"}, part=n, _group=g) for n in d["parts"]]
+            else:
+                out.append(d)
+        if out:
+            m["drivers"] = out
+    return motions
+
+
+def unassigned(paths, motions, static):
+    """STLs no driver and no static entry names, plus declared names matching no STL."""
+    names = [d.get("part", "") for m in motions for d in m.get("drivers", [])] + list(static)
+    loose = [p for p in paths if not any(str(n).lower() in os.path.basename(p).lower() for n in names if n)]
+    dead = [n for n in static if match_part(paths, n) is None]
+    return loose, dead
 
 
 def match_part(paths, name):
@@ -310,8 +350,9 @@ def run_motion(motion, meshes, paths, contacts, step_override, verbose=True):
         drivers.append(dict(d, _path=p))
 
     moving = {d["_path"] for d in drivers}
+    group = {d["_path"]: d["_group"] for d in drivers if "_group" in d}
     pairs = [(a, b) for a, b in itertools.combinations(sorted(meshes), 2)
-             if a in moving or b in moving]
+             if (a in moving or b in moving) and not (a in group and group.get(b) == group[a])]
     allow = {(a, b): allowed_depth(declared_entry(contacts, a, b))
              for a, b in pairs if is_declared(contacts, a, b)}
     if not pairs:
@@ -405,6 +446,14 @@ def main():
         return EXIT_USAGE
 
     contacts, motions = load_joints(args.joints)
+    motions = expand_groups(motions)
+    static = None
+    try:
+        with open(args.joints, encoding="utf-8") as f:
+            raw = json.load(f)
+        static = raw.get("static") if isinstance(raw, dict) else None
+    except (OSError, ValueError):
+        pass
     if not motions:
         print(f"No 'motion' section in {args.joints} -- nothing to sweep. "
               f"(check_collisions.py covers the static pose.)")
@@ -427,6 +476,20 @@ def main():
         print("Fix the ratio sign at the source -- do not sweep with a sign "
               "known to be wrong; the result would not mean anything.")
         return EXIT_FAIL
+
+    if static is not None:
+        loose, dead = unassigned(args.stls, motions, static)
+        if loose or dead:
+            for p in loose:
+                print(f"FAIL: unassigned part {os.path.basename(p)} -- not in any driver and not in \"static\"")
+            for n in dead:
+                print(f"FAIL: static entry {n!r} matches no STL (or several)")
+            print("Name every part in a driver group or in \"static\" -- an unassigned part is "
+                  "exactly the one a sweep would silently treat as static.")
+            return EXIT_FAIL
+    else:
+        print("NOTE: no \"static\" list in the joints file -- parts not named by a driver are "
+              "treated as static without a check (declare \"static\" to enforce assignment).")
 
     meshes, degraded = {}, False
     for p in args.stls:

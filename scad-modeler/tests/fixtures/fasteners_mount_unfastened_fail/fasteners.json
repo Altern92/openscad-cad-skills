@@ -1,0 +1,46 @@
+{
+ "mounts": [
+  {
+   "part": "leg",
+   "on": "plate"
+  }
+ ],
+ "fasteners": [
+  {
+   "name": "BK12 bolt 1",
+   "start": [
+    15,
+    10,
+    10
+   ],
+   "axis": [
+    0,
+    0,
+    -1
+   ],
+   "d": 4,
+   "length": 8,
+   "head_d": 8.5,
+   "head_h": 5,
+   "into": "plate"
+  },
+  {
+   "name": "BK12 bolt 2",
+   "start": [
+    15,
+    30,
+    10
+   ],
+   "axis": [
+    0,
+    0,
+    -1
+   ],
+   "d": 4,
+   "length": 8,
+   "head_d": 8.5,
+   "head_h": 5,
+   "into": "plate"
+  }
+ ]
+}

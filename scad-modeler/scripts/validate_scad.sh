@@ -910,7 +910,8 @@ sys.exit(0 if motion else 1)
     # POSITIONED parts -- head room under later panels, free shank, pilot, thread bite, no two
     # screws crossing. attachments.json only probes one point per part and missed all of these.
     if [ -f fasteners.json ]; then
-        if [ -f assembly.scad ] && compgen -G "$BUILD_DIR/positioned/*.stl" >/dev/null; then
+        # P20: positioned STLs written by a Python/trimesh script count too -- no assembly.scad needed
+        if compgen -G "$BUILD_DIR/positioned/*.stl" >/dev/null; then
             if python3 "$SCRIPT_DIR/check_fasteners.py" --fasteners fasteners.json; then
                 echo "CHECK_RESULT fasteners=PASS"
                 log_check "fasteners" 0 "check_fasteners.py (via validate_scad.sh)" "PASS"
@@ -920,7 +921,7 @@ sys.exit(0 if motion else 1)
             fi
         else
             echo "CHECK_RESULT fasteners=INCONCLUSIVE"
-            log_check "fasteners" 0 "INCONCLUSIVE" "INCONCLUSIVE: fasteners.json present but no assembly.scad / positioned STLs -- no screw path was examined"
+            log_check "fasteners" 0 "INCONCLUSIVE" "INCONCLUSIVE: fasteners.json present but no positioned STLs in build/positioned -- no screw path was examined"
         fi
     else
         echo "CHECK_RESULT fasteners=SKIP"

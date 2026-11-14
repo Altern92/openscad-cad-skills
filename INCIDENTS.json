@@ -3,6 +3,106 @@
   "description": "Append-only structured log of real bugs found and fixed across OpenSCAD skills (scad-modeler, openscad-cad, openscad-organic). Use scripts/incidents.py to check, list, search, show, or add entries.",
   "entries": [
     {
+      "id": "INC-2026-11-13-09",
+      "date": "2026-11-13",
+      "title": "deploy_to_canon.sh rolled back a newer dev fix: deploy_genkit.sh copied an older SSD GenKit over dev and canon",
+      "where": "scripts/deploy_to_canon.sh -> scripts/deploy_genkit.sh; scad-modeler/gen/emit_part.py, scad-modeler/tests/genkit/run_all.sh",
+      "symptom": "after deploy the suite said 88 passed, 1 failed (genkit); git diff showed the INC-2026-11-07-01 NO_RETENTION lines removed from dev and canon",
+      "root_cause": "the retention fix (e70a435, 2026-11-12) was made in dev/canon only and never ported to the SSD GenKit (2026-11-02), but deploy_genkit.sh treats the SSD as the source and rsyncs it over dev without checking which side is newer or whether dev differs from git HEAD",
+      "fix": "restored the 2 files from git, redeployed with GENKIT_DIR=/nonexistent, copied the dev files into the SSD GenKit (backups in OpenSCAD_GenKit/.bak/); dev == GenKit source verified by diff",
+      "promoted_to_rule": "NEXT.md P22 (guard: deploy_genkit.sh refuses to overwrite files that differ from git HEAD in dev)"
+    },
+    {
+      "id": "INC-2026-11-13-08",
+      "date": "2026-11-13",
+      "title": "Belt install tension 110-125 N carried over from earlier research would overload the NEMA23 shaft (Big_CNC)",
+      "where": "Big_CNC motor_mounts_v3/calculations.md, check/loads.py",
+      "symptom": "found while sizing loads: hub load 2 x tension ~ 240 N vs ~61 N allowed radial load at the belt plane",
+      "root_cause": "a number from a previous revision's research was reused without checking it against the limit of the part that carries it",
+      "fix": "tension 30-45 N per span from the needed torque (loads.py), calculations.md corrected",
+      "promoted_to_rule": "design_constraints.md (Loads)"
+    },
+    {
+      "id": "INC-2026-11-13-07",
+      "date": "2026-11-13",
+      "title": "Leftover holes from an older revision left in a reused plate until the user pointed at them (Big_CNC)",
+      "where": "Big_CNC motor_mounts_v3/check (trimesh scripts frame_mods.py, build_full.py, chains.py), /Volumes/SSD_1TB/Docs/03_Asmeniniai_projektai/CNC/Big_CNC: right gantry side plate, back plate",
+      "symptom": "user (screenshot): fix the holes here - old v2 X-drive bearing holes d17 + 4 x d4.6 and a d15 in the back plate were still there",
+      "root_cause": "a plate reused from an earlier design revision was modified without an inventory of its existing features (keep / reuse / plug)",
+      "fix": "plugged in frame_mods.py with ray checks (plug closed)",
+      "promoted_to_rule": "design_constraints.md (Propagation)"
+    },
+    {
+      "id": "INC-2026-11-13-06",
+      "date": "2026-11-13",
+      "title": "Holes delivered that the user could not see: blind holes + OpenSCAD preview of an imported STL (Big_CNC)",
+      "where": "Big_CNC motor_mounts_v3/check (trimesh scripts frame_mods.py, build_full.py, chains.py), /Volumes/SSD_1TB/Docs/03_Asmeniniai_projektai/CNC/Big_CNC: frame_mods.py M6 holes, check/*.png",
+      "symptom": "user, angry: 'TAI KUR BLET SKYLES?' - the images and the model showed no holes",
+      "root_cause": "evidence image did not show the feature: holes were blind and OpenSCAD --preview of an imported mesh renders blind holes poorly; no section/ray proof was shown",
+      "fix": "through holes, ray check per hole (open along its axis), section PNGs (holes_section.py)",
+      "promoted_to_rule": "design_constraints.md (Evidence)"
+    },
+    {
+      "id": "INC-2026-11-13-05",
+      "date": "2026-11-13",
+      "title": "Collision sweep used bbox-based moving-group membership that silently dropped a newly added part (Big_CNC chains.py)",
+      "where": "Big_CNC motor_mounts_v3/check (trimesh scripts frame_mods.py, build_full.py, chains.py), /Volumes/SSD_1TB/Docs/03_Asmeniniai_projektai/CNC/Big_CNC: chains.py gantry/xcar sets",
+      "symptom": "X/Y sweeps reported 1.2 mm to the Z motor plate; the Z drive (front face Y 364.6) was outside the hard-coded membership box (Y >= 370) so it stayed static while the carriage moved",
+      "root_cause": "membership of moving groups derived from a hand-picked bounding box, not declared; adding a part outside the box changes the group with no error",
+      "fix": "box widened and an assert that every Z-drive component is in both moving groups; caught by me from an implausible gap value",
+      "promoted_to_rule": "design_constraints.md (Motion); NEXT.md P21"
+    },
+    {
+      "id": "INC-2026-11-13-04",
+      "date": "2026-11-13",
+      "title": "Z home sensor placed in the path of the moving Z slide; later an old sensor clashed with a newly added Z block (Big_CNC)",
+      "where": "Big_CNC motor_mounts_v3/check (trimesh scripts frame_mods.py, build_full.py, chains.py), /Volumes/SSD_1TB/Docs/03_Asmeniniai_projektai/CNC/Big_CNC: frame_mods.py / build_full.py",
+      "symptom": "user: 'when Z goes down it will hit the sensor' (twice: first a clash, then a 1 mm passing gap judged too fragile); later the rail-end sensor clashed with the lower Z block added afterwards",
+      "root_cause": "parts were placed and checked at one static pose; no sweep over the axis stroke when a part was added or when the moving set changed (motion_sweep.py not used)",
+      "fix": "Z sweep over the usable stroke in build_full.py with an assert on the min gap; sensor recessed then made flush with a steel tab",
+      "promoted_to_rule": "design_constraints.md (Motion); NEXT.md P21"
+    },
+    {
+      "id": "INC-2026-11-13-03",
+      "date": "2026-11-13",
+      "title": "Non-shielded LJ12A3-4 inductive sensors designed recessed 0.5 mm in aluminium holes (Big_CNC)",
+      "where": "Big_CNC motor_mounts_v3/check (trimesh scripts frame_mods.py, build_full.py, chains.py), /Volumes/SSD_1TB/Docs/03_Asmeniniai_projektai/CNC/Big_CNC: frame_mods.py SENSORS",
+      "symptom": "user asked whether a fully recessed sensor in a hole will be disturbed; yes - all 3 (X/Y/Z) would be detuned by the surrounding Al",
+      "root_cause": "purchased part's mounting conditions (shielded vs non-flush, free zone) not read from the datasheet before choosing the mount",
+      "fix": "switched to shielded LJ12A3-2-Z/BX flush with the surface (assert in frame_mods.py), 6 mm steel Z tab, steel targets on X/Y; global incident I-1233 R-PART-SPEC",
+      "promoted_to_rule": "design_constraints.md (Purchased parts)"
+    },
+    {
+      "id": "INC-2026-11-13-02",
+      "date": "2026-11-13",
+      "title": "Z motor mount leg had no fastener holes and covered the 4 BK12 bolt heads (Big_CNC)",
+      "where": "Big_CNC motor_mounts_v3/check (trimesh scripts frame_mods.py, build_full.py, chains.py), /Volumes/SSD_1TB/Docs/03_Asmeniniai_projektai/CNC/Big_CNC: build_full.py zleg",
+      "symptom": "user (screenshot): holes on the Z plate front do not match the new bracket; leg sat on BK12 bolt holes, no holes of its own",
+      "root_cause": "same class as INC-2026-11-08-01. The mount was built as trimesh boxes inside build_full.py, outside parts/*.scad and fasteners.json, so R-22 check_fasteners never saw it; the host face (Z plate front) was never inventoried for existing holes/heads before choosing the footprint",
+      "fix": "4 x M6 tapped through holes in the Z plate (frame_mods.py), d6.6 in the leg, d11 reliefs over BK12 bolts, small reliefs over 3 other plate holes, leg grown for edge distance; ray check that leg and plate holes are coaxial and free behind",
+      "promoted_to_rule": "design_constraints.md (Fasteners: host-face inventory; parts outside the pipeline); NEXT.md P20"
+    },
+    {
+      "id": "INC-2026-11-13-01",
+      "date": "2026-11-13",
+      "title": "validate_scad.sh single-file run overwrote .validation_state.json; stop gate blocked on the other file forever",
+      "where": "scad-modeler/scripts/validate_scad.sh state block; cnc-valdymo-punktas/render/{galutinis_vaizdas,vidus_be_sienu}.scad",
+      "symptom": "both render files validated (4/0) one after the other; the stop gate still reported the first as unvalidated",
+      "root_cause": "the state file was rewritten from scratch on every run and in lone mode only lists the target and its root deps, so validating b.scad erased a.scad's hash",
+      "fix": "keep previous sources entries whose file sha256 is unchanged; changed files still need a fresh run",
+      "promoted_to_rule": "not yet (no fixture)"
+    },
+    {
+      "id": "INC-2026-11-12-01",
+      "date": "2026-11-12",
+      "title": "check_collisions: switches resting in a 15 deg plate read as 5.000 mm penetration",
+      "where": "scad-modeler/scripts/check_collisions.py bounded_depth(); found on ~/Github/esp32-macropad",
+      "symptom": "30 MX switch envelopes in a tilted top_shell (body exactly in its 14.0 cutout, housing resting on the plate): collisions=FAIL 'measured penetration depth 5.000 mm' while the boolean overlap was 0.00026 mm^3",
+      "root_cause": "bounded_depth bounded each intersection piece by its AXIS-ALIGNED bbox: a zero-thickness contact sheet on a 15 deg face spans 15.6*sin15 = 4.04 mm in Z; a ring of sheets around a body in its hole is 1.5 mm thick even in an oriented box. Float noise gives those sheets volume > 1e-6.",
+      "fix": "oriented bbox per piece, and pieces with mean thickness 2V/A < 0.01 mm are skipped as contact sheets; a 0.5 mm real overlap on the same tilted plate still reads 1.5 mm. Fixture tests/fixtures/collisions_tilted_contact (real project files; simple tilted cubes did not reproduce it).",
+      "promoted_to_rule": "not yet"
+    },
+    {
       "id": "INC-2026-11-08-01",
       "date": "2026-11-08",
       "title": "screw heads under later panels, no head holes; DIN clip window cut its own pad (cnc-valdymo-punktas)",
