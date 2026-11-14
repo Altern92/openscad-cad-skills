@@ -1187,6 +1187,7 @@ else VERDICT=PASS; fi
 mkdir -p "$BUILD_DIR" 2>/dev/null || true
 if [ -d "$BUILD_DIR" ] && [ -w "$BUILD_DIR" ]; then
     state="$BUILD_DIR/.validation_state.json"
+    prev_state=""; [ -f "$state" ] && prev_state=$(cat "$state" 2>/dev/null)
     {
         printf '{"when":"%s","mode":"%s","verdict":"%s",' \
             "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$MODE" \
@@ -1221,6 +1222,21 @@ if [ -d "$BUILD_DIR" ] && [ -w "$BUILD_DIR" ]; then
         done
         printf '}}\n'
     } > "$state" 2>/dev/null || rm -f "$state"
+    # Single-file runs used to overwrite the state, so validating render/a.scad then render/b.scad
+    # dropped a.scad's hash and the stop gate blocked forever (2026-11-13). Keep earlier entries
+    # whose file is unchanged since that run; a changed file still needs a fresh run.
+    if [ -n "$prev_state" ] && [ -f "$state" ]; then
+        PREV_STATE="$prev_state" python3 - "$state" <<'PYEOF' 2>/dev/null || true
+import hashlib, json, os, sys
+p = sys.argv[1]
+new = json.load(open(p)); old = json.loads(os.environ["PREV_STATE"]).get("sources") or {}
+src = new.setdefault("sources", {})
+for f, h in old.items():
+    if f not in src and os.path.isfile(f) and hashlib.sha256(open(f, "rb").read()).hexdigest() == h:
+        src[f] = h
+tmp = p + ".tmp"; json.dump(new, open(tmp, "w"), separators=(",", ":")); os.replace(tmp, p)
+PYEOF
+    fi
 fi
 
 echo

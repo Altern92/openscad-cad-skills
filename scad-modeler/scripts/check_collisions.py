@@ -372,8 +372,12 @@ def bounded_depth(depth, mesh_a, mesh_b):
         pieces = inter.split(only_watertight=False)
     except Exception:
         pieces = [inter]
-    depths = [float((q.bounds[1] - q.bounds[0]).min()) for q in pieces
-              if abs(q.volume) > 1e-6]
+    # Oriented box: a zero-thickness contact sheet on a tilted face has an axis-aligned
+    # bbox as thick as the tilt makes it (15.6 mm face at 15 deg read as 4.04 mm deep).
+    # A piece whose mean thickness 2V/A is under 0.01 mm is a contact sheet (a square ring
+    # around a switch in its cutout), not an overlap; a real 0.03 mm cube still counts.
+    depths = [float(q.bounding_box_oriented.primitive.extents.min()) for q in pieces
+              if abs(q.volume) > 1e-6 and 2 * abs(q.volume) / max(q.area, 1e-9) >= 0.01]
     return min(depth, max(depths)) if depths else 0.0
 
 
