@@ -1,5 +1,4 @@
 ---
-disable-model-invocation: true
 name: scad-modeler
 description: 'Use for complex, multi-part parametric OpenSCAD mechanical assemblies — things with gears, bearings, reductions, multiple interacting printed parts, or where getting a dimension wrong means two parts collide or don''t mesh. Triggers on "gear ratio", "reduction", "bearing", "shaft", "assembly", "BOM", "center distance", "mechanical design", "RC car", "gearbox", "multi-part", "design a mechanism", "which architecture", "gearbox layout", or a brief vague enough that more than one mechanism would satisfy it — or requests to design several parts that must fit together and be validated. For a single simple part, use openscad-cad instead. Adds: gated planning before numbers, calculations before geometry, centralized positions, and dimensional/collision/motion validation. ALWAYS load openscad-cad alongside. ALWAYS query ../INCIDENTS.json (via scripts/incidents.py) before writing geometry.'
 ---

@@ -17,8 +17,9 @@ fail() { echo "test_install: $*" >&2; exit 1; }
 bash "$t/work/install.sh" --no-test "$t/a" >/dev/null 2>&1 || fail "clean clone: install failed"
 [ -f "$t/a/scad-modeler/kit/lib.scad" ] && [ -f "$t/a/scad-modeler/tests/genkit/run_all.sh" ] \
     && [ -f "$t/a/scad-modeler/gen/emit_part.py" ] || fail "clean clone: GenKit not installed"
-grep -q "^disable-model-invocation" "$t/a/openscad-cad/SKILL.md" && fail "plain install must not add disable-model-invocation"
+grep -q "^disable-model-invocation" "$t/a/openscad-cad/SKILL.md" "$t/a/scad-modeler/SKILL.md" && fail "plain install must not add disable-model-invocation"
 bash "$t/work/install.sh" --no-test --manual-only "$t/m" >/dev/null 2>&1 && grep -q "^disable-model-invocation: true" "$t/m/openscad-cad/SKILL.md" \
+    && grep -q "^disable-model-invocation: true" "$t/m/scad-modeler/SKILL.md" \
     || fail "--manual-only did not mark openscad-cad"
 
 echo "# dirty" >> "$t/work/scad-modeler/SKILL.md"

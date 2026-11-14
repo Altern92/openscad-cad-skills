@@ -1,0 +1,12 @@
+{
+  "name": "openscad-cad-skills",
+  "description": "OpenSCAD CAD skills for Claude Code (single-plugin marketplace).",
+  "owner": { "name": "Altern92", "url": "https://github.com/Altern92" },
+  "plugins": [
+    {
+      "name": "openscad-cad-skills",
+      "description": "Parametric OpenSCAD CAD: render, validate and export models and multi-part assemblies.",
+      "source": "./"
+    }
+  ]
+}

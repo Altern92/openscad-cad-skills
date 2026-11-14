@@ -17,6 +17,7 @@ python3 "$SRC/scad-modeler/scripts/incidents.py" check --file "$SRC/INCIDENTS.js
     exit 1
 }
 bash "$SRC/scripts/test_install.sh"   # install.sh's own guard behaves (clean clone ok, dirty refused)
+bash "$SRC/scripts/test_plugin.sh"    # the repo still installs as a plugin (SKIP without the claude CLI)
 # DSH keeps its own manual-only copy of openscad-organic; it went stale (no P6) when
 # only skills/ was deployed.
 FORK="$DST/../skills-forks/dsh/openscad-organic"

@@ -26,10 +26,26 @@ ID_RE = re.compile(r"^INC-20[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2,}$")
 REQUIRED_FIELDS = ("id", "date", "title", "where", "symptom", "root_cause", "fix", "promoted_to_rule")
 
 
+# Installed as a Claude Code plugin, this tree sits in ~/.claude/plugins/cache/<mkt>/<plugin>/<version>/ and
+# every update lands in a new directory: incidents added there would be lost. So, from a plugin cache and
+# without --file, reads merge the shipped file with a local one and `add` writes only the local one.
+IN_PLUGIN_CACHE = "/plugins/cache/" in SCRIPT_DIR.replace(os.sep, "/")
+LOCAL_JSON = os.environ.get("SCAD_INCIDENTS_LOCAL") or os.path.join(
+    os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "scad-modeler", "INCIDENTS.local.json")
+
+
 def resolve_path(explicit_path=None):
     if explicit_path:
         return explicit_path
     return DEFAULT_JSON
+
+
+def load_merged(explicit_path=None):
+    """Shipped doc, plus the local plugin-mode entries when they apply."""
+    doc = load_doc(resolve_path(explicit_path))
+    if IN_PLUGIN_CACHE and not explicit_path and os.path.isfile(LOCAL_JSON):
+        doc = dict(doc, entries=load_doc(LOCAL_JSON).get("entries", []) + doc.get("entries", []))
+    return doc
 
 
 def load_doc(path):
@@ -96,12 +112,18 @@ def cmd_check(args):
         return 1
     entries = doc["entries"]
     print(f"OK: {len(entries)} incidents validated in {os.path.basename(path)} (schema_version=1)")
+    if IN_PLUGIN_CACHE and not args.file and os.path.isfile(LOCAL_JSON):
+        errors = validate_doc(load_doc(LOCAL_JSON))
+        for e in errors:
+            print(f"FAIL: {LOCAL_JSON}: {e}", file=sys.stderr)
+        if errors:
+            return 1
+        print(f"OK: local incidents validated in {LOCAL_JSON}")
     return 0
 
 
 def cmd_list(args):
-    path = resolve_path(args.file)
-    doc = load_doc(path)
+    doc = load_merged(args.file)
     entries = doc.get("entries", [])
     if args.date:
         entries = [e for e in entries if e.get("date") == args.date]
@@ -112,8 +134,7 @@ def cmd_list(args):
 
 
 def cmd_search(args):
-    path = resolve_path(args.file)
-    doc = load_doc(path)
+    doc = load_merged(args.file)
     q = args.query.lower()
     hits = []
     for e in doc.get("entries", []):
@@ -142,8 +163,7 @@ def cmd_search(args):
 
 
 def cmd_show(args):
-    path = resolve_path(args.file)
-    doc = load_doc(path)
+    doc = load_merged(args.file)
     for e in doc.get("entries", []):
         if e.get("id") == args.id:
             print(json.dumps(e, ensure_ascii=False, indent=2))
@@ -154,7 +174,7 @@ def cmd_show(args):
 
 def cmd_add(args):
     path = resolve_path(args.file)
-    doc = load_doc(path)
+    doc = load_merged(args.file)   # ids are numbered against shipped + local entries
     date = args.date or dt.date.today().isoformat()
     if not DATE_RE.match(date):
         print(f"ERROR: invalid --date {date!r} (expected YYYY-MM-DD)", file=sys.stderr)
@@ -188,8 +208,14 @@ def cmd_add(args):
         for err in errors:
             print(f"ERROR: {err}", file=sys.stderr)
         return 1
+    if IN_PLUGIN_CACHE and not args.file:
+        path = LOCAL_JSON
+        local = load_doc(path) if os.path.isfile(path) else {"schema_version": 1, "entries": []}
+        local["entries"].insert(0, entry)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        doc = local
     save_doc(path, doc)
-    print(f"ADDED {new_id}: {entry['title']}")
+    print(f"ADDED {new_id}: {entry['title']} -> {path}")
     return 0
 
 

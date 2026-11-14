@@ -1,0 +1,10 @@
+{
+  "name": "openscad-cad-skills",
+  "description": "Parametric OpenSCAD CAD for Claude Code: write, render, check and export models, with multi-part assembly validation (collisions, fasteners, motion) and a JSON-to-SCAD generator (GenKit).",
+  "author": { "name": "Altern92", "url": "https://github.com/Altern92" },
+  "homepage": "https://github.com/Altern92/openscad-cad-skills",
+  "repository": "https://github.com/Altern92/openscad-cad-skills",
+  "license": "MIT",
+  "keywords": ["openscad", "cad", "3d-printing", "stl", "parametric"],
+  "skills": ["./openscad-cad", "./scad-modeler", "./openscad-organic"]
+}

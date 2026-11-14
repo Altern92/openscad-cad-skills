@@ -37,8 +37,20 @@ Requirements: macOS or Linux, [Claude Code](https://docs.anthropic.com/en/docs/c
 openscad@snapshot`; the plain `openscad` cask is too old for `--backend=Manifold`; headless
 Linux also needs `xvfb`), and [`uv`](https://docs.astral.sh/uv/) for the Python environment.
 
-1. Install the skills **from GitHub**. This is the only supported way. It installs exactly a
-   commit on `origin/main` into `~/.claude/skills` and then runs the installed test suite:
+1. Install the skills **from GitHub**, as a Claude Code plugin (recommended). Inside Claude Code:
+
+   ```
+   /plugin marketplace add Altern92/openscad-cad-skills
+   /plugin install openscad-cad-skills@openscad-cad-skills
+   ```
+
+   Restart Claude Code. The skills are then `openscad-cad-skills:openscad-cad`,
+   `openscad-cad-skills:scad-modeler` and `openscad-cad-skills:openscad-organic`. To update, run
+   `/plugin marketplace update openscad-cad-skills`, then `/plugin update openscad-cad-skills`.
+   Every commit on `main` is a new version.
+
+   Alternative, without the plugin system (also for other harnesses): `install.sh` installs exactly
+   a commit on `origin/main` into `~/.claude/skills` and then runs the installed test suite:
 
    ```bash
    curl -fsSL https://raw.githubusercontent.com/Altern92/openscad-cad-skills/main/install.sh | bash
@@ -46,22 +58,31 @@ Linux also needs `xvfb`), and [`uv`](https://docs.astral.sh/uv/) for the Python 
    git clone https://github.com/Altern92/openscad-cad-skills.git && bash openscad-cad-skills/install.sh
    ```
 
+   Use one route, not both: two copies of the same skill can drift apart.
+
 2. Create the Python environment the checkers use (`~/.local/share/scad-modeler/venv`; found
-   automatically, no activation needed):
+   automatically, no activation needed). `SKILLS` is where the skill folders landed:
 
    ```bash
-   bash ~/.claude/skills/scad-modeler/scripts/setup_env.sh
+   SKILLS=$(ls -td ~/.claude/plugins/cache/openscad-cad-skills/openscad-cad-skills/*/ | head -1)  # plugin
+   # SKILLS=~/.claude/skills                                                                   # install.sh
+   bash "$SKILLS/scad-modeler/scripts/setup_env.sh"
    ```
 
 3. Check what this machine can do:
 
    ```bash
-   python3 ~/.claude/skills/scad-modeler/scripts/doctor.py     # OpenSCAD, libraries, Python packages
-   python3 ~/.claude/skills/scad-modeler/scripts/selftest.py   # runs the whole chain on a known part
+   python3 "$SKILLS/scad-modeler/scripts/doctor.py"     # OpenSCAD, libraries, Python packages
+   python3 "$SKILLS/scad-modeler/scripts/selftest.py"   # runs the whole chain on a known part
    ```
 
 4. In Claude Code, describe the part. `openscad-cad` and `scad-modeler` load on matching
-   requests (or call them by name: `/openscad-cad`, `/scad-modeler`).
+   requests (or call them by name, e.g. `/openscad-cad-skills:scad-modeler` for the plugin,
+   `/scad-modeler` for `install.sh`).
+
+Incidents you log with `incidents.py add` from a plugin install go to
+`~/.local/share/scad-modeler/INCIDENTS.local.json` (override: `SCAD_INCIDENTS_LOCAL`), because each
+plugin update installs into a new folder. `list` and `search` read both that file and the shipped one.
 
 `install.sh [--manual-only] [--no-test] [--dev] [TARGET]`. `--manual-only` makes the two main
 skills load only when called by name. A clone with uncommitted or unpushed changes is refused
@@ -81,7 +102,7 @@ If you use OpenSCAD libraries (BOSL2, NopSCADlib), pin them per project with `en
 | `openscad-organic` | Organic figurines: characters, creatures, miniatures. hull/skin/sweep techniques, FDM detail minimums, proportion and silhouette checks. |
 
 `scad-modeler` builds on `openscad-cad` (render/export commands and tolerance data live there),
-so install them together; `install.sh` does.
+so install them together; the plugin and `install.sh` both do.
 
 ## GenKit: parts from parameters
 
@@ -256,7 +277,8 @@ verdict does not block; it blocks at most once per stop. Add to `~/.claude/setti
 | `INCIDENTS.json` | every logged failure: symptom, root cause, fix, and the check that now catches it |
 | `bench/` | planted-defect benchmark and agent evaluation |
 | `docs/superpowers/specs/` | acceptance criteria for each change |
-| `install.sh` | the GitHub installer |
+| `.claude-plugin/` | plugin manifest and its one-plugin marketplace (`/plugin marketplace add`) |
+| `install.sh` | the GitHub installer without the plugin system |
 | `NEXT.md` | maintainer's work queue (Lithuanian) |
 
 ## Development
@@ -264,13 +286,14 @@ verdict does not block; it blocks at most once per stop. Add to `~/.claude/setti
 ```bash
 bash scad-modeler/tests/run_all.sh   # 95 tests, a few minutes
 bash scripts/test_install.sh         # installer guard
+bash scripts/test_plugin.sh          # plugin install from a local marketplace (needs the claude CLI)
 ```
 
 Each fixture is a self-contained `run_test.sh` that reproduces a real incident and asserts the
 real outcome, including failures. `tests/mutants.tsv` names, for every checker, a fixture that
 must fail when that checker is replaced by `exit 0`: a checker never observed failing is
 indistinguishable from one that does not work. Changes go through written acceptance criteria
-(`docs/superpowers/specs/`), are pushed to `main`, and are then installed with `install.sh`.
+(`docs/superpowers/specs/`), are pushed to `main`, and are then installed from GitHub (plugin or `install.sh`).
 
 ## Limits
 
