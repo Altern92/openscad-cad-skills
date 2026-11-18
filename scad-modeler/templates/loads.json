@@ -1,0 +1,32 @@
+{
+  "_comment": "P24 load cases for check_strength.py (gate strength). Assembly coords; force in N on the part at `at`, reacted at `support`. material: a key of references/materials.json. Delete this key.",
+  "cases": [
+    {
+      "name": "arm_landing_3g",
+      "part": "lower_arm",
+      "support": [
+        20,
+        0,
+        40
+      ],
+      "at": [
+        60,
+        0,
+        40
+      ],
+      "force_N": [
+        0,
+        0,
+        -45
+      ],
+      "print_up": [
+        0,
+        0,
+        1
+      ],
+      "material": "PETG Basic",
+      "safety": 2.0,
+      "reach": 30
+    }
+  ]
+}

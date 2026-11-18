@@ -1,0 +1,6 @@
+{"cases": [
+ {"name": "x6_xy", "part": "bar_x6", "support": [0, 0, 0], "at": [50, 0, 0], "force_N": [0, 0, -15], "print_up": [0, 0, 1], "material": "PETG Basic"},
+ {"name": "x3_thin", "part": "bar_x3", "support": [0, 0, 0], "at": [50, 0, 0], "force_N": [0, 0, -15], "material": "PETG Basic"},
+ {"name": "z6_layers", "part": "bar_z6", "support": [0, 0, 0], "at": [0, 0, 50], "force_N": [15, 0, 0], "print_up": [0, 0, 1], "material": "PETG Basic"},
+ {"name": "gap", "part": "bar_gap", "support": [0, 0, 0], "at": [50, 0, 0], "force_N": [0, 0, -15], "material": "PETG Basic"}
+]}

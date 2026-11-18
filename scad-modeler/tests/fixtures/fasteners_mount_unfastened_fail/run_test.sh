@@ -11,6 +11,14 @@ o=$(python3 "$SCAD_MODELER_SCRIPTS/check_fasteners.py" --fasteners "$here/fasten
 echo "$o" | grep -q "mount leg -> plate: no declared fastener" || { echo "missing mount FAIL line"; echo "$o"; exit 1; }
 # F4: validate_scad.sh runs the same check on build/positioned without an assembly.scad
 mkdir -p "$t/p/build/positioned" && cp "$t"/*.stl "$t/p/build/positioned/" && cp "$here/fasteners.json" "$t/p/"
-v=$(cd "$t/p" && bash "$SCAD_MODELER_SCRIPTS/validate_scad.sh" 2>&1)
+# one clean part, so fasteners is the ONLY failing gate (an empty parts/ fails on its own and hid
+# INC-2026-11-18-08); --all is the mode the projects run
+mkdir -p "$t/p/parts" && printf '%s\n' "// NO_BBOX: test block" "// NO_THROUGH_HOLES_CHECK: test block" \
+    "// NO_JOINT: test block" "// NO_RETENTION: test block" "cube(4);" > "$t/p/parts/blk.scad"
+v=$(cd "$t/p" && bash "$SCAD_MODELER_SCRIPTS/validate_scad.sh" --all 2>&1); vr=$?
+# INC-2026-11-18-08: a gate that failed via log_check only (no OVERALL_FAIL) ended in exit 0 and
+# "All executed checks passed" -- the verdict must follow every failed check
+[ "$vr" -eq 1 ] || { echo "validate_scad.sh exit $vr with a failed fasteners gate, expected 1"; echo "$v" | tail -5; exit 1; }
+echo "$v" | grep -q "All executed checks passed" && { echo "validate_scad.sh claims all passed with fasteners=FAIL"; exit 1; }
 echo "$v" | grep -q "CHECK_RESULT fasteners=FAIL" || { echo "validate_scad.sh did not run fasteners without assembly.scad"; echo "$v" | grep -i fasten; exit 1; }
 exit 0

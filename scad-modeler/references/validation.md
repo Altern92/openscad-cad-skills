@@ -83,7 +83,7 @@ label, which is a false statement about the tool.
 `check_dimensions.py` report surfaced **3 previously invisible bbox failures**
 (`nas_post`, `post`, `side_panel` in `server_rack_modular_v4`) that had been
 firing silently on every run.
-| load / strength | **not checked at all** (needs datasheet + material properties) |
+| load / strength | `check_strength.py` (`strength`, P24): declared heat-set insert holes and `loads.json` beam cases only; no FEA, torsion, fatigue |
 
 ---
 
@@ -404,9 +404,8 @@ an extra step the part file's author adds deliberately, the same way
 assembly-positioned exports are a prerequisite for `check_collisions.py`,
 not something the normal per-part render produces on its own.
 
-Still not checked at all: load or strength (needs a datasheet and
-material properties this chain has no way to derive from geometry
-alone). FDM printability specifically — minimum wall thickness,
+Load and strength: only what `check_strength.py` (P24) is given, see § Static strength;
+anything not declared there is still unchecked. FDM printability specifically — minimum wall thickness,
 unsupported overhang — now has a standalone check (added 2026-08-22,
 after independent research confirmed real precedent for both as
 pre-slicing, mesh-based checks: face-normal-vs-build-axis for overhang,
@@ -504,6 +503,33 @@ sweep script for linkages `motion_sweep.py` cannot express (four-bars, steering 
 Joint pairs may overlap (a ball in its cup, a screw in its insert). Renders are cached in
 `build/behavior/`, keyed on every `.scad` file's content. Exit 0 / 3 / 4 (usage: bad JSON, unknown
 body). Not physics: no forces, friction or strength.
+
+### Kinematics (P24, 2026-11-18)
+
+HOLDS only says a joint gap is small. A body held by one ball joint "holds" and still spins
+(INC-2026-11-18-07 research). Give each joint `type` (`fixed` 6 constraint rows, `ball` 3,
+`revolute` / `slider` 5, needs `axis`) and `at` (assembly coords), and declare
+`"dof": {"count": N, "why": [...], "idle": [{"body", "why"}], "at": {<pose var>: value}}`.
+At the `dof.at` pose (default: first) the check builds the constraint Jacobian and prints
+`DOF: computed N, declared M + k idle`. More = FAIL naming each body that can still move with the
+others held; fewer = FAIL "mechanism locked". `at` must lie within `max_gap` of one body and 5 mm
+of the other (a ball centre sits inside the ball). A typed joint on a multi-piece body is FAIL
+(split it). `angle` {`echo`: VAR, `max_deg`, `source`} reads `ECHO: VAR = v` from an OpenSCAD run
+at every pose; |v| over the limit = FAIL with the pose; no `source` or VAR not printed = exit 4.
+No `type` anywhere = `KINEMATICS SKIP` (old files keep passing).
+
+## Static strength (`check_strength.py`, gate `strength`, P24, added 2026-11-18)
+
+INC-2026-11-18-07: 16 insert holes were cut at the knurl OD and too shallow; every gate passed.
+**Inserts:** a `fasteners.json` entry with `"insert": "M3"` (sizes in `references/inserts.json`,
+CNC Kitchen datasheet), `"insert_in": "<part>"`, `"insert_from"`: distance along the axis to the
+insert's top face. Measured on `build/positioned`: hole Ø within [D3 − 0.05, D3 + 0.35], blind depth
+≥ L + 1 (or through), material all round at D3/2 + W.
+**Loads:** `loads.json` (copy `templates/loads.json`). The part is sectioned every 1 mm between
+`support` and `at`; σ = |M|·c/I + |F·n|/A against `references/materials.json` (mean − 1σ of the
+TDS), Z strength when the stress runs within 30° of `print_up`; safety default 2. A station with
+no section = load path broken. Exit 0 / 2 (nothing declared: SKIP) / 3 / 4. `validate_scad.sh`
+turns exit 2 into FAIL when a part mentions inserts and `fasteners.json` declares none (R-25).
 
 ---
 

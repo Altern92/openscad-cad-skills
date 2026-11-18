@@ -191,6 +191,13 @@ rules:
     gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
     success_pattern: "CHECK_RESULT behavior=PASS"
 
+  - id: R-25
+    rule: "Static strength (P24, 2026-11-18, INC-2026-11-18-07): every load case in loads.json (support, load point, force, print_up, material with a TDS value) is carried by the printed part -- check_strength.py cuts the positioned mesh every mm between support and load and fails a station with no material or a bending + axial stress over the material's X-Y strength (Z when the stress pulls layers apart) / safety; declared heat-set inserts are measured (hole, blind depth, wall) against references/inserts.json"
+    applies: "file_exists:loads.json"
+    kind: auto
+    gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
+    success_pattern: "CHECK_RESULT strength=PASS"
+
   - id: R-17
     rule: "FDM printability (§7): each printed part was checked with check_printability.py for unsupported overhang and thin walls -- manual because it is new, not yet wired into validate_scad.sh --all, and its wall-thickness reading has a confirmed edge-case limitation (a solid, sharply-tapered feature's edge can produce a spuriously short reading) that needs a human/agent read of the result, not a bare pass/fail"
     applies: "always"

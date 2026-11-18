@@ -3,6 +3,36 @@
   "description": "Append-only structured log of real bugs found and fixed across OpenSCAD skills (scad-modeler, openscad-cad, openscad-organic). Use scripts/incidents.py to check, list, search, show, or add entries.",
   "entries": [
     {
+      "id": "INC-2026-11-18-09",
+      "date": "2026-11-18",
+      "title": "check_behavior angle: second name in one echo() read as missing",
+      "where": "scad-modeler/scripts/check_behavior.py echo_values",
+      "symptom": "front_axle_v4 echo(UB_TILT=.., LB_TILT=..): LB_TILT reported 'OpenSCAD printed no ECHO' at every pose",
+      "root_cause": "regex required 'ECHO: NAME' at line start; OpenSCAD prints every name of one echo() on one line separated by ', '",
+      "fix": "regex accepts 'ECHO: ' or ', ' before the name, exponent e+/-; fixture kinematics_gates angle_second",
+      "promoted_to_rule": "not yet"
+    },
+    {
+      "id": "INC-2026-11-18-08",
+      "date": "2026-11-18",
+      "title": "validate_scad.sh --all: failed fasteners gate ended in exit 0 and 'All executed checks passed'",
+      "where": "scad-modeler scripts/validate_scad.sh (verdict), found on esp32_rc rear_axle_v4",
+      "symptom": "COVERAGE '1 failed', then 'All executed checks passed', exit 0; the stop gate accepted the state (verdict PASS)",
+      "root_cause": "verdict read OVERALL_FAIL only; the fasteners gate (and any gate that only calls log_check with 1) never set it. The fixture that should catch it failed for another reason (no parts/), so it never isolated the gate",
+      "fix": "verdict FAIL when CHK_FAIL > 0; fasteners_mount_unfastened_fail now runs --all with one clean part and asserts exit 1 (red before the fix, green after)",
+      "promoted_to_rule": "not yet"
+    },
+    {
+      "id": "INC-2026-11-18-07",
+      "date": "2026-11-18",
+      "title": "Heat-set insert holes cut at the knurl OD, too shallow",
+      "where": "esp32_rc_modelis front_axle_v4 / rear_axle_v4 (13+3 cuts), scad-modeler (no insert check)",
+      "symptom": "All gates passed; holes Ø4.6 = insert OD, 5.7-6.5 mm deep. Insert would pull out by hand",
+      "root_cause": "ins_d used both as the insert OD and as the hole diameter; no gate or reference gives insert hole sizes",
+      "fix": "ins_hole = 4.2, ins_depth = ins_len + 1 in params; EXPECTED_HOLE 4.2; design_constraints line; P24 strength gate planned",
+      "promoted_to_rule": "not yet"
+    },
+    {
       "id": "INC-2026-11-18-06",
       "date": "2026-11-18",
       "title": "Rule id reused: new behaviour rule written as R-23, which already existed",

@@ -127,3 +127,8 @@ If it can become a check, make it one. A line without a check is a reminder; a c
 - A purchased motor/part screwed to a wall sits with its mounting FACE on the wall and its boss/spigot inside the bore;
   a screw into a vitamin (`into: null`) is not bite-checked, so the face position is the only thing that sets the bite.
   — check: behavior.json joint motor <-> wall with max_gap 0.05 — source: rear_axle_v4 2026-11-18, INC-2026-11-18-04
+- A heat-set insert hole is NOT the insert's OD: M3 x 5.7 (OD 4.6) needs a 4.0 hole (4.2 in CAD for a printed hole),
+  blind depth >= insert length + 1 mm, wall >= 1.6 mm around the OD. Cutting `d=ins_d` (= knurl OD) leaves nothing to grip.
+  — check: `strength` gate (check_strength.py, R-25; declare `insert` in fasteners.json) — source: esp32_rc front/rear_axle_v4 2026-11-18, INC-2026-11-18-07
+- A ball joint's tilt at full bump/steer must stay within the purchased rod end's swing (RC M3 cups ~±15° ◇, no datasheet value);
+  computing the angle (`ub_mis`) is not checking it. — check: `behavior` gate KINEMATICS, joint `angle` {echo, max_deg, source} — source: front_axle_v4 ub_mis 22.8°

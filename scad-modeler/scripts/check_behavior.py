@@ -27,7 +27,19 @@ MOVES  at every pose: non-joint bodies do not interpenetrate (> 0.01 mm3) and ke
 STANDS at every pose: each ground body's lowest point is within tol of ground z, and the
        mass centre lies inside the convex hull of the ground-contact points.
 
-Not a physics simulation: no forces, friction or strength.
+KINEMATICS (P24, only when a joint has "type"):
+  joint "type": fixed | ball | revolute | slider; ball/revolute/slider need "at": [x,y,z] (assembly
+  coords at the dof pose), revolute/slider need "axis". Untyped joints count as fixed.
+  "dof": {"count": 2, "why": [...], "idle": [{"body": "tie_rod", "why": "spins on its balls"}],
+          "at": {"BUMP": 0}}            # pose for the Jacobian (default: all-zero grid point, else first)
+  DOF = 6 x moving bodies - rank(constraint Jacobian), SVD; static bodies are the world. More DOF
+  than count + idle = a body moves with nothing stopping it (named); fewer = the mechanism locks.
+  An "at" not within max_gap of one body and 5 mm of the other = an invented anchor -> FAIL. A body in a typed joint
+  must be ONE piece (several separate studs that move with different parts are several bodies).
+  joint "angle": {"echo": "UB_TILT", "max_deg": 15, "source": ".."} -- OpenSCAD is run per pose with
+  the body defines and must print `ECHO: UB_TILT = <deg>`; |value| > max_deg at any pose -> FAIL.
+
+Not a physics simulation: no forces, friction or strength (check_strength.py does static strength).
 
 Usage: python3 check_behavior.py --project-dir . [--behavior behavior.json] [-D NAME=VALUE ...]
 Exit: 0 pass, 3 fail (incl. a body that does not render), 4 usage (bad JSON, unknown body).
@@ -84,10 +96,23 @@ def load(path):
                 usage(f"{path}: joint names unknown body {j.get(k)!r}")
         if "max_gap" not in j:
             usage(f"{path}: joint {j['a']}-{j['b']} has no max_gap")
+        t = j.get("type", "fixed")
+        if t not in JOINT_ROWS:
+            usage(f"{path}: joint {j['a']}-{j['b']}: type {t!r} not in {sorted(JOINT_ROWS)}")
+        if t != "fixed" and len(j.get("at") or []) != 3:
+            usage(f"{path}: {t} joint {j['a']}-{j['b']} needs \"at\": [x, y, z]")
+        if t in ("revolute", "slider") and len(j.get("axis") or []) != 3:
+            usage(f"{path}: {t} joint {j['a']}-{j['b']} needs \"axis\"")
+        an = j.get("angle")
+        if an is not None and not (an.get("echo") and "max_deg" in an and str(an.get("source", "")).strip()):
+            usage(f"{path}: joint {j['a']}-{j['b']}: angle needs echo, max_deg and a non-empty source")
     for p in (d.get("clearance") or {}).get("pairs", []):
         for k in ("a", "b"):
             if p.get(k) not in names:
                 usage(f"{path}: clearance pair names unknown body {p.get(k)!r}")
+    for i in (d.get("dof") or {}).get("idle", []):
+        if i.get("body") not in names:
+            usage(f"{path}: dof.idle names unknown body {i.get('body')!r}")
     g = d.get("ground")
     if g is not None:
         for n in g.get("bodies", []):
@@ -223,6 +248,74 @@ def loose_pieces(x, meshes, joints):
     return out
 
 
+JOINT_ROWS = {"fixed": 6, "ball": 3, "revolute": 5, "slider": 5}
+ANCHOR_REACH = 5.0   # mm: a ball centre to its cup wall (5.8 mm RC ball in its cup: ~2.9)
+
+
+def _skew(p):
+    return np.array([[0, -p[2], p[1]], [p[2], 0, -p[0]], [-p[1], p[0], 0]])
+
+
+def _perp2(u):
+    u = np.asarray(u, float) / np.linalg.norm(u)
+    a = np.cross(u, [0, 0, 1] if abs(u[2]) < .9 else [1, 0, 0]); a /= np.linalg.norm(a)
+    return np.vstack([a, np.cross(u, a)])
+
+
+def dof_rank(joints, moving, L):
+    """Instantaneous mobility: 6 x moving - rank J, and the null-space basis (rows = motions).
+    Twist per moving body [v, w L] about the origin; static bodies have none."""
+    col = {n: 6 * i for i, n in enumerate(moving)}
+    rows = []
+    for j in joints:
+        t = j.get("type", "fixed")
+        if t == "fixed":
+            pt = np.zeros(3)
+        else:
+            pt = np.asarray(j["at"], float)
+        Bv = np.hstack([np.eye(3), -_skew(pt) / L])          # point velocity rows
+        Bw = np.hstack([np.zeros((3, 3)), np.eye(3) / L])     # angular velocity rows
+        if t == "fixed":
+            blk = np.vstack([Bv, Bw])
+        elif t == "ball":
+            blk = Bv
+        elif t == "revolute":
+            blk = np.vstack([Bv, _perp2(j["axis"]) @ Bw])
+        else:   # slider
+            blk = np.vstack([_perp2(j["axis"]) @ Bv, Bw])
+        r = np.zeros((blk.shape[0], 6 * len(moving)))
+        for name, sgn in ((j["a"], 1.0), (j["b"], -1.0)):
+            if name in col:
+                r[:, col[name]:col[name] + 6] += sgn * blk
+        rows.append(r)
+    if not moving:
+        return 0, np.zeros((0, 0))
+    J = np.vstack(rows) if rows else np.zeros((1, 6 * len(moving)))
+    sv = np.linalg.svd(J, compute_uv=True)
+    U, sig, Vt = sv
+    tol = max(J.shape) * np.finfo(float).eps * (sig.max() if sig.size else 1.0) * 1e3
+    rank = int((sig > tol).sum())
+    return 6 * len(moving) - rank, J
+
+
+def echo_values(rnd, scad, defines, names):
+    """Run OpenSCAD for its echo output only; {name: float} for `ECHO: NAME = v` lines."""
+    scad = os.path.normpath(os.path.join(rnd.project, scad or rnd.scad))
+    args = sum((["-D", f"{k}={fmt(v)}"] for k, v in defines.items()), [])
+    out = os.path.join(rnd.cache, hashlib.sha256((rnd.salt(scad) + scad + " ".join(args)).encode()).hexdigest()[:20] + ".echo")
+    if not os.path.exists(out):
+        r = subprocess.run([rnd.openscad, "-o", out] + args + [scad], cwd=os.path.dirname(scad), capture_output=True, text=True)
+        if r.returncode or not os.path.exists(out):
+            raise RuntimeError(f"echo run failed for {scad}: {r.stderr[-400:]}")
+    txt = open(out, encoding="utf-8", errors="replace").read()
+    vals = {}
+    for n in names:
+        m = re.search(rf"(?:ECHO: |, ){re.escape(n)} = (-?[0-9.]+(?:e[-+]?[0-9]+)?)", txt)   # echo(A=.., B=..) prints one line
+        if m:
+            vals[n] = float(m.group(1))
+    return vals
+
+
 def body_mass(spec, mesh):
     if "mass_g" in spec:
         return float(spec["mass_g"]), False
@@ -257,7 +350,7 @@ def main():
     grid = [dict(zip(keys, vals)) for vals in itertools.product(*[poses_decl[k] for k in keys])] or [{}]
     rnd = Renderer(proj, d.get("scad", "assembly.scad"), extra, os.path.join(proj, "build", "behavior"))
 
-    fails = {"holds": [], "moves": [], "stands": []}
+    fails = {"holds": [], "moves": [], "stands": [], "kinematics": []}
     per_pose = {}   # (gate, key) -> [worst severity, message, poses failed]
 
     def add(gate, key, sev, msg):
@@ -313,6 +406,12 @@ def main():
         print("BEHAVIOR: render failure")
         return EXIT_FAIL
     static_cache = {}
+    typed = any("type" in j for j in joints)
+    dofd = d.get("dof")
+    dof_pose = (dofd or {}).get("at") or next((pz for pz in grid if all(v == 0 for v in pz.values())), grid[0])
+    dof_meshes = None
+    angle_names = sorted({j["angle"]["echo"] for j in joints if j.get("angle")})
+    worst_angle = {}
     worst_joint, worst_pair, worst_margin = {}, {}, None
     default_density = set()
     names = list(bodies)
@@ -333,6 +432,28 @@ def main():
             print(f"FAIL render: a body did not render, nothing about it is known:\n{e}")
             print("BEHAVIOR: render failure")
             return EXIT_FAIL
+        if pose == dof_pose or (dof_meshes is None and pose == grid[-1]):
+            dof_meshes = dict(meshes)
+        if angle_names:
+            try:
+                vals = echo_values(rnd, d.get("scad"), pose, angle_names)
+            except RuntimeError as e:
+                print(f"FAIL render: {e}"); print("BEHAVIOR: render failure"); return EXIT_FAIL
+            for j in joints:
+                an = j.get("angle")
+                if not an:
+                    continue
+                k = (j["a"], j["b"])
+                if an["echo"] not in vals:
+                    fails["kinematics"].append(f"{j['a']} <-> {j['b']}: OpenSCAD printed no `ECHO: {an['echo']} = ..` "
+                                               f"at {ptxt} -- the angle is not checked; add echo({an['echo']}=...)")
+                    continue
+                v = vals[an["echo"]]
+                if k not in worst_angle or abs(v) > abs(worst_angle[k][0]):
+                    worst_angle[k] = (v, ptxt, float(an["max_deg"]))
+                if abs(v) > float(an["max_deg"]):
+                    add("kinematics", (k, "angle"), abs(v), f"{j['a']} <-> {j['b']}: {an['echo']} = {v:.1f} deg > "
+                        f"{an['max_deg']} at {ptxt} ({an['source']}) -- the purchased joint cannot swing that far")
         cm = CollisionManager()
         for n in names:
             cm.add_object(n, meshes[n])
@@ -418,6 +539,57 @@ def main():
                     add("stands", "com", -margin, f"mass centre ({com[0]:.1f}, {com[1]:.1f}) lies outside the support "
                                                   f"polygon by {-margin:.1f} mm at {ptxt} -- it tips over")
 
+    if typed and not dofd:
+        fails["kinematics"].append("joints have a \"type\" but behavior.json has no \"dof\" -- declare the motions "
+                                   "the mechanism must have (count, why, idle)")
+    if typed and dofd:
+        ptxt = " ".join(f"{k}={v}" for k, v in dof_pose.items()) or "nominal"
+        for j in joints:
+            t = j.get("type", "fixed")
+            for nb in (j["a"], j["b"]):
+                pieces = dof_meshes[nb].split(only_watertight=False)
+                if t != "fixed" and len([q for q in pieces if min(q.extents) > PIECE_MIN_MM]) > 1:
+                    fails["kinematics"].append(f"{nb}: {len(pieces)} separate pieces in a {t} joint -- one rigid body "
+                                               "per piece (studs that move with different parts are different bodies)")
+            if t != "fixed":
+                pt = np.asarray(j["at"], float)
+                dd = {}
+                for nb in (j["a"], j["b"]):
+                    m = dof_meshes[nb]
+                    dd[nb] = 0.0 if m.is_volume and m.contains([pt])[0] else float(trimesh.proximity.closest_point(m, [pt])[1][0])
+                near, far = sorted(dd.values())
+                # a ball's centre sits inside the ball, a few mm from the cup: on one body, near the other
+                if near > float(j["max_gap"]) or far > ANCHOR_REACH:
+                    fails["kinematics"].append(
+                        f"{j['a']} <-> {j['b']}: anchor ({pt[0]:g}, {pt[1]:g}, {pt[2]:g}) is "
+                        + ", ".join(f"{dd[n]:.2f} mm from {n}" for n in dd)
+                        + f" at {ptxt} (want <= max_gap {j['max_gap']} on one body, <= {ANCHOR_REACH} on the other) "
+                        "-- the joint point is not on the parts")
+        moving = [n for n in bodies if not bodies[n].get("static")]
+        note = ""
+        if not any(bodies[n].get("static") for n in bodies):
+            moving, note = moving[1:], f" ({names[0]} taken as the fixed world: no static body)"
+        L = max(1.0, max((np.linalg.norm(j["at"]) for j in joints if j.get("at")), default=1.0))
+        ndof, J = dof_rank(joints, moving, L)
+        want = int(dofd.get("count", 0)) + len(dofd.get("idle", []))
+        print(f"DOF: computed {ndof}, declared {dofd.get('count', 0)} + {len(dofd.get('idle', []))} idle "
+              f"({', '.join(map(str, dofd.get('why', [])))}){note}")
+        if ndof > want:
+            alone = []
+            for i, n in enumerate(moving):
+                Jb = J[:, 6 * i:6 * i + 6]
+                k = 6 - int((np.linalg.svd(Jb, compute_uv=False) > 1e-9 * max(1.0, np.abs(J).max())).sum())
+                if k:
+                    alone.append((k, n))
+            idle = {i["body"] for i in dofd.get("idle", [])}
+            txt = ", ".join(f"{n} ({k} DOF{' idle' if n in idle else ''})" for k, n in sorted(alone, reverse=True))
+            fails["kinematics"].append(f"{ndof} DOF > declared {want}: with every other body held, these still move: "
+                                       f"{txt or 'none alone (a chain is loose)'} -- a joint is missing or too free")
+        elif ndof < want:
+            fails["kinematics"].append(f"{ndof} DOF < declared {want}: the mechanism locks -- the declared motion "
+                                       "({}) is impossible with these joints".format(", ".join(map(str, dofd.get("why", [])))))
+    for (x, y), (v, ptxt, lim) in sorted(worst_angle.items(), key=lambda kv: -abs(kv[1][0])):
+        print(f"angle {x:12s} <-> {y:12s} worst {v:6.1f} deg (limit {lim}) at {ptxt}")
     for (x, y), (gap, ptxt) in sorted(worst_joint.items(), key=lambda kv: -kv[1][0]):
         print(f"joint {x:12s} <-> {y:12s} widest gap {gap:6.2f} mm at {ptxt}")
     for fk, (dd, ptxt) in sorted(worst_pair.items(), key=lambda kv: kv[1][0]):
@@ -433,11 +605,13 @@ def main():
     for (gate, _), (_, msg, cnt) in per_pose.items():
         fails[gate].append(msg + (f" (worst of {cnt}/{len(grid)} failing poses)" if len(grid) > 1 else ""))
     total = 0
-    for gate in ("holds", "moves", "stands"):
+    for gate in ("holds", "moves", "stands", "kinematics"):
         for f in dict.fromkeys(fails[gate]):
             print(f"FAIL {gate}: {f}")
         total += len(fails[gate])
-        state = "SKIP (no ground declared)" if gate == "stands" and not ground else ("FAIL" if fails[gate] else "PASS")
+        state = ("SKIP (no ground declared)" if gate == "stands" and not ground else
+                 "SKIP (no joint \"type\", no \"angle\")" if gate == "kinematics" and not typed and not angle_names else
+                 ("FAIL" if fails[gate] else "PASS"))
         print(f"{gate.upper()}: {state}")
     print(f"BEHAVIOR: {len(grid)} pose(s), {len(bodies)} bodies, {len(joints)} joints, "
           f"{len(pair_min)} declared clearance pair(s), {total} failure(s)")

@@ -948,6 +948,26 @@ sys.exit(0 if motion else 1)
         log_check "fasteners" 0 "n/a" "SKIP: no fasteners.json -- copy templates/fasteners.json; until then no screw is checked for head room, crossings or thread bite"
     fi
 
+    # P24 strength (INC-2026-11-18-07): insert holes cut at the knurl OD passed every gate. Declared
+    # inserts ("insert" in fasteners.json) and loads.json cases are measured on build/positioned.
+    # Parts that talk about heat-set inserts without one declared fail: silence is how Ø4.6 shipped.
+    python3 "$SCRIPT_DIR/check_strength.py" --project-dir . ; str_rc=$?
+    ins_text=$(grep -il "heat-set\|heat set\|insert" parts/*.scad 2>/dev/null | head -3 | tr '\n' ' ')
+    if [ "$str_rc" -eq 0 ]; then
+        echo "CHECK_RESULT strength=PASS"
+        log_check "strength" 0 "check_strength.py (via validate_scad.sh)" "PASS"
+    elif [ "$str_rc" -eq 2 ] && [ -n "$ins_text" ] && [ -f fasteners.json ]; then
+        echo "FAIL: strength, $ins_text mention heat-set inserts but fasteners.json declares none -- add \"insert\": \"M3\", \"insert_in\": \"<part>\" to each insert screw (references/inserts.json)"
+        echo "CHECK_RESULT strength=FAIL"
+        log_check "strength" 1 "check_strength.py (via validate_scad.sh)" "FAIL: inserts mentioned, none declared"
+    elif [ "$str_rc" -eq 2 ]; then
+        echo "CHECK_RESULT strength=SKIP"
+        log_check "strength" 0 "n/a" "SKIP: no insert declared and no loads.json -- templates/loads.json for a load case; until then no part is checked for strength"
+    else
+        echo "CHECK_RESULT strength=FAIL"
+        log_check "strength" 1 "check_strength.py (via validate_scad.sh)" "FAIL (exit $str_rc)"
+    fi
+
     # dimensions/features are opt-in PER PART (// EXPECTED_BBOX / EXPECTED_HOLE),
     # and previously said nothing when no part declared them. Same silent-gap
     # class as above.
@@ -1202,7 +1222,9 @@ fi
 #    part that check_connectivity.py would have failed instantly. A reminder in
 #    the last line of output is read; a reminder in §8 is remembered, or not.
 # P15: INCONCLUSIVE is not success (audit M8: exit 0 and "All validations passed.").
-if [ "$OVERALL_FAIL" -ne 0 ]; then VERDICT=FAIL
+# INC-2026-11-18-08: gates that only call log_check with a failure (fasteners) left OVERALL_FAIL at 0,
+# so --all printed "1 failed" and then "All executed checks passed" with exit 0. Every failed check counts.
+if [ "$OVERALL_FAIL" -ne 0 ] || [ "$CHK_FAIL" -gt 0 ]; then VERDICT=FAIL
 elif [ "$CHK_INC" -gt 0 ]; then VERDICT=INCONCLUSIVE
 else VERDICT=PASS; fi
 mkdir -p "$BUILD_DIR" 2>/dev/null || true

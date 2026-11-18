@@ -1,0 +1,6 @@
+{"fasteners": [
+ {"name": "good", "start": [0, 0, 18], "axis": [0, 0, -1], "d": 3, "length": 10, "head_d": 5.5, "head_h": 3, "into": null, "thread_from": 3, "insert": "M3", "insert_in": "blk_good"},
+ {"name": "knurl", "start": [0, 0, 18], "axis": [0, 0, -1], "d": 3, "length": 10, "head_d": 5.5, "head_h": 3, "into": null, "thread_from": 3, "insert": "M3", "insert_in": "blk_knurl"},
+ {"name": "shallow", "start": [0, 0, 18], "axis": [0, 0, -1], "d": 3, "length": 10, "head_d": 5.5, "head_h": 3, "into": null, "thread_from": 3, "insert": "M3", "insert_in": "blk_shallow"},
+ {"name": "wall", "start": [6.9, 0, 18], "axis": [0, 0, -1], "d": 3, "length": 10, "head_d": 5.5, "head_h": 3, "into": null, "thread_from": 3, "insert": "M3", "insert_in": "blk_wall"}
+]}

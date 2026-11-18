@@ -1,0 +1,14 @@
+{
+  "_source": "CNC Kitchen threaded inserts datasheet (L, D1 insert OD, D3 hole, W min wall), via 3djake.com/cnc-kitchen/threaded-inserts-set-standard, read 2026-11-18; blind hole = L + 1 mm and printed holes ~0.2-0.3 mm larger in CAD: cnckitchen.com/blog/tips-and-tricks-for-heat-set-inserts and /are-our-heat-set-insert-datasheets-wrong (M3: 4.0 drilled, 4.2 printed, ~90 % strength)",
+  "_accept": "measured hole in the positioned mesh within [D3 - 0.05, D3 + 0.35]; a hole at D1 (the knurl OD) is far outside",
+  "M2":       {"L": 3.0, "D1": 3.6, "D3": 3.2, "W": 1.3},
+  "M2.5":     {"L": 4.0, "D1": 4.6, "D3": 4.0, "W": 1.6},
+  "M3":       {"L": 5.7, "D1": 4.6, "D3": 4.0, "W": 1.6},
+  "M3 Short": {"L": 3.0, "D1": 4.6, "D3": 4.0, "W": 1.6},
+  "M3 Voron": {"L": 4.0, "D1": 5.0, "D3": 4.4, "W": 1.3},
+  "M4":       {"L": 8.1, "D1": 6.3, "D3": 5.6, "W": 2.1},
+  "M4 Short": {"L": 4.0, "D1": 6.3, "D3": 5.6, "W": 2.1},
+  "M5":       {"L": 9.5, "D1": 7.1, "D3": 6.4, "W": 2.6},
+  "M5 Short": {"L": 5.8, "D1": 7.1, "D3": 6.4, "W": 2.6},
+  "M6":       {"L": 12.7, "D1": 8.7, "D3": 8.0, "W": 3.3}
+}

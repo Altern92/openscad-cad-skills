@@ -1,0 +1,5 @@
+{
+  "_source": "Bambu Lab Filament Technical Data Sheets (ISO 527 tensile, printed specimens), text read 2026-11-18. Values are mean - 1 sigma. Add a material only with its TDS; unknown names stop the check (exit 4).",
+  "PETG Basic": {"xy_mpa": 43, "z_mpa": 36, "tds": "Bambu PETG Basic TDS V2.0: X-Y 48 +-5, Z 39 +-3 MPa"},
+  "PLA Basic":  {"xy_mpa": 31, "z_mpa": 28, "tds": "Bambu PLA Basic TDS V3.0: X-Y 35 +-4, Z 31 +-3 MPa"}
+}
