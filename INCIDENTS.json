@@ -3,6 +3,16 @@
   "description": "Append-only structured log of real bugs found and fixed across OpenSCAD skills (scad-modeler, openscad-cad, openscad-organic). Use scripts/incidents.py to check, list, search, show, or add entries.",
   "entries": [
     {
+      "id": "INC-2026-11-18-12",
+      "date": "2026-11-18",
+      "title": "P25 stop hook flagged every json near any validation receipt",
+      "where": "scad-modeler/hooks/scad_stop_gate.py stale_declarations",
+      "symptom": "Session end blocked on ~95 files: /private/tmp/claude-501/cache-break-state-*.json, scratchpad json, din_rail_tower declarations the session never wrote",
+      "root_cause": "Any dir with build/.validation_state.json counted as a project, including single-file receipts (mode t.scad); a pre-P25 --all receipt without declarations flagged every root *.json",
+      "fix": "Only mode --all receipts define a project; a pre-P25 receipt flags only root json written this session; two negative cases in tests/fixtures/stop_gate_declarations",
+      "promoted_to_rule": "not yet"
+    },
+    {
       "id": "INC-2026-11-18-11",
       "date": "2026-11-18",
       "title": "semantic mutants: fixture red without the mutant / mutant copy lacked references",

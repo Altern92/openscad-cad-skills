@@ -14,7 +14,7 @@ edit() { printf '{"message":{"content":[{"type":"tool_use","name":"Edit","input"
 run() { printf '{"transcript_path":"%s","stop_hook_active":false,"cwd":"%s"}' "$1" "$P" | python3 "$H"; }
 sha() { shasum -a 256 "$1" | cut -d' ' -f1; }
 state() {  # $1 = declarations json object
-    printf '{"verdict":"PASS","sources":{"parts/a.scad":"%s"},"declarations":%s}\n' "$(sha "$P/parts/a.scad")" "$1" \
+    printf '{"mode":"--all","verdict":"PASS","sources":{"parts/a.scad":"%s"},"declarations":%s}\n' "$(sha "$P/parts/a.scad")" "$1" \
         > "$P/build/.validation_state.json"
 }
 blocks() { echo "$1" | grep -q '"decision": *"block"'; }
@@ -35,8 +35,14 @@ out=$(run "$T2"); blocks "$out" && grep -q <<< "$out" 'loads.json' \
     || { echo "AC-2: new declaration not blocked: $out" >&2; fail=1; }
 rm "$P/loads.json"
 # AC-2: state from before P25 (no "declarations") + an edited declaration -> block (re-run --all)
-printf '{"verdict":"PASS","sources":{"parts/a.scad":"%s"}}\n' "$(sha "$P/parts/a.scad")" > "$P/build/.validation_state.json"
+printf '{"mode":"--all","verdict":"PASS","sources":{"parts/a.scad":"%s"}}\n' "$(sha "$P/parts/a.scad")" > "$P/build/.validation_state.json"
 out=$(run "$T"); blocks "$out" || { echo "AC-2: pre-P25 state not blocked: $out" >&2; fail=1; }
+# 2026-11-18 false alarm: a pre-P25 receipt + only a validated .scad touched -> no block
+# (the session never wrote behavior.json; the old receipt cannot tell, so do not flag every *.json)
+out=$(run "$T2"); [ -z "$out" ] || { echo "AC-2: pre-P25 receipt flagged untouched json: $out" >&2; fail=1; }
+# 2026-11-18 false alarm: a single-file receipt (scratch dir, /tmp) is not a project
+printf '{"mode":"a.scad","verdict":"PASS","sources":{"parts/a.scad":"%s"},"declarations":{}}\n' "$(sha "$P/parts/a.scad")" > "$P/build/.validation_state.json"
+out=$(run "$T"); [ -z "$out" ] || { echo "AC-2: single-file receipt treated as project: $out" >&2; fail=1; }
 # a .json outside any SCAD project is not a declaration
 mkdir -p "$tmp/other"; echo '{}' > "$tmp/other/x.json"; edit "$tmp/other/x.json" "$tmp/t3.jsonl"
 out=$(run "$tmp/t3.jsonl"); [ -z "$out" ] || { echo "AC-2: non-project json blocked: $out" >&2; fail=1; }

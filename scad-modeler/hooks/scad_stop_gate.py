@@ -107,7 +107,8 @@ def project_root(path):
 
 def stale_declarations(paths):
     """P25 / AC-2: root *.json of every touched project whose sha256 differs from the last
-    validate --all receipt (or that receipt has no "declarations": it predates P25).
+    validate --all receipt. Single-file receipts are skipped; a pre-P25 --all receipt (no
+    "declarations") flags only the root *.json this session wrote.
     shortcut: a project counts as touched only through a .scad/.json path written this session;
     a generator run alone (python gen_decl.py) is not seen -- record its outputs via a touched file."""
     out = []
@@ -116,13 +117,18 @@ def stale_declarations(paths):
             rec = json.load(open(os.path.join(root, "build", ".validation_state.json"), encoding="utf-8"))
         except ValueError:
             continue
+        if rec.get("mode") != "--all":  # a single-file receipt (scratch dir, /tmp) is not a project
+            continue
         decl = rec.get("declarations")
         for f in sorted(os.listdir(root)):
             fp = os.path.join(root, f)
             if not f.endswith(".json") or not os.path.isfile(fp):
                 continue
-            h = hashlib.sha256(open(fp, "rb").read()).hexdigest()
-            if decl is None or decl.get(f) != h:
+            if decl is None:  # pre-P25 receipt cannot tell: flag only declarations written this session
+                if fp in paths:
+                    out.append(fp)
+                continue
+            if decl.get(f) != hashlib.sha256(open(fp, "rb").read()).hexdigest():
                 out.append(fp)
     return out
 

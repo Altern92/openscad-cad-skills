@@ -551,7 +551,9 @@ says estimate / ◇ / PATIKRINTI prints `OPEN QUESTION`: ask or measure, then re
 
 **Receipt.** `validate_scad.sh --all` writes `build/.validation_state.json` with the sha256 of every
 `.scad` source, every root `*.json` declaration (`declarations`) and the skill version (`skill`). The
-stop hook blocks the session end when a touched project's declaration changed after that run.
+stop hook blocks the session end when a touched project's declaration changed after that run. Only an
+`--all` receipt defines a project (a single-file run in a scratch dir does not); an `--all` receipt
+from before P25 has no `declarations`, so the hook then flags only the root `*.json` the session wrote.
 
 **Tests of the tests (P25).** `tests/mutants.tsv`: each checker's fixture must fail when the checker
 is silenced (exit 0) and when it rejects everything (exit 1, positive witness, column 3).
