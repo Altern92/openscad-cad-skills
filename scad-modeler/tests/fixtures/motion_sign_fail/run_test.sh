@@ -13,7 +13,7 @@ if [ "$actual" -ne "$EXPECTED_EXIT" ]; then
     echo "$out" >&2
     exit 1
 fi
-if ! echo "$out" | grep -q "SAME-sign ratio"; then
+if ! grep -q <<< "$out" "SAME-sign ratio"; then
     echo "expected 'SAME-sign ratio' in output, got:" >&2
     echo "$out" >&2
     exit 1

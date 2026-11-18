@@ -5,9 +5,9 @@ set -uo pipefail
 R="$SCAD_MODELER_SCRIPTS/check_rules.py"; M="$SCAD_MODELER_SCRIPTS/../rules_manifest.yaml"
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 out=$(python3 "$R" --project-dir "$tmp" --manifest "$M" 2>&1); rc=$?
-echo "$out" | grep -q "duplicate rule id" && { echo "real manifest has duplicate ids: $out" >&2; exit 1; }
+grep -q <<< "$out" "duplicate rule id" && { echo "real manifest has duplicate ids: $out" >&2; exit 1; }
 [ "$rc" -ne 4 ] || { echo "real manifest refused: $out" >&2; exit 1; }
 printf 'rules:\n  - {id: R-1, rule: a, applies: always, kind: manual, gate: null}\n  - {id: R-1, rule: b, applies: always, kind: manual, gate: null}\n' > "$tmp/m.yaml"
 out=$(python3 "$R" --project-dir "$tmp" --manifest "$tmp/m.yaml" 2>&1); rc=$?
-[ "$rc" -eq 4 ] && echo "$out" | grep -q "duplicate rule id(s).*R-1" || { echo "duplicate not refused: rc $rc $out" >&2; exit 1; }
+[ "$rc" -eq 4 ] && grep -q <<< "$out" "duplicate rule id(s).*R-1" || { echo "duplicate not refused: rc $rc $out" >&2; exit 1; }
 exit 0

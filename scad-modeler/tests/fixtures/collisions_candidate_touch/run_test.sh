@@ -14,7 +14,7 @@ if [ "$actual" -ne "$EXPECTED_EXIT" ]; then
     echo "expected exit $EXPECTED_EXIT, got $actual" >&2
     exit 1
 fi
-if ! echo "$out" | grep -q "CANDIDATE INTENTIONAL TOUCH"; then
+if ! grep -q <<< "$out" "CANDIDATE INTENTIONAL TOUCH"; then
     echo "expected 'CANDIDATE INTENTIONAL TOUCH' in output, got:" >&2
     echo "$out" >&2
     exit 1

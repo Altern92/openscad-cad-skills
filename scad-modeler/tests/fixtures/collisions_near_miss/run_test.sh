@@ -14,7 +14,7 @@ if [ "$actual" -ne "$EXPECTED_EXIT" ]; then
     echo "expected exit $EXPECTED_EXIT, got $actual" >&2
     exit 1
 fi
-if ! echo "$out" | grep -q "NEAR MISS"; then
+if ! grep -q <<< "$out" "NEAR MISS"; then
     echo "expected 'NEAR MISS' in output, got:" >&2
     echo "$out" >&2
     exit 1

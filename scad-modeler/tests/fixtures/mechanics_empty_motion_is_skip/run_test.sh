@@ -26,12 +26,12 @@ JSON
 out=$( cd "$proj" && bash "$SCAD_MODELER_SCRIPTS/validate_scad.sh" --all 2>&1 )
 rm -rf "$proj"
 
-echo "$out" | grep -q "CHECK_RESULT mechanics=INCONCLUSIVE" && {
+grep -q <<< "$out" "CHECK_RESULT mechanics=INCONCLUSIVE" && {
     echo "empty motion array produced INCONCLUSIVE -- it must be SKIP (not applicable):" >&2
     echo "$out" | grep -E "CHECK_RESULT mechanics|COVERAGE" >&2
     exit 1; }
 
-echo "$out" | grep -q "CHECK_RESULT mechanics=SKIP" || {
+grep -q <<< "$out" "CHECK_RESULT mechanics=SKIP" || {
     echo "expected mechanics=SKIP for a project with no motion declared, got:" >&2
     echo "$out" | grep -E "CHECK_RESULT mechanics|COVERAGE" >&2
     exit 1; }

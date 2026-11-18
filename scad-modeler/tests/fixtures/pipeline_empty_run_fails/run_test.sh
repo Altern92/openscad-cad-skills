@@ -28,11 +28,11 @@ if [ "$code" -eq 0 ]; then
     echo "$out" >&2
     exit 1
 fi
-echo "$out" | grep -q "NOTHING was rendered or checked" || {
+grep -q <<< "$out" "NOTHING was rendered or checked" || {
     echo "expected an explicit nothing-was-checked error, got:" >&2
     echo "$out" >&2
     exit 1; }
-echo "$out" | grep -q "scad/parts/" || {
+grep -q <<< "$out" "scad/parts/" || {
     echo "expected the error to name the scad/parts/ layout it found instead:" >&2
     echo "$out" >&2
     exit 1; }

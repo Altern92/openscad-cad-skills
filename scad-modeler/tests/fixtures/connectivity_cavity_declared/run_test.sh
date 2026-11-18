@@ -8,7 +8,7 @@ die() { echo "$1" >&2; echo "${out:-}" >&2; exit 1; }
 printf 'difference() { cube(20, center=true); sphere(d=6, $fn=24); }\n' > "$tmp/p.scad"
 "$OS" --backend=Manifold -o "$tmp/p.stl" "$tmp/p.scad" >/dev/null 2>&1 || die "render failed"
 out=$(python3 "$C" --stl "$tmp/p.stl" --scad "$tmp/p.scad" 2>&1); rc=$?
-[ "$rc" -eq 1 ] && echo "$out" | grep -q 'EXPECTED_CAVITIES: 1' || die "undeclared cavity: exit $rc, want 1 + hint"
+[ "$rc" -eq 1 ] && grep -q <<< "$out" 'EXPECTED_CAVITIES: 1' || die "undeclared cavity: exit $rc, want 1 + hint"
 sed -i '' '1i\
 // EXPECTED_CAVITIES: 1
 ' "$tmp/p.scad"

@@ -19,7 +19,7 @@ out=$(python3 "$PR" --scad "$tmp/f.scad" --stl "$tmp/f.stl" 2>&1); [ $? -eq 3 ] 
 echo "$out" | grep -Eq 'measured 2\.(59|60)' || die "measured ratio not printed"
 w '// PROPORTION: w_x@0.9 / x = 1.0 +- 0.1'
 out=$(python3 "$PR" --scad "$tmp/f.scad" --stl "$tmp/f.stl" 2>&1); [ $? -eq 3 ] || die "wrong head width not FAIL"
-w ''; out=$(python3 "$PR" --scad "$tmp/f.scad" --stl "$tmp/f.stl" 2>&1); [ $? -eq 0 ] && echo "$out" | grep -q '^SKIP' || die "undeclared not SKIP"
+w ''; out=$(python3 "$PR" --scad "$tmp/f.scad" --stl "$tmp/f.stl" 2>&1); [ $? -eq 0 ] && grep -q <<< "$out" '^SKIP' || die "undeclared not SKIP"
 
 # reference silhouettes drawn independently with Pillow (front view = X horizontal, Z up)
 python3 - "$tmp" <<'PY'
@@ -39,10 +39,10 @@ w '// SILHOUETTE: front ref_ok.png >= 0.9'
 out=$(python3 "$SI" --scad "$tmp/f.scad" --stl "$tmp/f.stl" 2>&1) || die "matching silhouette failed"
 w '// SILHOUETTE: front ref_bad.png >= 0.9'
 out=$(python3 "$SI" --scad "$tmp/f.scad" --stl "$tmp/f.stl" 2>&1); [ $? -eq 3 ] || die "wrong silhouette not FAIL"
-echo "$out" | grep -q 'IoU' || die "IoU not printed"
+grep -q <<< "$out" 'IoU' || die "IoU not printed"
 # wired into validate_scad.sh single-file mode
 printf '// EXPECTED_BBOX: [20, 20, 52]\n// EXPECTED_THROUGH_HOLES: 0\n// PROPORTION: z/x = 3.0 +- 0.1\n// SILHOUETTE: front ref_bad.png >= 0.9\n%s\n' "$fig" > "$tmp/g.scad"
 out=$(cd "$tmp" && bash "$V" g.scad 2>&1)
-echo "$out" | grep -q '^CHECK_RESULT proportions=FAIL' || die "validate: no proportions=FAIL"
-echo "$out" | grep -q '^CHECK_RESULT silhouette=FAIL' || die "validate: no silhouette=FAIL"
+grep -q <<< "$out" '^CHECK_RESULT proportions=FAIL' || die "validate: no proportions=FAIL"
+grep -q <<< "$out" '^CHECK_RESULT silhouette=FAIL' || die "validate: no silhouette=FAIL"
 exit 0

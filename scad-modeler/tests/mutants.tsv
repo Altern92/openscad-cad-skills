@@ -1,12 +1,14 @@
-# checker	fixture -- P1b: fixture that MUST fail when this checker is replaced by a silent `exit 0` stub
+# checker	fixture	[pass_fixture] -- P1b: fixture that MUST fail when this checker is replaced by a silent `exit 0` stub.
+# P25 / AC-7: the first row per checker must ALSO fail when the checker rejects everything (exit 1 stub);
+# when the FAIL fixture cannot see that, the third column names a PASS fixture that can.
 check_assumptions	assumptions_critical_open_fail
 check_attachment	attachment_missing_fail
 check_bore_reachability	bore_reachability_sealed_fail
 check_collisions	collisions_candidate_touch
 check_connectivity	connectivity_disconnected_fail
 check_dependencies	dependencies_reaches_part
-check_dimensions	dimensions_bbox_fail
-check_features	features_coarse_fn_fail
+check_dimensions	dimensions_bbox_fail	dimensions_bbox_pass
+check_features	features_coarse_fn_fail	features_fine_fn_pass
 check_intake	intake_no_manifest
 check_margin_provenance	margin_provenance_fail
 check_param_context	param_context_fail
@@ -32,3 +34,4 @@ check_behavior	behavior_gates
 check_connectivity	connectivity_cavity_declared
 check_strength	strength_gates
 check_behavior	kinematics_gates
+check_limits	limits_lock

@@ -16,12 +16,12 @@ if [ "$actual" -ne "$EXPECTED_EXIT" ]; then
     echo "$out" >&2
     exit 1
 fi
-if ! echo "$out" | grep -q "disconnected"; then
+if ! grep -q <<< "$out" "disconnected"; then
     echo "expected 'disconnected' in output, got:" >&2
     echo "$out" >&2
     exit 1
 fi
-if ! echo "$out" | grep -q "EXPECTED_BODIES"; then
+if ! grep -q <<< "$out" "EXPECTED_BODIES"; then
     echo "expected the EXPECTED_BODIES escape hatch to be named, got:" >&2
     echo "$out" >&2
     exit 1

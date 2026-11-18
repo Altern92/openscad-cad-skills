@@ -132,3 +132,6 @@ If it can become a check, make it one. A line without a check is a reminder; a c
   — check: `strength` gate (check_strength.py, R-25; declare `insert` in fasteners.json) — source: esp32_rc front/rear_axle_v4 2026-11-18, INC-2026-11-18-07
 - A ball joint's tilt at full bump/steer must stay within the purchased rod end's swing (RC M3 cups ~±15° ◇, no datasheet value);
   computing the angle (`ub_mis`) is not checking it. — check: `behavior` gate KINEMATICS, joint `angle` {echo, max_deg, source} — source: front_axle_v4 ub_mis 22.8°
+- A gate limit (max_gap, max_deg, clearance, safety, BBOX_TOL, a NO_* opt-out) is the user's decision, not a knob:
+  editing it until the gate passes hides the defect it was set to catch (2026-11-18: a 15 deg ball limit picked by the agent,
+  25 in params.scad). — check: `limits` gate (check_limits.py, limits.lock, R-26); estimate limits print OPEN QUESTION

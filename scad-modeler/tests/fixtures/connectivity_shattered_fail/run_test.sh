@@ -20,7 +20,7 @@ if [ "$actual" -ne "$EXPECTED_EXIT" ]; then
     echo "$out" >&2
     exit 1
 fi
-if ! echo "$out" | grep -q "disconnected"; then
+if ! grep -q <<< "$out" "disconnected"; then
     echo "expected 'disconnected' in output, got:" >&2
     echo "$out" >&2
     exit 1
@@ -45,12 +45,12 @@ if [ "$reported" -lt 100 ]; then
     echo "expected a shattered mesh (>=100 islands), got $reported -- fixture no longer reproduces" >&2
     exit 1
 fi
-if ! echo "$out" | grep -q "EXPECTED_BODIES: ${reported}"; then
+if ! grep -q <<< "$out" "EXPECTED_BODIES: ${reported}"; then
     echo "the suggested EXPECTED_BODIES does not match the reported count ($reported)" >&2
     echo "$out" | tail -1 >&2
     exit 1
 fi
-if ! echo "$out" | grep -q "\.\.\. and .* more material components"; then
+if ! grep -q <<< "$out" "\.\.\. and .* more material components"; then
     echo "expected the capped listing to say how many were hidden, got:" >&2
     echo "$out" | tail -3 >&2
     exit 1

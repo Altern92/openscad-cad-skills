@@ -25,7 +25,7 @@ out=$( cd "$proj" && bash "$SCAD_MODELER_SCRIPTS/validate_scad.sh" --all 2>&1 )
 code=$?
 
 # --- 1. the next command is named in the output -----------------------------
-echo "$out" | grep -q "check_rules.py --project-dir" || {
+grep -q <<< "$out" "check_rules.py --project-dir" || {
     echo "the run does not name check_rules.py -- the next step is invisible:" >&2
     echo "$out" | tail -6 >&2
     rm -rf "$proj"; exit 1; }

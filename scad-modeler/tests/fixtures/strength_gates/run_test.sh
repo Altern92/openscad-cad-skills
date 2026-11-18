@@ -15,7 +15,7 @@ want=("OK   insert M3 good" "FAIL insert M3 knurl" "knurls nothing to grip" "FAI
       "OK   load x6_xy on bar_x6: 19.8 MPa (allow 21.5, X-Y)" "FAIL load x3_thin on bar_x3: 158.3 MPa"
       "FAIL load z6_layers on bar_z6: 19.8 MPa (allow 18.0, Z)" "FAIL load gap" "does not connect the support"
       "STRENGTH: 4 insert(s), 4 load case(s), 6 failure(s)")
-for w in "${want[@]}"; do echo "$o" | grep -qF "$w" || { echo "missing: $w"; echo "$o"; exit 1; }; done
+for w in "${want[@]}"; do grep -qF <<< "$o" "$w" || { echo "missing: $w"; echo "$o"; exit 1; }; done
 # unknown material -> usage error, never a pass
 sed 's/PETG Basic/Unobtainium/' "$here/loads.json" > "$t/loads.json"
 python3 "$SCAD_MODELER_SCRIPTS/check_strength.py" --project-dir "$t" >/dev/null 2>&1; r=$?

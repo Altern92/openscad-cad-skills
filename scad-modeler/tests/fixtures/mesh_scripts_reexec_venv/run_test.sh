@@ -15,9 +15,9 @@ for f in check_collisions check_connectivity check_dimensions check_printability
          check_proportions check_topology check_subfeature_overlap motion_sweep check_features; do
     [ -f "$S/$f.py" ] || continue
     out=$(cd "$tmp" && env -u SCAD_PY PATH=/usr/bin:/bin "$SYS" "$S/$f.py" --help 2>&1)
-    if echo "$out" | grep -qi "not installed"; then echo "$f: still asks for pip under system python3" >&2; fail=1; fi
+    if grep -qi <<< "$out" "not installed"; then echo "$f: still asks for pip under system python3" >&2; fail=1; fi
 done
 printf 'cube([10,10,2]);' > "$tmp/a.scad"; openscad -q -o "$tmp/a.stl" "$tmp/a.scad"
 out=$(cd "$tmp" && env -u SCAD_PY PATH=/usr/bin:/bin:/opt/homebrew/bin "$SYS" "$S/check_printability.py" --stl a.stl 2>&1)
-echo "$out" | grep -qi "not installed" && { echo "check_printability real run: still asks for pip" >&2; fail=1; }
+grep -qi <<< "$out" "not installed" && { echo "check_printability real run: still asks for pip" >&2; fail=1; }
 exit $fail

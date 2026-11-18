@@ -15,20 +15,20 @@ out=$(cd "$tmp/ok" && bash "$V" bracket.scad 2>&1); rc=$?
 [ "$rc" -eq 0 ] || die "AC-1: exit $rc"
 [ -s "$tmp/ok/build/bracket.stl" ] || die "AC-1: no build/bracket.stl"
 for c in env connectivity dimensions features; do
-    echo "$out" | grep -q "^CHECK_RESULT $c=" || die "AC-1: no CHECK_RESULT $c"
+    grep -q <<< "$out" "^CHECK_RESULT $c=" || die "AC-1: no CHECK_RESULT $c"
 done
-echo "$out" | grep -q '^COVERAGE:' || die "AC-1: no COVERAGE line"
+grep -q <<< "$out" '^COVERAGE:' || die "AC-1: no COVERAGE line"
 h=$(shasum -a 256 "$tmp/ok/bracket.scad" | cut -d' ' -f1)
 grep -q "\"bracket.scad\":\"$h\"" "$tmp/ok/build/.validation_state.json" || die "AC-1: state lacks bracket.scad hash"
 
 # AC-2
 out=$(cd "$tmp/bad" && bash "$V" bracket.scad 2>&1); rc=$?
 [ "$rc" -eq 1 ] || die "AC-2: exit $rc, want 1"
-echo "$out" | grep -q '^CHECK_RESULT dimensions=FAIL' || die "AC-2: no dimensions=FAIL"
+grep -q <<< "$out" '^CHECK_RESULT dimensions=FAIL' || die "AC-2: no dimensions=FAIL"
 grep -q '"verdict":"FAIL"' "$tmp/bad/build/.validation_state.json" || die "AC-2: state verdict not FAIL"
 
 # AC-3
 out=$(cd "$tmp/ok" && bash "$V" missing.scad 2>&1); rc=$?
 [ "$rc" -eq 1 ] || die "AC-3: exit $rc, want 1"
-echo "$out" | grep -q 'ERROR: missing.scad not found' || die "AC-3: no not-found error"
+grep -q <<< "$out" 'ERROR: missing.scad not found' || die "AC-3: no not-found error"
 exit 0

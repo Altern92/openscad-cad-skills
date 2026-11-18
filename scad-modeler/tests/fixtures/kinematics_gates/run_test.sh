@@ -12,7 +12,7 @@ expect() {   # case exit text...
     local c=$1 want=$2; shift 2
     o=$(run "$c"); r=$?
     [ "$r" -eq "$want" ] || { echo "$c: expected exit $want, got $r"; echo "$o"; exit 1; }
-    for w in "$@"; do echo "$o" | grep -qF "$w" || { echo "$c: missing '$w'"; echo "$o"; exit 1; }; done
+    for w in "$@"; do grep -qF <<< "$o" "$w" || { echo "$c: missing '$w'"; echo "$o"; exit 1; }; done
 }
 expect good 0 "DOF: computed 1, declared 1" "KINEMATICS: PASS" "worst   20.0 deg (limit 25.0)"
 expect angle_over 3 "ARM_TILT = 20.0 deg > 10" "KINEMATICS: FAIL"

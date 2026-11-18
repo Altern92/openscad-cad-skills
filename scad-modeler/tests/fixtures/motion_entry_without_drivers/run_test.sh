@@ -14,6 +14,6 @@ cp a.stl b.stl
 echo '{"contacts": [], "motion": [{"part": "b", "axis": [1,0,0], "pivot": [0,0,5], "range_deg": [0, 90]}]}' > joints.json
 out=$("$PY" "$M" --joints joints.json a.stl b.stl 2>&1); rc=$?
 [ "$rc" -ne 0 ] || { echo "malformed motion entry exited 0" >&2; echo "$out" >&2; exit 1; }
-echo "$out" | grep -q Traceback && { echo "malformed motion entry still crashes:" >&2; echo "$out" | tail -3 >&2; exit 1; }
-echo "$out" | grep -q '"drivers"' || { echo "message does not name the missing \"drivers\" field" >&2; echo "$out" >&2; exit 1; }
+grep -q <<< "$out" Traceback && { echo "malformed motion entry still crashes:" >&2; echo "$out" | tail -3 >&2; exit 1; }
+grep -q <<< "$out" '"drivers"' || { echo "message does not name the missing \"drivers\" field" >&2; echo "$out" >&2; exit 1; }
 exit 0

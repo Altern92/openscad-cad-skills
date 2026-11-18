@@ -29,12 +29,12 @@ if [ "$empty_code" -ne 0 ]; then
     echo "$empty_out" >&2
     exit 1
 fi
-echo "$empty_out" | grep -qE "\[PASS[^]]*\] R-04" && {
+grep -qE <<< "$empty_out" "\[PASS[^]]*\] R-04" && {
     echo "VACUOUS PASS: R-04 reported PASS for a project with no parts" >&2
     echo "$empty_out" >&2
     exit 1
 }
-echo "$empty_out" | grep -qE "\[N/A[^]]*\] R-04" || {
+grep -qE <<< "$empty_out" "\[N/A[^]]*\] R-04" || {
     echo "expected R-04 to be N/A when there is nothing to render, got:" >&2
     echo "$empty_out" >&2
     exit 1
@@ -58,13 +58,13 @@ if [ "$proj_code" -ne 3 ]; then
     echo "$proj_out" >&2
     exit 1
 fi
-echo "$proj_out" | grep -qE "\[FAIL[^]]*\] R-04" || {
+grep -qE <<< "$proj_out" "\[FAIL[^]]*\] R-04" || {
     echo "expected R-04 to be FAIL for a project with disconnected parts, got:" >&2
     echo "$proj_out" >&2
     exit 1
 }
 
 # --- every rule must carry a status --------------------------------------
-echo "$proj_out" | grep -qE "\[N/A|\[MANUAL|\[PASS|\[FAIL" || {
+grep -qE <<< "$proj_out" "\[N/A|\[MANUAL|\[PASS|\[FAIL" || {
     echo "expected per-rule statuses in the output:" >&2; echo "$proj_out" >&2; exit 1; }
 exit 0

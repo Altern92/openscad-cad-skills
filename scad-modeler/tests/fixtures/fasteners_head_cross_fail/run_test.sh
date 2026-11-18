@@ -12,6 +12,6 @@ actual=$?
 rm -f block.stl cover.stl
 [ "$actual" -eq "$EXPECTED_EXIT" ] || { echo "expected exit $EXPECTED_EXIT, got $actual" >&2; echo "$out" >&2; exit 1; }
 for want in "head blocked" "fasteners cross"; do
-    echo "$out" | grep -q "$want" || { echo "expected '$want' in output, got:" >&2; echo "$out" >&2; exit 1; }
+    grep -q <<< "$out" "$want" || { echo "expected '$want' in output, got:" >&2; echo "$out" >&2; exit 1; }
 done
 exit 0

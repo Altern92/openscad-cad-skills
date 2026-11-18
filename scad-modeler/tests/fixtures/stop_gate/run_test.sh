@@ -32,7 +32,7 @@ good=$(shasum -a 256 "$P/parts/a.scad" | cut -d' ' -f1)
 
 # AC-6: edited, never validated -> block naming file + command
 out=$(run "$T" false)
-blocks "$out" && echo "$out" | grep -q 'a.scad' && echo "$out" | grep -q 'validate_scad.sh' \
+blocks "$out" && grep -q <<< "$out" 'a.scad' && grep -q <<< "$out" 'validate_scad.sh' \
     || { echo "AC-6 (no state): want block naming a.scad and validate_scad.sh, got: $out" >&2; fail=1; }
 # AC-6: validated, then edited again (hash differs)
 state PASS 0000; out=$(run "$T" false)
@@ -85,10 +85,18 @@ with open(t, "w") as f:
 PYT
 }
 appr "$tmp/ta.jsonl" "padaryk dangtį"; out=$(run "$tmp/ta.jsonl" false)
-blocks "$out" && echo "$out" | grep -q 'acceptance' || { echo "AC-9: self-approval not blocked: $out" >&2; fail=1; }
+blocks "$out" && grep -q <<< "$out" 'acceptance' || { echo "AC-9: self-approval not blocked: $out" >&2; fail=1; }
 appr "$tmp/ta.jsonl" "Taip,  tinka -- daryk"; out=$(run "$tmp/ta.jsonl" false)
 [ -z "$out" ] || { echo "AC-9: user-quoted approval blocked: $out" >&2; fail=1; }
 rm -f "$P/acceptance.lock"
+# P25 / AC-3: limits.lock approvals obey the same rule (check_limits.py approve --quote)
+printf '{"limits":{},"quote":"taip, tinka","when":"t"}\n' > "$P/limits.lock"
+appr "$tmp/tl.jsonl" "padaryk dangtį"; sed -i '' 's/acceptance\.py approve/check_limits.py approve/' "$tmp/tl.jsonl"
+out=$(run "$tmp/tl.jsonl" false)
+blocks "$out" && grep -q <<< "$out" 'limits.lock' || { echo "P25: limits self-approval not blocked: $out" >&2; fail=1; }
+appr "$tmp/tl.jsonl" "Taip, tinka"; sed -i '' 's/acceptance\.py approve/check_limits.py approve/' "$tmp/tl.jsonl"
+out=$(run "$tmp/tl.jsonl" false); [ -z "$out" ] || { echo "P25: user-quoted limits approval blocked: $out" >&2; fail=1; }
+rm -f "$P/limits.lock"
 # End to end: a real validate_scad.sh run on a lone file satisfies the gate (state format
 # written by the script == format read by the hook); editing it afterwards blocks again.
 L="$tmp/lone"; mkdir -p "$L"; echo 'cube(3);' > "$L/b.scad"

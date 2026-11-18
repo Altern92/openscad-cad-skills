@@ -14,7 +14,7 @@ if [ "$actual" -ne "$EXPECTED_EXIT" ]; then
     echo "$out" >&2
     exit 1
 fi
-if ! echo "$out" | grep -q "no material"; then
+if ! grep -q <<< "$out" "no material"; then
     echo "expected 'no material' in output, got:" >&2
     echo "$out" >&2
     exit 1

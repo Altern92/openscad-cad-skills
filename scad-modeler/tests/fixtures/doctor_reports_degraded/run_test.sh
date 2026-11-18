@@ -33,7 +33,7 @@ rm -rf "$scratch"
 # The healthy run may legitimately be 0 (everything present) or 2 (this machine
 # is genuinely missing something). What it must never do is report a MISSING
 # dependency it does not actually have.
-if echo "$healthy" | grep -q "MISSING  trimesh"; then
+if grep -q <<< "$healthy" "MISSING  trimesh"; then
     echo "the unmodified run reports trimesh missing -- this fixture cannot tell the two states apart" >&2
     exit 1
 fi
@@ -43,7 +43,7 @@ if [ "$broken_code" -eq 0 ]; then
     echo "$broken" >&2
     exit 1
 fi
-echo "$broken" | grep -q "MISSING  trimesh" || {
+grep -q <<< "$broken" "MISSING  trimesh" || {
     echo "expected trimesh to be reported MISSING, got:" >&2
     echo "$broken" >&2
     exit 1; }

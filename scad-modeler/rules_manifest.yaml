@@ -198,6 +198,13 @@ rules:
     gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
     success_pattern: "CHECK_RESULT strength=PASS"
 
+  - id: R-26
+    rule: "Protected limits (P25, 2026-11-18): the limits the gates read -- behavior.json max_gap / angle max_deg / clearance / ground tol, loads.json safety and force, joints.json interference range and min clearance, attachments min_material_mm, EXPECTED_BBOX_TOL and NO_* / MARGIN_EXCLUDES_OK / PREVIEW_FILE opt-outs -- are locked in limits.lock with the user's words (check_limits.py approve --quote); validate fails any loosening or removal, a tightening passes, and a limit resting on an estimate is reported as OPEN QUESTION for the user instead of being edited"
+    applies: "file_exists:behavior.json,loads.json"
+    kind: auto
+    gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
+    success_pattern: "CHECK_RESULT limits=PASS"
+
   - id: R-17
     rule: "FDM printability (§7): each printed part was checked with check_printability.py for unsupported overhang and thin walls -- manual because it is new, not yet wired into validate_scad.sh --all, and its wall-thickness reading has a confirmed edge-case limitation (a solid, sharply-tapered feature's edge can produce a spuriously short reading) that needs a human/agent read of the result, not a bare pass/fail"
     applies: "always"

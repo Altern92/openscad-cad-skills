@@ -15,7 +15,7 @@ if [ "$actual" -ne "$EXPECTED_EXIT" ]; then
     echo "$out" >&2
     exit 1
 fi
-if ! echo "$out" | grep -qiE "FAIL|mismatch"; then
+if ! grep -qiE <<< "$out" "FAIL|mismatch"; then
     echo "expected a mismatch report, got:" >&2
     echo "$out" >&2
     exit 1

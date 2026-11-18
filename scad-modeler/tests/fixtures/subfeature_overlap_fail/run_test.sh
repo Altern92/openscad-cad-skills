@@ -15,7 +15,7 @@ if [ "$actual" -ne "$EXPECTED_EXIT" ]; then
     echo "$out" >&2
     exit 1
 fi
-if ! echo "$out" | grep -qi "overlap\|FAIL"; then
+if ! grep -qi <<< "$out" "overlap\|FAIL"; then
     echo "expected an overlap report, got:" >&2
     echo "$out" >&2
     exit 1

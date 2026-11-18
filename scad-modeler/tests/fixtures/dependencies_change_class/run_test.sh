@@ -14,12 +14,12 @@ if [ "$actual" -ne 0 ]; then
     echo "$out" >&2
     exit 1
 fi
-echo "$out" | grep -q "post_d->derived_gap" || {
+grep -q <<< "$out" "post_d->derived_gap" || {
     echo "the edge post_d->derived_gap was not reported:" >&2; echo "$out" >&2; exit 1; }
-echo "$out" | grep -q "C1" || {
+grep -q <<< "$out" "C1" || {
     echo "expected edit class C1 for a change with no downstream part:" >&2; echo "$out" >&2; exit 1; }
 # The script must keep saying it is advisory. If that caveat ever disappears,
 # a caller could read the subset as permission to skip the full validation.
-echo "$out" | grep -qi "advisory" || {
+grep -qi <<< "$out" "advisory" || {
     echo "the advisory caveat is gone from the output:" >&2; echo "$out" >&2; exit 1; }
 exit 0

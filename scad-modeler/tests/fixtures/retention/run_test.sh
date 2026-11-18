@@ -14,13 +14,13 @@ j() { (cd "$P" && python3 "$J" --project-dir . 2>&1); }
 
 out=$(j); rc=$?
 [ "$rc" -eq 3 ] || die "contact-only parts passed: exit $rc, want 3 (the incident)"
-echo "$out" | grep -q 'FAIL: retention, parts/shelf.scad' || die "shelf retention gap not named"
-echo "$out" | grep -q 'joined to nothing' && die "contact-joined part reported as unjoined"
+grep -q <<< "$out" 'FAIL: retention, parts/shelf.scad' || die "shelf retention gap not named"
+grep -q <<< "$out" 'joined to nothing' && die "contact-joined part reported as unjoined"
 printf '[{"name": "shelf_screw", "part": "shelf", "to": "panel", "at": [2,2,2], "feature": "m3 land"}]\n' > "$P/attachments.json"
 out=$(j); rc=$?
 [ "$rc" -eq 3 ] || die "panel only the \"to\" side, yet passed"
-echo "$out" | grep -q 'parts/shelf.scad' && die "shelf has an attachment but still flagged"
-echo "$out" | grep -q 'FAIL: retention, parts/panel.scad' || die "panel retention gap not named"
+grep -q <<< "$out" 'parts/shelf.scad' && die "shelf has an attachment but still flagged"
+grep -q <<< "$out" 'FAIL: retention, parts/panel.scad' || die "panel retention gap not named"
 sed -i '' '1i\
 // NO_RETENTION: screwed to the frame, frame not modelled here
 ' "$P/parts/panel.scad"; out=$(j); [ $? -eq 0 ] || die "NO_RETENTION with reason not accepted"

@@ -12,6 +12,6 @@ if [ "$actual" -ne 1 ]; then
     echo "$out" >&2
     exit 1
 fi
-echo "$out" | grep -q "Decision" || {
+grep -q <<< "$out" "Decision" || {
     echo "expected the failure to name the missing Decision row, got:" >&2; echo "$out" >&2; exit 1; }
 exit 0

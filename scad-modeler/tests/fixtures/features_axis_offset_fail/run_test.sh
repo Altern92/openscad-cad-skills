@@ -13,7 +13,7 @@ if [ "$actual" -ne "$EXPECTED_EXIT" ]; then
     echo "$out" >&2
     exit 1
 fi
-if ! echo "$out" | grep -qi "axis offset"; then
+if ! grep -qi <<< "$out" "axis offset"; then
     echo "expected 'axis offset' in report, got:" >&2
     echo "$out" >&2
     exit 1

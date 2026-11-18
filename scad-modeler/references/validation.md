@@ -35,6 +35,7 @@ manual.
 | `check_scad_lint.py` (computed defaults, rounded standards) | yes, always |
 | `check_collisions.py` | yes, whenever `assembly.scad` exists (declaration optional — was gated on `joints.json`, a chicken-and-egg) |
 | `motion_sweep.py` | yes, when motion declared |
+| `check_limits.py` (`limits`, P25) | yes, always: SKIP without `limits.lock`; FAIL when any gate limit was loosened or removed, or a new `NO_*` opt-out appeared — see § Protected limits |
 | `check_behavior.py` (`behavior`, P23) | yes, opt-in by behavior.json (R-24 requires it when joints.json exists): HOLDS / MOVES / STANDS over a pose grid, parts AND vitamins — see § Assembly behaviour |
 | `check_bore_reachability.py` | yes, opt-in by bores.json |
 | `check_attachment.py` | yes, opt-in by attachments.json |
@@ -530,6 +531,36 @@ insert's top face. Measured on `build/positioned`: hole Ø within [D3 − 0.05, 
 TDS), Z strength when the stress runs within 30° of `print_up`; safety default 2. A station with
 no section = load path broken. Exit 0 / 2 (nothing declared: SKIP) / 3 / 4. `validate_scad.sh`
 turns exit 2 into FAIL when a part mentions inserts and `fasteners.json` declares none (R-25).
+
+---
+
+## Protected limits (`check_limits.py`, gate `limits`, P25, added 2026-11-18)
+
+The gates read their limits from files the agent writes, so one edited number turns a FAIL into a
+PASS. `check_limits.py check` lists every limit and which way is looser:
+- `behavior.json`: `max_gap`, `angle.max_deg`, `ground.tol` (bigger = looser); `clearance` (smaller);
+- `loads.json`: `safety`, `|force_N|` (smaller = looser);
+- `joints.json`: interference range (wider), `min_clearance_mm` (smaller);
+- `attachments.json`: `min_material_mm` (smaller);
+- part files: `EXPECTED_BBOX_TOL` (bigger), and `NO_*` / `MARGIN_EXCLUDES_OK` / `PREVIEW_FILE` (presence).
+
+Show the list to the user. After their yes, run `check_limits.py approve --quote "<their words>"`;
+the stop hook blocks a quote that is in no user message. After that, a loosened or removed limit or a
+new opt-out is `limits=FAIL`, and a tightened one passes with a NOTE. A limit whose source or `why`
+says estimate / ◇ / PATIKRINTI prints `OPEN QUESTION`: ask or measure, then re-approve.
+
+**Receipt.** `validate_scad.sh --all` writes `build/.validation_state.json` with the sha256 of every
+`.scad` source, every root `*.json` declaration (`declarations`) and the skill version (`skill`). The
+stop hook blocks the session end when a touched project's declaration changed after that run.
+
+**Tests of the tests (P25).** `tests/mutants.tsv`: each checker's fixture must fail when the checker
+is silenced (exit 0) and when it rejects everything (exit 1, positive witness, column 3).
+`tests/semantic_mutants.tsv`: plausible logic errors (wall check dropped, depth L instead of L + 1,
+no Z strength, angle / DOF slack, head room ignored, limit direction lost) must each be KILLED by an
+assertion; CRASH, BASELINE_RED, NOT_APPLICABLE and SURVIVED do not count
+(`tests/tools/semantic_mutants.py`). `metamorphic_checks`: moving and turning a whole assembly
+(meshes and declared coordinates) must not change any verdict or measurement; it found the hole
+diameter flipping 4.60 / 4.65 with orientation (INC-2026-11-18-10).
 
 ---
 

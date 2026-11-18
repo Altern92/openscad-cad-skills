@@ -12,7 +12,7 @@ if [ "$actual" -ne "$EXPECTED_EXIT" ]; then
     echo "$out" >&2
     exit 1
 fi
-if ! echo "$out" | grep -q "_deck_socket_depth.*no assert"; then
+if ! grep -q <<< "$out" "_deck_socket_depth.*no assert"; then
     echo "expected a wrong-variable-family message about _deck_socket_depth, got:" >&2
     echo "$out" >&2
     exit 1

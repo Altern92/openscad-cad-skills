@@ -211,7 +211,10 @@ and a `COVERAGE:` line. Read those lines, not just the exit code. What each gate
 catches, tolerances, field semantics: `references/validation.md`.
 
 - **FAIL** — fix the model at the source. Never loosen an `assert()`, tolerance,
-  threshold or declaration to make it pass.
+  threshold or declaration to make it pass. Gate limits (`max_gap`, `max_deg`, clearance,
+  `safety`, `EXPECTED_BBOX_TOL`, `NO_*` opt-outs) are the user's: `limits.lock` pins them
+  (`check_limits.py approve --quote "<their words>"`, gate `limits`, R-26). A FAIL against a
+  limit marked estimate / ◇ is an OPEN QUESTION for the user, never an edit.
 - **SKIP / not-applicable** — the declaration or file it needs is absent; add it if
   it should apply. A SKIP is not a pass.
 - **INCONCLUSIVE** — the check ran and could not answer. Never read it as success.

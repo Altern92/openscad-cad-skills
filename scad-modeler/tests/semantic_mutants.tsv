@@ -1,0 +1,8 @@
+# id	checker	find (exactly once)	replace	fixture -- P25 / AC-8: plausible logic errors the fixture must catch by assertion
+strength_no_wall	check_strength	if not m.contains(ring(mid, ax, D3 / 2 + W)).all():	if False:	strength_gates
+strength_depth_L	check_strength	bottom - t0 < L + 1.0 - 0.05	bottom - t0 < L - 0.05	strength_gates
+strength_no_z	check_strength	z_dir = abs(float(n @ up)) >= np.cos(np.radians(LAYER_DEG))	z_dir = False	strength_gates
+behavior_angle_slack	check_behavior	if abs(v) > float(an["max_deg"]):	if abs(v) > float(an["max_deg"]) + 90:	kinematics_gates
+behavior_dof_slack	check_behavior	if ndof > want:	if ndof > want + 3:	kinematics_gates
+fasteners_no_head	check_fasteners	empty(t, hd / 2, "head blocked")	None	fasteners_head_cross_fail
+limits_no_min	check_limits	or (dr == "min" and v < v0 - 1e-9)	 	limits_lock

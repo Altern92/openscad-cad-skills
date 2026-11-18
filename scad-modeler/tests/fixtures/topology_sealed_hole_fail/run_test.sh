@@ -8,6 +8,6 @@ out=$(python3 "$SCAD_MODELER_SCRIPTS/check_topology.py" --stl part.stl --scad pa
 rm -f part.stl
 die() { echo "$1" >&2; echo "$out" >&2; exit 1; }
 [ "$rc" -eq 3 ] || die "AC-8: exit $rc, want 3"
-echo "$out" | grep -q 'expected 2' || die "AC-8: no 'expected 2'"
-echo "$out" | grep -q 'found 1' || die "AC-8: no 'found 1'"
+grep -q <<< "$out" 'expected 2' || die "AC-8: no 'expected 2'"
+grep -q <<< "$out" 'found 1' || die "AC-8: no 'found 1'"
 exit 0

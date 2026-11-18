@@ -18,8 +18,8 @@ j() { (cd "$P" && python3 "$J" --project-dir . 2>&1); }
 out=$(j); [ $? -eq 0 ] || die "all joined: not PASS"
 printf '[%s]\n' "$AB" > "$P/attachments.json"; out=$(j); rc=$?   # (2026-11-07: a, b keep a retention entry)
 [ "$rc" -eq 3 ] || die "c unjoined: exit $rc, want 3"
-echo "$out" | grep -q 'parts/c.scad' || die "c not named"
-echo "$out" | grep -q 'preview_x' && die "PREVIEW_FILE part counted"
+grep -q <<< "$out" 'parts/c.scad' || die "c not named"
+grep -q <<< "$out" 'preview_x' && die "PREVIEW_FILE part counted"
 sed -i '' '1i\
 // NO_JOINT: loose tray, sits in the drawer
 ' "$P/parts/c.scad"; out=$(j); [ $? -eq 0 ] || die "NO_JOINT with reason not accepted"
@@ -27,7 +27,7 @@ sed -i '' 's#^// NO_JOINT: .*#// NO_JOINT:#' "$P/parts/c.scad"; out=$(j); [ $? -
 sed -i '' '/^\/\/ NO_JOINT:/d' "$P/parts/c.scad"
 rm "$P/joints.json"; out=$(j); [ $? -eq 3 ] || die "no joint files: not FAIL"
 out=$(cd "$P" && bash "$V" --all 2>&1)
-echo "$out" | grep -q '^CHECK_RESULT joints=FAIL' || die "validate: no joints=FAIL"
+grep -q <<< "$out" '^CHECK_RESULT joints=FAIL' || die "validate: no joints=FAIL"
 rm "$P/parts/b.scad" "$P/parts/c.scad"; out=$(j); rc=$?
-[ "$rc" -eq 0 ] && echo "$out" | grep -q '^SKIP' || die "single part: not SKIP"
+[ "$rc" -eq 0 ] && grep -q <<< "$out" '^SKIP' || die "single part: not SKIP"
 exit 0

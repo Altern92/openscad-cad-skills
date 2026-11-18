@@ -5,7 +5,7 @@ set -uo pipefail
 out=$(python3 "$SCAD_MODELER_SCRIPTS/check_scad_lint.py" --project-dir . 2>&1); rc=$?
 die() { echo "$1" >&2; echo "$out" >&2; exit 1; }
 [ "$rc" -eq 3 ] || die "AC-3: exit $rc, want 3"
-echo "$out" | grep -q 'params.scad:2' || die "AC-3: line 2 not named"
-echo "$out" | grep -q 'params.scad:3' || die "AC-3: line 3 (rack_u) not named"
-echo "$out" | grep -q '44.45' || die "AC-3: exact value not named"
+grep -q <<< "$out" 'params.scad:2' || die "AC-3: line 2 not named"
+grep -q <<< "$out" 'params.scad:3' || die "AC-3: line 3 (rack_u) not named"
+grep -q <<< "$out" '44.45' || die "AC-3: exact value not named"
 exit 0

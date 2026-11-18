@@ -3,6 +3,26 @@
   "description": "Append-only structured log of real bugs found and fixed across OpenSCAD skills (scad-modeler, openscad-cad, openscad-organic). Use scripts/incidents.py to check, list, search, show, or add entries.",
   "entries": [
     {
+      "id": "INC-2026-11-18-11",
+      "date": "2026-11-18",
+      "title": "semantic mutants: fixture red without the mutant / mutant copy lacked references",
+      "where": "scad-modeler/tests/tools/semantic_mutants.py, tests/fixtures/strength_gates",
+      "symptom": "every check_strength mutant reported as a kill, but the failure was ModuleNotFoundError (system python3, no trimesh) or FileNotFoundError (scripts copied without ../references)",
+      "root_cause": "a failing fixture was credited as a kill without a green baseline or a crash check",
+      "fix": "runner records BASELINE_RED and CRASH separately (Stryker/PIT taxonomy), copies the whole skill; only assertion failures count as KILLED",
+      "promoted_to_rule": "not yet"
+    },
+    {
+      "id": "INC-2026-11-18-10",
+      "date": "2026-11-18",
+      "title": "check_strength insert hole diameter depended on orientation",
+      "where": "scad-modeler/scripts/check_strength.py hole_radius, load stations",
+      "symptom": "P25 metamorphic test: the same knurl-OD hole measured 4.65 or 4.60 after a rigid rotation (0.025 mm radius steps, right at the [3.95, 4.35] window); a 50.0000001 mm load path got 51 stations; gap reported in absolute coordinates only",
+      "root_cause": "coarse radial probe quantised the diameter to 0.05 mm; ceil() of a float length; no orientation-invariant test existed",
+      "fix": "per-direction bisection to 0.002 mm; ceil(L - 1e-6); gap reported as distance from the support plus [x, y, z]; fixture metamorphic_checks (3 rigid motions + geometry-only negative + closed-form sections)",
+      "promoted_to_rule": "not yet"
+    },
+    {
       "id": "INC-2026-11-18-09",
       "date": "2026-11-18",
       "title": "check_behavior angle: second name in one echo() read as missing",

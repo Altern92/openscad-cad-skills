@@ -15,5 +15,5 @@ openscad -q -o box.stl box.scad && openscad -q -o lid.stl lid.scad || die "rende
 j() { printf '{"contacts": [{"pair": ["box", "lid"], "joint_type": "hinge", "expected_interference_mm": [0, 0.05], "derivation": "lid rests on rim"}], "motion": [{"id": "open", "drivers": [{"part": "lid", "type": "revolute", "axis": [%s, 0, 0], "origin": [0, 20, 10], "ratio": 1.0}], "range_deg": [0, 110], "step_deg": 10}]}\n' "$1" > joints.json; }
 j 1;  out=$("$PY" "$M" --joints joints.json box.stl lid.stl 2>&1); [ $? -ne 0 ] || die "lid swinging into the box: PASS"
 j -1; out=$("$PY" "$M" --joints joints.json box.stl lid.stl 2>&1); [ $? -eq 0 ] || die "lid swinging up: not PASS"
-echo "$out" | grep -q "nothing to check" && die "declared pair skipped instead of swept"
+grep -q <<< "$out" "nothing to check" && die "declared pair skipped instead of swept"
 exit 0

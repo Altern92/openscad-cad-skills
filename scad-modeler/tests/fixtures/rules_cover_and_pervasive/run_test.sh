@@ -28,7 +28,7 @@ code=$?
 out=$(cat "$proj/out")
 rm -rf "$proj"
 
-echo "$out" | grep -q "COVER:" || {
+grep -q <<< "$out" "COVER:" || {
     echo "no COVER report -- unexercised rules are invisible:" >&2
     echo "$out" >&2
     exit 1; }
@@ -42,11 +42,11 @@ echo "$out" | grep "COVER:" | grep -qE "R-[0-9]+" || {
 
 # With most rules unexercised the run has to qualify itself, and the exit code
 # must not silently turn that into a pass.
-if echo "$out" | grep -q "PERVASIVE:"; then
+if grep -q <<< "$out" "PERVASIVE:"; then
     if [ "$code" -eq 0 ]; then
         # A clean exit alongside a pervasive warning is allowed ONLY if the OK
         # line carries the count too.
-        echo "$out" | grep -q "only .* of .* automated rules had their antecedent fire" || {
+        grep -q <<< "$out" "only .* of .* automated rules had their antecedent fire" || {
             echo "PERVASIVE reported but the OK line does not carry the count:" >&2
             echo "$out" | tail -4 >&2
             exit 1; }

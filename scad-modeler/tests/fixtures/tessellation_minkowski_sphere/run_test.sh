@@ -50,5 +50,5 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo "$out" | grep -q "^OK:" || exit 1
+grep -q <<< "$out" "^OK:" || exit 1
 exit 0

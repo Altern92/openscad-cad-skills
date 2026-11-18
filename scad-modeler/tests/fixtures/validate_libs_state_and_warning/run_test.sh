@@ -19,8 +19,8 @@ grep -q '"libs":{"BOSL2":"2.0.750"}' "$tmp/ok/build/.validation_state.json" || {
 printf 'w = no_such_function(3);\n' > "$tmp/warn/params.scad"
 printf 'cube(5);\n' > "$tmp/warn/block.scad"
 out=$(cd "$tmp/warn" && bash "$V" block.scad 2>&1)
-echo "$out" | grep -q '^CHECK_RESULT analytic_bounds=FAIL' || die "AC-7: no analytic_bounds=FAIL"
-echo "$out" | grep -q 'warning under --hardwarnings' || die "AC-7: cause not named as a warning"
-echo "$out" | grep -q "WARNING: Ignoring unknown function 'no_such_function'" || die "AC-7: WARNING line not shown"
-echo "$out" | grep -q 'an assert() in params.scad failed' && die "AC-7: still blames an assert()"
+grep -q <<< "$out" '^CHECK_RESULT analytic_bounds=FAIL' || die "AC-7: no analytic_bounds=FAIL"
+grep -q <<< "$out" 'warning under --hardwarnings' || die "AC-7: cause not named as a warning"
+grep -q <<< "$out" "WARNING: Ignoring unknown function 'no_such_function'" || die "AC-7: WARNING line not shown"
+grep -q <<< "$out" 'an assert() in params.scad failed' && die "AC-7: still blames an assert()"
 exit 0

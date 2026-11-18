@@ -7,12 +7,12 @@
 set -uo pipefail
 out=$(python3 "$SCAD_MODELER_SCRIPTS/motion_sweep.py" --joints joints.json fake_a.stl fake_b.stl 2>&1)
 actual=$?
-if echo "$out" | grep -q "SAME-sign ratio\|ratio 0"; then
+if grep -q <<< "$out" "SAME-sign ratio\|ratio 0"; then
     echo "sign check incorrectly flagged a correctly-signed pair:" >&2
     echo "$out" >&2
     exit 1
 fi
-if ! echo "$out" | grep -q "cannot load fake_a.stl"; then
+if ! grep -q <<< "$out" "cannot load fake_a.stl"; then
     echo "expected to fail past the sign check on the fake STL path, got:" >&2
     echo "$out" >&2
     exit 1

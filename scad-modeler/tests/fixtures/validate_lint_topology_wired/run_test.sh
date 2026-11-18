@@ -15,20 +15,20 @@ printf '// EXPECTED_BBOX: [40, 20, 5]\n// EXPECTED_THROUGH_HOLES: 2\n%s\n' "$pla
 
 out=$(cd "$tmp/ok" && bash "$V" plate.scad 2>&1); rc=$?
 [ "$rc" -eq 0 ] || die "single ok: exit $rc"
-echo "$out" | grep -q '^CHECK_RESULT scad_lint=PASS' || die "AC-6: no scad_lint=PASS"
-echo "$out" | grep -q '^CHECK_RESULT topology=PASS' || die "AC-11: no topology=PASS"
+grep -q <<< "$out" '^CHECK_RESULT scad_lint=PASS' || die "AC-6: no scad_lint=PASS"
+grep -q <<< "$out" '^CHECK_RESULT topology=PASS' || die "AC-11: no topology=PASS"
 
 out=$(cd "$tmp/std" && bash "$V" plate.scad 2>&1); rc=$?
 [ "$rc" -eq 1 ] || die "AC-6 single: exit $rc, want 1"
-echo "$out" | grep -q '^CHECK_RESULT scad_lint=FAIL' || die "AC-6 single: no scad_lint=FAIL"
-echo "$out" | grep -q '^CHECK_RESULT topology=SKIP' || die "AC-11: undeclared part not topology=SKIP"
+grep -q <<< "$out" '^CHECK_RESULT scad_lint=FAIL' || die "AC-6 single: no scad_lint=FAIL"
+grep -q <<< "$out" '^CHECK_RESULT topology=SKIP' || die "AC-11: undeclared part not topology=SKIP"
 
 out=$(cd "$tmp/holes" && bash "$V" plate.scad 2>&1); rc=$?
 [ "$rc" -eq 1 ] || die "AC-11 single: exit $rc, want 1"
-echo "$out" | grep -q '^CHECK_RESULT topology=FAIL' || die "AC-11: no topology=FAIL"
+grep -q <<< "$out" '^CHECK_RESULT topology=FAIL' || die "AC-11: no topology=FAIL"
 
 out=$(cd "$tmp/proj" && bash "$V" --all 2>&1); rc=$?
 [ "$rc" -eq 1 ] || die "AC-6 --all: exit $rc, want 1"
-echo "$out" | grep -q '^CHECK_RESULT scad_lint=FAIL' || die "AC-6 --all: no scad_lint=FAIL"
-echo "$out" | grep -q '^CHECK_RESULT topology=PASS' || die "AC-11 --all: no topology=PASS"
+grep -q <<< "$out" '^CHECK_RESULT scad_lint=FAIL' || die "AC-6 --all: no scad_lint=FAIL"
+grep -q <<< "$out" '^CHECK_RESULT topology=PASS' || die "AC-11 --all: no topology=PASS"
 exit 0

@@ -8,6 +8,6 @@ t=$(mktemp -d); trap 'rm -rf "$t"' EXIT
 python3 "$here/../motion_groups/make_stls.py" "$t" out tray || exit 1
 o=$(python3 "$SCAD_MODELER_SCRIPTS/motion_sweep.py" --joints "$here/../motion_groups/joints_ok.json" "$t"/*.stl 2>&1); r=$?
 [ "$r" -eq 3 ] || { echo "expected exit 3, got $r"; echo "$o"; exit 1; }
-echo "$o" | grep -q "unassigned.*cable_tray" || { echo "report does not name cable_tray as unassigned"; echo "$o"; exit 1; }
-echo "$o" | grep -q "Sweeping" && { echo "sweep ran despite an unassigned part"; echo "$o"; exit 1; }
+grep -q <<< "$o" "unassigned.*cable_tray" || { echo "report does not name cable_tray as unassigned"; echo "$o"; exit 1; }
+grep -q <<< "$o" "Sweeping" && { echo "sweep ran despite an unassigned part"; echo "$o"; exit 1; }
 exit 0

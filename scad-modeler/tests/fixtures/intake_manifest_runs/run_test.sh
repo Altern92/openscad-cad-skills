@@ -12,9 +12,9 @@ printf '// EXPECTED_BBOX: [5, 5, 5]\n// EXPECTED_THROUGH_HOLES: 0\ncube(5);\n' >
 m() { printf '{"goal": "cube", "envelope": {"max_bounds_xyz_mm": [10, 10, 10], "is_strict": true}, "interfaces": [], "motion": {"has_kinematics": false}, "parameters": [{"name": "side", "value": 5, "unit": "mm", "status": "%s"}], "dependencies": {}}\n' "$1"; }
 run() { out=$(cd "$P" && bash "$V" --all 2>&1); }
 m confirmed > "$P/design_manifest.json"; run
-echo "$out" | grep -q '^CHECK_RESULT intake=PASS' || die "valid manifest: not intake=PASS"
+grep -q <<< "$out" '^CHECK_RESULT intake=PASS' || die "valid manifest: not intake=PASS"
 m unknown > "$P/design_manifest.json"; run
-echo "$out" | grep -q '^CHECK_RESULT intake=FAIL' || die "unknown parameter: not intake=FAIL"
+grep -q <<< "$out" '^CHECK_RESULT intake=FAIL' || die "unknown parameter: not intake=FAIL"
 rm "$P/design_manifest.json"; echo '{"kind": "plate"}' > "$P/requirements.json"; run
-echo "$out" | grep -q '^CHECK_RESULT intake=SKIP' || die "requirements.json only: not SKIP"
+grep -q <<< "$out" '^CHECK_RESULT intake=SKIP' || die "requirements.json only: not SKIP"
 exit 0

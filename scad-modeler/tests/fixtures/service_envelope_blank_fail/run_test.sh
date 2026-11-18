@@ -14,6 +14,6 @@ if [ "$actual" -ne 1 ]; then
     echo "$out" >&2
     exit 1
 fi
-echo "$out" | grep -qi "blank\|missing" || {
+grep -qi <<< "$out" "blank\|missing" || {
     echo "expected the failure to name blank fields, got:" >&2; echo "$out" >&2; exit 1; }
 exit 0

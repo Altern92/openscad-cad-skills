@@ -22,10 +22,10 @@ gate; [ "$rc" -eq 0 ] || die "AC-1: matching lock should pass, got $rc"
 
 echo 'BOSL_VERSION = [2,0,1];' > "$tmp/lib/BOSL2/version.scad"
 gate; [ "$rc" -eq 5 ] || die "AC-2: version mismatch should exit 5, got $rc"
-for w in 2.0.750 2.0.1 "$tmp/lib/BOSL2"; do echo "$out" | grep -qF -- "$w" || die "AC-2: message lacks $w"; done
+for w in 2.0.750 2.0.1 "$tmp/lib/BOSL2"; do grep -qF <<< "$out" -- "$w" || die "AC-2: message lacks $w"; done
 
 echo 'BOSL_VERSION = [2,0,750];' > "$tmp/lib/BOSL2/version.scad"
 echo 'module nop() { cube(2); }' > "$tmp/lib/NopSCADlib/core.scad"
 gate; [ "$rc" -eq 5 ] || die "AC-3: tree mismatch should exit 5, got $rc"
-echo "$out" | grep -q NopSCADlib || die "AC-3: message lacks NopSCADlib"
+grep -q <<< "$out" NopSCADlib || die "AC-3: message lacks NopSCADlib"
 exit 0

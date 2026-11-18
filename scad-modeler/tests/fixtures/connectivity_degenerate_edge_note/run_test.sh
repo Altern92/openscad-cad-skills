@@ -21,11 +21,11 @@ if [ "$actual" -ne 0 ]; then
     echo "$out" >&2
     exit 1
 fi
-echo "$out" | grep -q "DEGENERATE GEOMETRY" || {
+grep -q <<< "$out" "DEGENERATE GEOMETRY" || {
     echo "the degenerate sliver was not reported:" >&2; echo "$out" >&2; exit 1; }
-echo "$out" | grep -q "shortest edge" || {
+grep -q <<< "$out" "shortest edge" || {
     echo "expected the note to quote the shortest edge:" >&2; echo "$out" >&2; exit 1; }
-echo "$out" | grep -q "printability" || {
+grep -q <<< "$out" "printability" || {
     echo "expected the note to say WHICH measurements this corrupts:" >&2
     echo "$out" >&2; exit 1; }
 
@@ -41,7 +41,7 @@ SCAD
 "$OPENSCAD" --backend=Manifold --render -o clean.stl clean.scad >/dev/null 2>&1
 clean_out=$(python3 "$SCAD_MODELER_SCRIPTS/check_connectivity.py" --stl clean.stl --scad clean.scad 2>&1)
 rm -f clean.stl clean.scad
-echo "$clean_out" | grep -q "DEGENERATE GEOMETRY" && {
+grep -q <<< "$clean_out" "DEGENERATE GEOMETRY" && {
     echo "a healthy mesh reported DEGENERATE GEOMETRY:" >&2
     echo "$clean_out" >&2
     exit 1

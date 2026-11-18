@@ -14,7 +14,7 @@ if [ "$actual" -ne "$EXPECTED_EXIT" ]; then
     echo "$out" >&2
     exit 1
 fi
-if ! echo "$out" | grep -qi "undersiz\|across.flat\|FAIL"; then
+if ! grep -qi <<< "$out" "undersiz\|across.flat\|FAIL"; then
     echo "expected an across-flats undersize report, got:" >&2
     echo "$out" >&2
     exit 1

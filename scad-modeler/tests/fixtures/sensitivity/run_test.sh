@@ -15,12 +15,12 @@ for n in good bad none; do (cd "$P" && openscad -q -o build/$n.stl parts/$n.scad
 out=$(cd "$P" && python3 "$C" --scad parts/good.scad --stl build/good.stl 2>&1); [ $? -eq 0 ] || die "good part: not PASS"
 out=$(cd "$P" && python3 "$C" --scad parts/bad.scad --stl build/bad.stl 2>&1); rc=$?
 [ "$rc" -eq 3 ] || die "hard-coded part: exit $rc, want 3"
-echo "$out" | grep -q 'wall' || die "param not named"
-out=$(cd "$P" && python3 "$C" --scad parts/none.scad --stl build/none.stl 2>&1); [ $? -eq 0 ] && echo "$out" | grep -q '^SKIP' || die "undeclared: not SKIP"
+grep -q <<< "$out" 'wall' || die "param not named"
+out=$(cd "$P" && python3 "$C" --scad parts/none.scad --stl build/none.stl 2>&1); [ $? -eq 0 ] && grep -q <<< "$out" '^SKIP' || die "undeclared: not SKIP"
 printf 'include <../params.scad>\n// SENSITIVE_TO: no_such_param\ncube(4);\n' > "$P/parts/typo.scad"; (cd "$P" && openscad -q -o build/typo.stl parts/typo.scad)
 out=$(cd "$P" && python3 "$C" --scad parts/typo.scad --stl build/typo.stl 2>&1); [ $? -eq 3 ] || die "unknown param: not FAIL"
 # wired: single-file mode reports sensitivity=FAIL
 printf '// EXPECTED_BBOX: [20, 10, 4]\n// EXPECTED_THROUGH_HOLES: 0\n' | cat - "$P/parts/bad.scad" > "$P/parts/bad2.scad"
 out=$(cd "$P" && bash "$V" parts/bad2.scad 2>&1)
-echo "$out" | grep -q '^CHECK_RESULT sensitivity=FAIL' || die "validate: no sensitivity=FAIL"
+grep -q <<< "$out" '^CHECK_RESULT sensitivity=FAIL' || die "validate: no sensitivity=FAIL"
 exit 0

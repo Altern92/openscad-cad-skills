@@ -15,7 +15,7 @@ if [ "$actual" -ne "$EXPECTED_EXIT" ]; then
     echo "$out" >&2
     exit 1
 fi
-if ! echo "$out" | grep -qi "block\|sealed\|FAIL"; then
+if ! grep -qi <<< "$out" "block\|sealed\|FAIL"; then
     echo "expected a blocked/sealed report, got:" >&2
     echo "$out" >&2
     exit 1

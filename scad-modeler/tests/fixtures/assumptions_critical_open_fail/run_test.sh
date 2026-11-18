@@ -11,8 +11,8 @@ if [ "$actual" -ne 1 ]; then
     echo "$out" >&2
     exit 1
 fi
-echo "$out" | grep -q "2 CRITICAL" || {
+grep -q <<< "$out" "2 CRITICAL" || {
     echo "expected exactly 2 unresolved Critical rows, got:" >&2; echo "$out" >&2; exit 1; }
-echo "$out" | grep -q "D3" && {
+grep -q <<< "$out" "D3" && {
     echo "the Ordinary/Open row must not be reported as unresolved" >&2; echo "$out" >&2; exit 1; }
 exit 0

@@ -18,7 +18,7 @@ out=$(python3 "$CHK" --stl part.stl --scad nodecl.scad 2>&1); rc=$?
 sed 's#EXPECTED_BBOX_TOL: 0.01#EXPECTED_BBOX_TOL: 5#' part.scad > loose.scad
 out=$(python3 "$CHK" --stl part.stl --scad loose.scad 2>&1); rc=$?
 [ "$rc" -eq 0 ] || fail "loose declaration: expected the derived bound (exit 0), got $rc" "$out"
-echo "$out" | grep -q "looser than the derived bound" || fail "loose declaration: NOTE missing" "$out"
+grep -q <<< "$out" "looser than the derived bound" || fail "loose declaration: NOTE missing" "$out"
 python3 - "$out" <<'PY' || fail "loose declaration widened the tolerance" "$out"
 import re, sys
 tols = [float(x) for x in re.search(r"within \[([^\]]*)\]", sys.argv[1]).group(1).split(",")]

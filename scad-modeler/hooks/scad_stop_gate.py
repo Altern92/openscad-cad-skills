@@ -43,13 +43,14 @@ def bash_written_scad(cmd):
         if prog == "tee":
             out += [w for w in args if w.endswith(".scad")]
         elif prog == "sed" and any(w.startswith("-i") for w in args):
-            out += [w for w in args if w.endswith(".scad")]
-        elif prog in ("cp", "mv", "install") and args and args[-1].endswith(".scad"):
+            out += [w for w in args if w.endswith((".scad", ".json"))]
+        elif prog in ("cp", "mv", "install") and args and args[-1].endswith((".scad", ".json")):
             out.append(args[-1])
     return out
 
 
 def edited_scad(transcript, cwd):
+    """.scad and .json paths written this session (Edit/Write tools, shell writes)."""
     seen = []
     with open(transcript, encoding="utf-8", errors="replace") as fh:
         for line in fh:
@@ -70,7 +71,7 @@ def edited_scad(transcript, cwd):
                 else:
                     continue
                 for p in paths:
-                    if p.endswith(".scad"):
+                    if p.endswith((".scad", ".json")):
                         p = os.path.realpath(os.path.join(cwd, os.path.expanduser(p)))
                         if p not in seen:
                             seen.append(p)
@@ -91,6 +92,39 @@ def validated(path):
         if os.path.dirname(d) == d:
             return False
         d = os.path.dirname(d)
+
+
+def project_root(path):
+    """Nearest directory (walking up) holding build/.validation_state.json, else None."""
+    d = os.path.dirname(path)
+    while True:
+        if os.path.isfile(os.path.join(d, "build", ".validation_state.json")):
+            return d
+        if os.path.dirname(d) == d:
+            return None
+        d = os.path.dirname(d)
+
+
+def stale_declarations(paths):
+    """P25 / AC-2: root *.json of every touched project whose sha256 differs from the last
+    validate --all receipt (or that receipt has no "declarations": it predates P25).
+    shortcut: a project counts as touched only through a .scad/.json path written this session;
+    a generator run alone (python gen_decl.py) is not seen -- record its outputs via a touched file."""
+    out = []
+    for root in dict.fromkeys(r for r in map(project_root, paths) if r):
+        try:
+            rec = json.load(open(os.path.join(root, "build", ".validation_state.json"), encoding="utf-8"))
+        except ValueError:
+            continue
+        decl = rec.get("declarations")
+        for f in sorted(os.listdir(root)):
+            fp = os.path.join(root, f)
+            if not f.endswith(".json") or not os.path.isfile(fp):
+                continue
+            h = hashlib.sha256(open(fp, "rb").read()).hexdigest()
+            if decl is None or decl.get(f) != h:
+                out.append(fp)
+    return out
 
 
 def norm(t):
@@ -119,13 +153,15 @@ def unquoted_approvals(transcript, cwd):
             for b in content if isinstance(content, list) else []:
                 if isinstance(b, dict) and b.get("type") == "tool_use" and b.get("name") == "Bash":
                     cmd = (b.get("input") or {}).get("command") or ""
-                    if re.search(r"acceptance\.py\b.*\bapprove\b", cmd):
+                    m0 = re.search(r"(acceptance|check_limits)\.py\b.*\bapprove\b", cmd)
+                    if m0:
                         m = re.search(r"--project-dir[ =]+['\"]?([^\s'\"]+)", cmd) or \
                             re.search(r"\bcd\s+['\"]?([^\s'\";&]+)", cmd)
-                        dirs.append(os.path.join(cwd, os.path.expanduser(m.group(1))) if m else cwd)
+                        lockname = "limits.lock" if m0.group(1) == "check_limits" else "acceptance.lock"
+                        dirs.append((os.path.join(cwd, os.path.expanduser(m.group(1))) if m else cwd, lockname))
     bad = []
-    for d in dict.fromkeys(dirs):
-        lock = os.path.join(d, "acceptance.lock")
+    for d, lockname in dict.fromkeys(dirs):
+        lock = os.path.join(d, lockname)
         try:
             quote = norm(json.load(open(lock, encoding="utf-8")).get("quote") or "")
         except (OSError, ValueError):
@@ -142,6 +178,10 @@ def command_for(path):
     return f"cd '{d}' && bash '{SCRIPTS}/validate_scad.sh' '{name}'"
 
 
+def cmd_all(path):
+    return f"cd '{os.path.dirname(path)}' && bash '{SCRIPTS}/validate_scad.sh' --all"
+
+
 def main():
     if os.environ.get("SCAD_STOP_GATE") == "0":
         return
@@ -152,18 +192,19 @@ def main():
     bad = unquoted_approvals(h["transcript_path"], cwd)
     if bad:
         print(json.dumps({"decision": "block", "reason":
-            "SCAD stop gate: acceptance.json was approved with words that are in no user message "
+            "SCAD stop gate: acceptance.lock / limits.lock was approved with words that are in no user message "
             "of this session:\n" + "\n".join(f"- {b}" for b in bad) +
             "\nOnly the user approves acceptance numbers. Show them acceptance.json, wait for their "
             "answer, and run acceptance.py approve --quote with their exact words."}))
         return
-    stale = [p for p in edited_scad(h["transcript_path"], cwd)
-             if os.path.isfile(p) and "/tests/fixtures/" not in p and not validated(p)]
+    edited = [p for p in edited_scad(h["transcript_path"], cwd) if "/tests/fixtures/" not in p]
+    stale = [p for p in edited if p.endswith(".scad") and os.path.isfile(p) and not validated(p)]
+    stale += [p for p in stale_declarations(edited) if p not in stale]
     if not stale:
         return
-    lines = [f"- {p}\n  run: {command_for(p)}" for p in stale]
+    lines = [f"- {p}\n  run: {command_for(p) if p.endswith('.scad') else cmd_all(p)}" for p in stale]
     print(json.dumps({"decision": "block", "reason":
-        "SCAD stop gate: these .scad files changed after their last validate_scad.sh run "
+        "SCAD stop gate: these .scad / declaration files changed after their last validate_scad.sh run "
         "(no matching sha256 in build/.validation_state.json):\n" + "\n".join(lines) +
         "\nRun it, then report its CHECK_RESULT and COVERAGE lines to the user. If it cannot "
         "run (CHECK_RESULT env=FAIL), say so plainly and do not call the part done."}))

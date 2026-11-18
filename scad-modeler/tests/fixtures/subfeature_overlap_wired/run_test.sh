@@ -21,9 +21,9 @@ printf '%s\n' '$fa = 2; $fs = 0.3;' > "$scratch/params.scad"
 ( cd "$scratch" && bash "$SCAD_MODELER_SCRIPTS/validate_scad.sh" --all > out 2>&1 )
 out=$(cat "$scratch/out")
 
-echo "$out" | grep -q "UNINTENDED SUB-FEATURE OVERLAP" || {
+grep -q <<< "$out" "UNINTENDED SUB-FEATURE OVERLAP" || {
     echo "the overlap was not reported at all:" >&2; echo "$out" >&2; exit 1; }
-echo "$out" | grep -q "CHECK_RESULT subfeature_overlap=FAIL" || {
+grep -q <<< "$out" "CHECK_RESULT subfeature_overlap=FAIL" || {
     echo "expected subfeature_overlap=FAIL:" >&2; echo "$out" >&2; exit 1; }
 n=$(echo "$out" | grep -c "^CHECK_RESULT subfeature_overlap")
 if [ "$n" -ne 1 ]; then
@@ -35,9 +35,9 @@ fi
 sed -i.bak '/SUBFEATURES:/d' "$scratch/parts/demo.scad"
 ( cd "$scratch" && bash "$SCAD_MODELER_SCRIPTS/validate_scad.sh" --all > out2 2>&1 )
 out2=$(cat "$scratch/out2")
-echo "$out2" | grep -q "CHECK_RESULT subfeature_overlap=SKIP" || {
+grep -q <<< "$out2" "CHECK_RESULT subfeature_overlap=SKIP" || {
     echo "expected SKIP without a declaration:" >&2; echo "$out2" >&2; exit 1; }
-echo "$out2" | grep -qi "templates/part_template.scad" || {
+grep -qi <<< "$out2" "templates/part_template.scad" || {
     echo "the SKIP must name how to turn the check on, got:" >&2
     echo "$out2" | grep -A1 "subfeature_overlap" >&2
     exit 1; }

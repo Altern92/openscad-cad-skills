@@ -487,6 +487,21 @@ else
     log_check "acceptance" 1 "acceptance.py check" "FAIL"
 fi
 
+# P25: the limits the gates read (max_gap, max_deg, clearance, safety, BBOX_TOL, NO_* opt-outs) may be
+# tightened, never loosened, without the user's words (limits.lock).
+python3 "$SCRIPT_DIR/check_limits.py" check --brief --project-dir .; _lim_rc=$?
+if [ "$_lim_rc" -eq 2 ]; then
+    echo "CHECK_RESULT limits=SKIP"
+    log_check "limits" 0 "n/a" "SKIP: no limits.lock -- run check_limits.py check, show the user, approve --quote"
+elif [ "$_lim_rc" -eq 0 ]; then
+    echo "CHECK_RESULT limits=PASS"
+    log_check "limits" 0 "check_limits.py check" "PASS"
+else
+    echo "CHECK_RESULT limits=FAIL"
+    OVERALL_FAIL=1
+    log_check "limits" 1 "check_limits.py check" "FAIL (exit $_lim_rc)"
+fi
+
 if [[ "$MODE" == "--all" ]]; then
     shopt -s nullglob
     parts=(parts/*.scad)
@@ -1278,6 +1293,18 @@ for f, h in old.items():
     if f not in src and os.path.isfile(f) and hashlib.sha256(open(f, "rb").read()).hexdigest() == h:
         src[f] = h
 tmp = p + ".tmp"; json.dump(new, open(tmp, "w"), separators=(",", ":")); os.replace(tmp, p)
+PYEOF
+    fi
+    # P25 / AC-1: the receipt also pins the declaration files (behavior.json, loads.json, ...) and the
+    # skill version this verdict came from; the stop gate blocks when a declaration changes after it.
+    if [ "$MODE" = "--all" ] && [ -f "$state" ]; then
+        SKILL_VER=$(cat "$SCRIPT_DIR/../INSTALLED_COMMIT" 2>/dev/null || echo "dev-$(git -C "$SCRIPT_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)") \
+        python3 - "$state" <<'PYEOF' 2>/dev/null || true
+import glob, hashlib, json, os, sys
+p = sys.argv[1]; s = json.load(open(p))
+s["declarations"] = {f: hashlib.sha256(open(f, "rb").read()).hexdigest() for f in sorted(glob.glob("*.json"))}
+s["skill"] = os.environ.get("SKILL_VER", "unknown")
+tmp = p + ".tmp"; json.dump(s, open(tmp, "w"), separators=(",", ":")); os.replace(tmp, p)
 PYEOF
     fi
 fi

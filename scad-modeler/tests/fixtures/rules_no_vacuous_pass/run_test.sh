@@ -33,13 +33,13 @@ JSON
 vout=$(cat "$proj/vout")
 
 # 1. mechanics must NOT be PASS -- the sweep did not run.
-echo "$vout" | grep -q "^CHECK_RESULT mechanics=PASS" && {
+grep -q <<< "$vout" "^CHECK_RESULT mechanics=PASS" && {
     echo "VACUOUS PASS: mechanics=PASS with no assembly.scad and no sweep" >&2
     exit 1; }
 
 # 2. and the SKIP reason must be TRUE. joints.json DOES declare motion.
-if echo "$vout" | grep -q "^CHECK_RESULT mechanics=SKIP"; then
-    echo "$vout" | grep -qi "no assembly.scad" || {
+if grep -q <<< "$vout" "^CHECK_RESULT mechanics=SKIP"; then
+    grep -qi <<< "$vout" "no assembly.scad" || {
         echo "the mechanics SKIP reason is false -- it blames a missing motion array:" >&2
         echo "$vout" | grep -A1 "mechanics=SKIP" >&2
         exit 1; }
@@ -61,7 +61,7 @@ fi
 # notApplicable from open, TTCN-3 makes inconc and none first-class verdicts,
 # ISA 705 wants a DISCLAIMER rather than an adverse opinion. Either way it must
 # make the run non-green, which the exit-code check above already asserts.
-echo "$rout" | grep -qE "\[(FAIL|INCONC)[^]]*\] R-09" || {
+grep -qE <<< "$rout" "\[(FAIL|INCONC)[^]]*\] R-09" || {
     echo "expected R-09 to be FAIL or INCONC when the sweep could not run, got:" >&2
     echo "$rout" | grep "R-09" >&2
     rm -rf "$proj"; exit 1; }

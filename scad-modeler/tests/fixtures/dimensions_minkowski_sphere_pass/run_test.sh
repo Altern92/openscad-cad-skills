@@ -15,14 +15,14 @@ if [ "$actual" -ne "$EXPECTED_EXIT" ]; then
     echo "$out" >&2
     exit 1
 fi
-if ! echo "$out" | grep -q "minkowski-sphere term"; then
+if ! grep -q <<< "$out" "minkowski-sphere term"; then
     echo "expected the tolerance basis to name the minkowski-sphere term, got:" >&2
     echo "$out" >&2
     exit 1
 fi
 # The rendered size must still be within the reported tolerance -- guards
 # against the term being applied without actually covering the shortfall.
-if ! echo "$out" | grep -qE "OK: .* within \[0\\.0[0-9]+, "; then
+if ! grep -qE <<< "$out" "OK: .* within \[0\\.0[0-9]+, "; then
     echo "expected an OK line with a tolerance >= 0.02mm, got:" >&2
     echo "$out" >&2
     exit 1

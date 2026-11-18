@@ -76,6 +76,7 @@ for s in openscad-cad scad-modeler openscad-organic; do
 done
 cp "$SRC/INCIDENTS.json" "$TARGET/INCIDENTS.json"
 rm -f "$TARGET/INCIDENTS.md"
+git -C "$SRC" rev-parse --short HEAD > "$TARGET/scad-modeler/INSTALLED_COMMIT"   # P25: validate receipts name the skill version
 mkdir -p "$TARGET/references" && cp "$SRC/references/retrieval.md" "$TARGET/references/retrieval.md"   # skills read ../references/retrieval.md
 echo "installed $(git -C "$SRC" rev-parse --short HEAD) from $REPO into $TARGET"
 

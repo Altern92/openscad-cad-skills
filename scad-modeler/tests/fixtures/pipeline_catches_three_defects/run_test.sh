@@ -24,7 +24,7 @@ rm -rf "$scratch"
 
 fail=0
 check() {  # <description> <grep pattern>
-    if echo "$out" | grep -qE "$2"; then
+    if grep -qE <<< "$out" "$2"; then
         echo "  seen: $1"
     else
         echo "  MISSED: $1 (no line matching /$2/)" >&2
@@ -48,7 +48,7 @@ if [ "$n" -lt 15 ]; then
     echo "  MISSED: only $n CHECK_RESULT lines -- checks went silent" >&2
     fail=1
 fi
-echo "$out" | grep -q "COVERAGE:" || {
+grep -q <<< "$out" "COVERAGE:" || {
     echo "  MISSED: no COVERAGE line" >&2; fail=1; }
 
 if [ "$code" -eq 0 ]; then

@@ -6,5 +6,5 @@ set -uo pipefail
 out=$(python3 "$SCAD_MODELER_SCRIPTS/check_scad_lint.py" --project-dir . 2>&1); rc=$?
 die() { echo "$1" >&2; echo "$out" >&2; exit 1; }
 [ "$rc" -eq 3 ] || die "AC-1: exit $rc, want 3"
-for w in beam len 211 assembly.scad 'parts/beam.scad:3'; do echo "$out" | grep -q -- "$w" || die "AC-1: output lacks $w"; done
+for w in beam len 211 assembly.scad 'parts/beam.scad:3'; do grep -q <<< "$out" -- "$w" || die "AC-1: output lacks $w"; done
 exit 0

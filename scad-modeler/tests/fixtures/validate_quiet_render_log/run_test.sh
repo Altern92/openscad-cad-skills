@@ -11,10 +11,10 @@ printf '// EXPECTED_BBOX: [10, 10, 5]\n// EXPECTED_THROUGH_HOLES: 0\necho("HELLO
 printf 'MODE = is_undef(MODE) ? "assembly" : MODE;\nPART = is_undef(PART) ? "" : PART;\nuse <parts/a.scad>\nif (MODE == "assembly" || PART == "a") include <parts/a.scad>\n' > "$P/assembly.scad"
 noise='Geometries in cache|CGAL Polyhedrons in cache|Total rendering time|Genus:|Facets:'
 out=$(cd "$P" && bash "$V" --all 2>&1)
-echo "$out" | grep -qE "$noise" && die "default log still has OpenSCAD cache/mesh statistics"
-echo "$out" | grep -q 'HELLO_ECHO' || die "ECHO line lost"
-echo "$out" | grep -q '^CHECK_RESULT render=PASS' || die "render verdict lost"
-echo "$out" | grep -q '^CHECK_RESULT dimensions=PASS' || die "dimensions verdict lost"
+grep -qE <<< "$out" "$noise" && die "default log still has OpenSCAD cache/mesh statistics"
+grep -q <<< "$out" 'HELLO_ECHO' || die "ECHO line lost"
+grep -q <<< "$out" '^CHECK_RESULT render=PASS' || die "render verdict lost"
+grep -q <<< "$out" '^CHECK_RESULT dimensions=PASS' || die "dimensions verdict lost"
 out=$(cd "$P" && SCAD_VERBOSE=1 bash "$V" --all 2>&1)
-echo "$out" | grep -qE "$noise" || die "SCAD_VERBOSE=1 did not restore the full log"
+grep -qE <<< "$out" "$noise" || die "SCAD_VERBOSE=1 did not restore the full log"
 exit 0

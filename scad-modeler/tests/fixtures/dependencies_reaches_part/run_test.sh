@@ -16,15 +16,15 @@ if [ "$actual" -ne 0 ]; then
     echo "$out" >&2
     exit 1
 fi
-echo "$out" | grep -q "C1" && {
+grep -q <<< "$out" "C1" && {
     echo "reported C1 for a change that reaches parts/panel.scad:" >&2
     echo "$out" >&2
     exit 1; }
-echo "$out" | grep -qE "C[2345]" || {
+grep -qE <<< "$out" "C[2345]" || {
     echo "expected an edit class stronger than C1, got:" >&2
     echo "$out" >&2
     exit 1; }
-echo "$out" | grep -q "panel" || {
+grep -q <<< "$out" "panel" || {
     echo "expected the affected part to be named, got:" >&2
     echo "$out" >&2
     exit 1; }

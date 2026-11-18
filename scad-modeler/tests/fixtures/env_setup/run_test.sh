@@ -22,5 +22,5 @@ out=$(SCAD_VENV="$v" bash "$S/setup_env.sh" 2>&1); rc=$?
 [ "$rc" -eq 0 ] || { echo "second run exit $rc" >&2; echo "$out" >&2; exit 1; }
 after=$(ls -i "$v/pyvenv.cfg" | awk '{print $1}')
 [ "$before" = "$after" ] || { echo "second run recreated the venv" >&2; exit 1; }
-echo "$out" | grep -qi 'already' || { echo "second run did not say the env was already complete" >&2; echo "$out" >&2; exit 1; }
+grep -qi <<< "$out" 'already' || { echo "second run did not say the env was already complete" >&2; echo "$out" >&2; exit 1; }
 exit 0

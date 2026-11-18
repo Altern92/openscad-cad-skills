@@ -16,6 +16,6 @@ if [ "$actual" -ne 2 ]; then
     echo "$out" >&2
     exit 1
 fi
-echo "$out" | grep -qi "manifest" || {
+grep -qi <<< "$out" "manifest" || {
     echo "expected the message to name the missing manifest, got:" >&2; echo "$out" >&2; exit 1; }
 exit 0

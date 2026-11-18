@@ -68,7 +68,18 @@ def hole_radius(m, c, ax, rmax):
     rs = np.arange(0.3, rmax, 0.025)
     pts = np.vstack([ring(c, ax, r) for r in rs])          # len(rs) rings x 12 directions
     inside = m.contains(pts).reshape(len(rs), -1)
-    first = [rs[np.argmax(col)] if col.any() else rmax for col in inside.T]
+    first = []
+    dirs = ring(np.zeros(3), ax, 1.0)                        # the same 12 unit directions
+    for j, col in enumerate(inside.T):
+        if not col.any():
+            first.append(rmax)
+            continue
+        k = int(np.argmax(col))
+        lo, hi = (rs[k - 1] if k else 0.0), rs[k]
+        for _ in range(4):   # P25 metamorphic test: 0.025 steps flipped 4.60/4.65 under rotation -> bisect to 0.002
+            mid = (lo + hi) / 2
+            lo, hi = (lo, mid) if m.contains([c + mid * dirs[j]])[0] else (mid, hi)
+        first.append(hi)
     return float(np.median(first))
 
 
@@ -139,7 +150,7 @@ def check_load(case, m, mats):
     z_dir = abs(float(n @ up)) >= np.cos(np.radians(LAYER_DEG))
     allow = (mat["z_mpa"] if z_dir else mat["xy_mpa"]) / sf
     worst, fails, gaps = None, [], []
-    nst = max(10, int(np.ceil(np.linalg.norm(P - S) / STATION_MM)))
+    nst = max(10, int(np.ceil(np.linalg.norm(P - S) / STATION_MM - 1e-6)))   # 50.0000001 mm is 50 stations
     for k, u in enumerate(np.linspace(0.05, 0.95, nst)):
         p = S + u * (P - S)
         sec = m.section(plane_origin=p, plane_normal=n)
@@ -171,8 +182,9 @@ def check_load(case, m, mats):
         if worst is None or sig > worst[0]:
             worst = (sig, k + 1, A)
     if gaps:
-        fails.append(f"no material at {len(gaps)}/{nst} station(s), first ({gaps[0][0]:.1f}, {gaps[0][1]:.1f}, "
-                     f"{gaps[0][2]:.1f}) -- the part does not connect the support to the load")
+        g = np.asarray(gaps[0][:3], float)
+        fails.append(f"no material at {len(gaps)}/{nst} station(s), first {np.linalg.norm(g - S):.1f} mm from the "
+                     f"support [{g[0]:.1f}, {g[1]:.1f}, {g[2]:.1f}] -- the part does not connect the support to the load")
     if worst and worst[0] > allow:
         fails.append(f"stress {worst[0]:.1f} MPa at station {worst[1]} (section {worst[2]:.1f} mm2) > "
                      f"{allow:.1f} MPa = {'Z (layers pulled apart)' if z_dir else 'X-Y'} "

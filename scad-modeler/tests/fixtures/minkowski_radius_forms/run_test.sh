@@ -39,5 +39,5 @@ print("OK: %d radius forms (6 resolved, 4 skipped)" % len(cases))
 PY
 )
 echo "$out"
-echo "$out" | grep -q "^OK:" || exit 1
+grep -q <<< "$out" "^OK:" || exit 1
 exit 0
