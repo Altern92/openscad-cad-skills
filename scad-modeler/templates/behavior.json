@@ -1,0 +1,16 @@
+{
+  "_comment": "P23 assembly behaviour (check_behavior.py). Every body = printed parts AND purchased vitamins (rod ends, pins, bearings, motors) positioned as in assembly.scad. joints: what holds each body, max_gap <= 1.0 mm (a bigger gap is a missing part). poses: every combination is rendered (-D). ground: optional, enables the stands gate. Delete this key.",
+  "scad": "assembly.scad",
+  "poses": {"ANGLE": [0, 45, 90]},
+  "bodies": {
+    "base":   {"render": [{"MODE": "part", "PART": "base"}], "static": true, "density": 1.27},
+    "lid":    {"render": [{"MODE": "part", "PART": "lid"}], "density": 1.27},
+    "hinge_pin": {"render": [{"MODE": "vit", "VIT": "hinge_pin"}], "static": true, "mass_g": 2}
+  },
+  "joints": [
+    {"a": "base", "b": "hinge_pin", "max_gap": 0.2, "why": "pin pressed into the base knuckles"},
+    {"a": "lid", "b": "hinge_pin", "max_gap": 0.3, "why": "lid knuckles turn on the pin"}
+  ],
+  "clearance": {"default": 0.0, "pairs": [{"a": "lid", "b": "base", "min": 0.3}]},
+  "ground": {"z": 0, "bodies": ["base"], "tol": 0.5}
+}

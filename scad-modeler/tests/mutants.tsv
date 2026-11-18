@@ -28,3 +28,5 @@ check_fasteners	fasteners_head_cross_fail
 motion_sweep	motion_groups_unassigned_fail
 check_fasteners	fasteners_mount_unfastened_fail
 check_fasteners	fasteners_mount_covers_host_hole_fail
+check_behavior	behavior_gates
+check_connectivity	connectivity_cavity_declared

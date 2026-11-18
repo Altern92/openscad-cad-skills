@@ -184,6 +184,13 @@ rules:
     gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
     success_pattern: "CHECK_RESULT joints=PASS"
 
+  - id: R-24
+    rule: "Assembly behaviour (P23, 2026-11-18, INC-2026-11-18-01): an assembly that declares joints proves them in geometry -- behavior.json lists every body (printed parts AND purchased vitamins), its joints and the motion grid; check_behavior.py fails a body that touches nothing, a joint gap over max_gap (cap 1 mm: a bigger gap is a missing part), a detached group, interference or clearance under the limit at any pose, and an assembly whose mass centre leaves its ground support"
+    applies: "file_exists:joints.json"
+    kind: auto
+    gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
+    success_pattern: "CHECK_RESULT behavior=PASS"
+
   - id: R-17
     rule: "FDM printability (§7): each printed part was checked with check_printability.py for unsupported overhang and thin walls -- manual because it is new, not yet wired into validate_scad.sh --all, and its wall-thickness reading has a confirmed edge-case limitation (a solid, sharply-tapered feature's edge can produce a spuriously short reading) that needs a human/agent read of the result, not a bare pass/fail"
     applies: "always"

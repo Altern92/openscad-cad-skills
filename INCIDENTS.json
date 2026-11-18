@@ -3,6 +3,77 @@
   "description": "Append-only structured log of real bugs found and fixed across OpenSCAD skills (scad-modeler, openscad-cad, openscad-organic). Use scripts/incidents.py to check, list, search, show, or add entries.",
   "entries": [
     {
+      "id": "INC-2026-11-18-06",
+      "date": "2026-11-18",
+      "title": "Rule id reused: new behaviour rule written as R-23, which already existed",
+      "where": "scad-modeler rules_manifest.yaml, check_rules.py",
+      "symptom": "two '- id: R-23' entries (design constraints manual, assembly behaviour auto); check_rules.py and the suite stayed green",
+      "root_cause": "load_manifest validated required keys but not uniqueness of ids",
+      "fix": "new rule renamed R-24; load_manifest exits 4 on duplicate ids",
+      "promoted_to_rule": "fixture rules_unique_ids"
+    },
+    {
+      "id": "INC-2026-11-18-05",
+      "date": "2026-11-18",
+      "title": "Enclosed cavity reported only as a note; behaviour of the assembly checked by nothing",
+      "where": "scad-modeler check_connectivity.py, validate_scad.sh",
+      "symptom": "INC-2026-11-18-01 follow-up: a model whose arms float passes every gate; sealed voids printed as 'note:' lines nobody reads",
+      "root_cause": "joints/attachments are declarations; no gate measured the positioned parts and vitamins against each other across the motion",
+      "fix": "P23: check_behavior.py (HOLDS/MOVES/STANDS, behavior.json, gate behavior, rule R-24); connectivity FAILs undeclared cavities (// EXPECTED_CAVITIES: N)",
+      "promoted_to_rule": "R-24; fixtures behavior_gates, connectivity_cavity_declared"
+    },
+    {
+      "id": "INC-2026-11-18-04",
+      "date": "2026-11-18",
+      "title": "Rear motor face 2 mm off the case wall: M3x6 bit 1 mm, boss outside its bore",
+      "where": "esp32_rc_modelis/mechanical/rear_axle_v4 assembly.scad v_motor",
+      "symptom": "check_behavior.py: motor <-> gearbox_case_bottom gap 0.50 mm (boss vs bore), nothing touching the wall",
+      "root_cause": "v_motor put the boss between the can face and the case face (face at case_x0 - boss_h) instead of the face on the wall and the boss in the bore; fasteners gate had into=null for the motor so the 1 mm bite was never measured",
+      "fix": "v_motor: can face at case_x0, boss case_x0..case_x0+boss_h; P1 reach assert from the boss face; assert boss_h <= wall",
+      "promoted_to_rule": "R-24 behavior gate"
+    },
+    {
+      "id": "INC-2026-11-18-03",
+      "date": "2026-11-18",
+      "title": "Left front corner copied the right steer angle: tie rod left the bar ball by 11 mm at lock",
+      "where": "esp32_rc_modelis/mechanical/front_axle_v4 layout.scad at(), assembly.scad vit()",
+      "symptom": "check_behavior.py (P23, first run): balls_l <-> steer_bar gap 11.4 mm at STEER=-25; every earlier sweep posed only the right corner",
+      "root_cause": "side L was mirror() of the right pose with the same STEER; a servo-driven bar turns the left wheel to the angle where bar_ang(b, s_l) = -bar_ang(b, s), not s",
+      "fix": "params.scad steer_left(b, s) (bisection) used by at() and vit() for side L; assert steer_left(0, steer_out) = steer_in",
+      "promoted_to_rule": "R-24 behavior gate (joints held at every pose, both corners)"
+    },
+    {
+      "id": "INC-2026-11-18-01",
+      "date": "2026-11-18",
+      "title": "Arm ball cups never modelled: front upright floated, and a cross bar sealed the upper-arm insert pocket",
+      "where": "esp32_rc_modelis/mechanical/front_axle_v4 (upper_arm.scad, upright.scad, assembly.scad v_balls, check_sweep.py)",
+      "symptom": "User saw the front axle floating in the assembly render. Nearest-neighbour scan: the upright touched no arm (5.85 mm) because the 4 arm rod ends were in the BOM but not drawn. Once drawn: the upper-arm insert pocket was a sealed -102.8 mm^3 cavity under 3.3 mm of cross bar/clevis (insert and rod end impossible to fit); the rod-end head bound on both upright lugs over the travel (0.0 mm, ball_neck 4.5 < head radius 5); the upper cup shaft hit the upper lug edge at full bump; the ball-stud spacer vitamins were drawn on the wrong side of the balls. validate (connectivity PASS, cavity only a note), rules and sweep had all been green.",
+      "root_cause": "A purchased part on the joint path (rod end) was not positioned as a vitamin, so no gate saw its insertion path or its envelope over the motion; the sweep excluded ball-joined pairs on purpose, and nothing else measured the cup against the lug. connectivity reports enclosed cavities only as a PASS note, which was not read.",
+      "fix": "rod_end() vitamins (head = sphere d10 cut to 6.35, shaft d6, M3 stud) posed with each arm; own sweep groups cup_l/cup_u (vs upright 0.3, wheel 1.5, rest 1.0) in both sweeps; upper_arm slot from the end face through the cross bar, ear clearance 0.3->0.5, cross bar and boss top 0.8 under the shock bolt (also removes the old 0.67 mm skin); ball_neck 4.5->5.5 with assert cup_d/2+0.3 <= ball_neck (negative: -D ball_neck=4.5 fails); 2.5 mm chamfer on the upper lug; spacers drawn on the lug side. Sweep 30 pairs 0 failures, validate 19/0, cavity gone (1 shell).",
+      "promoted_to_rule": "not yet"
+    },
+    {
+      "id": "INC-2026-11-18-02",
+      "date": "2026-11-18",
+      "title": "chains.py Y sweep held the X tray static while the gantry moved (Big_CNC)",
+      "where": "Big_CNC/motor_mounts_v3/check/chains.py",
+      "symptom": "Y-travel clearance check placed x_tray at dY=0 for every pose although it is bolted to the gantry; a part riding on the gantry was never swept",
+      "root_cause": "moving group taken from bounding boxes of full_base parts; trays/brackets added later as separate meshes were not assigned to the gantry group",
+      "fix": "2026-11-18: X tray, X fixed-end segment and tower are moved with dY in the Y sweep; sweep re-run, min gaps unchanged (0.50 / 80.12 / 0.50 / 4.43 mm)",
+      "promoted_to_rule": "not yet"
+    },
+    {
+      "id": "INC-2026-11-14-01",
+      "date": "2026-11-14",
+      "title": "incidents.py cannot find INCIDENTS.json when run through the installed ~/.claude/skills symlink",
+      "where": "scad-modeler/scripts/incidents.py:21-22 (SCRIPT_DIR = abspath, not realpath)",
+      "symptom": "python3 ~/.claude/skills/scad-modeler/scripts/incidents.py search clamp -> ERROR: INCIDENTS.json not found at ~/.claude/skills/INCIDENTS.json; SKILL.md §0 step 2 (query incidents) silently impossible from the installed path",
+      "root_cause": "~/.claude/skills/scad-modeler is a symlink to ~/Skills-plugins-etc/skills/scad-modeler; os.path.abspath keeps the symlink path, so ../.. resolves to ~/.claude/skills instead of the canon skills dir that holds INCIDENTS.json. run_all.sh via ~/.claude/skills does not exercise incidents.py search/list from the installed path",
+      "fix": "NOT FIXED in this session (user approval needed per NEXT.md workflow). Proposed one-line fix: os.path.realpath(__file__) on line 21 + a test that runs incidents.py list via the ~/.claude/skills path. Workaround used: --file ~/Skills-plugins-etc/skills/INCIDENTS.json",
+      "promoted_to_rule": "not yet",
+      "details": "found while building macbook_pro14_underdesk_holder 2026-11-14"
+    },
+    {
       "id": "INC-2026-11-13-09",
       "date": "2026-11-13",
       "title": "deploy_to_canon.sh rolled back a newer dev fix: deploy_genkit.sh copied an older SSD GenKit over dev and canon",

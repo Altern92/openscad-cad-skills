@@ -49,6 +49,7 @@ If it can become a check, make it one. A line without a check is a reminder; a c
 
 ## Joints and retention
 
+- **A hook or clamp mounted in a gap (under glass, behind a panel) needs an insertion path that fits the gap.** Whatever can be slid in through a gap can be lifted out through it, so retention comes from a second part (keeper/jaw bolted on), not from the gap. — check: manual (§0.6 insertion path vs the gap height, `assert()` in params) — source: macbook_pro14_underdesk_holder 2026-11-14 (inverted-U hook could not pass a 13 mm glass gap)
 - **A part that slides over or into another needs a locator and a screw.** A locator alone falls
   apart in transport; a screw alone has no alignment. — check: `attachment`, `joint_graph` —
   source: cnc-valdymo-punktas 2026-11-08 (base tenons)
@@ -59,6 +60,11 @@ If it can become a check, make it one. A line without a check is a reminder; a c
   face + `fit coupon` — source: cnc-valdymo-punktas 2026-11-08 (DIN clip window cut the pad)
 - **Neighbouring cut features keep a minimum wall between them**, or they merge into one hole.
   — check: `subfeature_overlap` (fusions.json) — source: INC-2026-08-21-09
+
+- **Every non-purchased part states its material and how it is made (printed / cut from plate / stock profile)
+  before its geometry.** Wall thickness, fasteners and supports depend on it; a bracket left as "a box" ends up
+  sized for metal and printed. — check: manual (`plan.md` parts table names the route) — source: Big_CNC drag-chain
+  brackets 2026-11-18 (user asked whether they were printed)
 
 ## Purchased parts
 
@@ -110,3 +116,14 @@ If it can become a check, make it one. A line without a check is a reminder; a c
 - **A part reused from an older design revision gets an inventory of its existing features (keep /
   reuse / plug) before it is changed.** Leftover holes are found by the user otherwise. — check:
   manual list + ray check per plug — source: Big_CNC side plate 2026-11-13, INC-2026-11-13-07
+- **Every purchased part on a joint path (rod end, ball cup, pin, spacer) is drawn as a positioned vitamin and
+  swept with the part it is screwed to.** A cup left out of the model hid a sealed insert pocket and a binding joint,
+  and the corner looked like it floated. — check: nearest-neighbour scan of the assembly (every part touches its
+  neighbour) + sweep pair cup vs the part it pivots on; read the connectivity cavity note — source: esp32_rc_modelis
+  front_axle_v4 2026-11-18, INC-2026-11-18-01. Now automated: behavior.json + check_behavior.py (gate `behavior`, R-24).
+- A mirrored side (left corner, second arm) is posed by its own linkage solution, never by copying the driven side's
+  angle: a servo bar turns the two wheels to different angles. — check: behavior.json poses both sides (HOLDS keeps
+  every tie-rod cup on its ball at every pose) — source: front_axle_v4 2026-11-18, INC-2026-11-18-03
+- A purchased motor/part screwed to a wall sits with its mounting FACE on the wall and its boss/spigot inside the bore;
+  a screw into a vitamin (`into: null`) is not bite-checked, so the face position is the only thing that sets the bite.
+  — check: behavior.json joint motor <-> wall with max_gap 0.05 — source: rear_axle_v4 2026-11-18, INC-2026-11-18-04

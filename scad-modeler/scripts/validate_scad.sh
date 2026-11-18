@@ -569,6 +569,26 @@ if [[ "$MODE" == "--all" ]]; then
         log_check "joints" 1 "check_joint_graph.py --project-dir ." "FAIL"
     fi
 
+    # P23 (INC-2026-11-18-01): joints declared above are only words. behavior.json makes the
+    # geometry prove them: every body (parts AND vitamins) touches what holds it, at every pose
+    # of the declared motion, nothing interpenetrates, and the assembly stands on the ground.
+    if [ -f behavior.json ]; then
+        _bh_out=$(python3 "$SCRIPT_DIR/check_behavior.py" --project-dir . 2>&1); _bh_rc=$?
+        echo "$_bh_out"
+        if [ "$_bh_rc" -eq 0 ]; then
+            echo "CHECK_RESULT behavior=PASS"
+            log_check "behavior" 0 "check_behavior.py --project-dir ." "PASS"
+        else
+            echo "CHECK_RESULT behavior=FAIL"
+            OVERALL_FAIL=1
+            log_check "behavior" 1 "check_behavior.py --project-dir ." "FAIL (exit $_bh_rc)"
+        fi
+    else
+        echo "CHECK_RESULT behavior=SKIP"
+        echo "  -> no behavior.json: nothing checks that the assembled parts and purchased parts really touch, move without collision and stand. Copy templates/behavior.json to the project root."
+        log_check "behavior" 0 "n/a" "SKIP: no behavior.json -- see templates/behavior.json"
+    fi
+
     # Bore-reachability check: opt-in via a project-root bores.json declaring
     # each bearing/shaft/fastener bore's axis segment (see §0.6 in SKILL.md
     # for why -- a sealed bore passes every other check here, since a fully

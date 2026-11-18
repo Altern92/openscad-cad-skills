@@ -81,6 +81,11 @@ def load_manifest(path):
         if missing:
             print(f"ERROR: rule missing {missing}: {r}", file=sys.stderr)
             sys.exit(EXIT_USAGE)
+    ids = [r["id"] for r in rules]
+    dup = sorted({i for i in ids if ids.count(i) > 1})
+    if dup:   # 2026-11-18: a new rule reused R-23 and nothing noticed
+        print(f"ERROR: duplicate rule id(s) in {path}: {', '.join(dup)}", file=sys.stderr)
+        sys.exit(EXIT_USAGE)
     return rules
 
 

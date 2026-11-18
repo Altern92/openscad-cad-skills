@@ -78,6 +78,7 @@ Every answer becomes a declaration; prose is checked by nothing:
 | Parts made in a Python/trimesh script | export to `build/positioned/<name>.stl`; `fasteners.json` `mounts` (part → host) | `check_fasteners.py` (`mounts`: ≥1 screw through it into the host; host heads under it = head blocked) |
 | Machine axes (groups) | `joints.json` driver `"parts": [...]` + top-level `"static": [...]` | `motion_sweep.py` (unassigned part = FAIL) |
 | Purchased-part fit | `joints.json` contact with `expected_interference_mm` and `derivation` | `check_collisions.py`, `motion_sweep.py` |
+| Does it hold / move / stand (parts AND vitamins, over the motion) | `behavior.json`: bodies, joints with `max_gap` ≤ 1 mm, pose grid, clearances, ground (required once `joints.json` exists, R-24; INC-2026-11-18-01) | `check_behavior.py` (gate `behavior`) |
 
 Templates for all four are in `templates/`. Why this step exists (three "done"
 designs nobody could assemble): details §0.6.

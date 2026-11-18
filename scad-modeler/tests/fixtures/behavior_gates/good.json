@@ -1,0 +1,13 @@
+{"scad": "assembly.scad",
+ "poses": {"A": [0, 20]},
+ "bodies": {"base": {"render": [{"MODE": "part", "PART": "base"}], "static": true},
+            "post": {"render": [{"MODE": "part", "PART": "post"}], "static": true},
+            "arm": {"render": [{"MODE": "part", "PART": "arm"}]},
+            "column": {"render": [{"MODE": "part", "PART": "column"}], "static": true},
+            "foot": {"render": [{"MODE": "part", "PART": "foot"}], "static": true}},
+ "joints": [{"a": "base", "b": "post", "max_gap": 0.01, "why": "glued"},
+            {"a": "post", "b": "arm", "max_gap": 0.3, "why": "pin"},
+            {"a": "column", "b": "base", "max_gap": 0.01, "why": "screwed"},
+            {"a": "foot", "b": "base", "max_gap": 0.01, "why": "base sits on the foot"}],
+ "clearance": {"default": 0.0, "pairs": [{"a": "arm", "b": "column", "min": 1.0}]},
+ "ground": {"z": -5, "bodies": ["foot"], "tol": 0.5}}

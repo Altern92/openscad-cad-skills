@@ -40,6 +40,9 @@ python-fcl). Install with: pip install trimesh
 Usage:
     python3 check_connectivity.py --stl build/part.stl --scad parts/part.scad
 
+Enclosed cavities (a watertight shell of negative volume inside the part) FAIL unless the
+file declares their count: `// EXPECTED_CAVITIES: N` (P23, 2026-11-18).
+
 Exit codes:
     0  pass (single connected body, or matches a declared EXPECTED_BODIES)
     1  body count mismatch
@@ -72,6 +75,19 @@ MAX_BODIES_SHOWN = 20
 # three orders of magnitude finer than any FDM feature and finer than the
 # resolution a slicer's grid keeps, so anything under it is an artefact.
 DEGENERATE_EDGE_MM = 1e-3
+
+
+CAVITIES_RE = re.compile(r"^\s*//\s*EXPECTED_CAVITIES:\s*(\d+)")
+
+
+def parse_expected_cavities(scad_path):
+    """`// EXPECTED_CAVITIES: N` -- enclosed voids the part is meant to have (magnet pocket)."""
+    with open(scad_path, "r", encoding="utf-8") as f:
+        for line in f:
+            m = CAVITIES_RE.match(line)
+            if m:
+                return int(m.group(1))
+    return 0
 
 
 def parse_expected_bodies(scad_path):
@@ -185,17 +201,21 @@ def main():
               "cast rays (printability wall/overhang) read nonsense across such a "
               "sliver, and a slicer may too. Usually a boolean that produced a "
               "zero-area face; find it before trusting any thin-wall number.")
-    if voids:
-        # Not a failure: an enclosed cavity is legitimate geometry (a magnet
-        # pocket, an air chamber, a captured nut). It is reported because a
-        # cavity nobody meant to leave is invisible in every other check and
-        # in the render -- the part looks solid from outside.
+    want_voids = parse_expected_cavities(args.scad)
+    if voids or want_voids:
+        # An enclosed cavity is legitimate geometry (a magnet pocket, a captured nut), but one
+        # nobody meant is invisible in every other check and in the render. Until 2026-11-18 it
+        # was a note, and notes are not read (INC-2026-11-18-01): it must now be declared.
         sizes = sorted(
             {tuple(round(float(x), 3) for x in (v.bounds[1] - v.bounds[0])) for v in voids}
         )
-        print(f"     note: {len(voids)} enclosed internal cavity/cavities "
-              f"(size(s) {sizes}) -- verify these are intended (magnet or nut "
-              "pocket, air gap); they cannot be seen from outside.")
+        if len(voids) != want_voids:
+            print(f"FAIL: {os.path.basename(args.stl)} has {len(voids)} enclosed internal "
+                  f"cavity/cavities (size(s) {sizes}), declared {want_voids}. Intended (magnet or "
+                  f"nut pocket, air gap)? declare // EXPECTED_CAVITIES: {len(voids)}. If not, a "
+                  "hole does not reach the surface or two shells were left apart.")
+            return EXIT_MISMATCH
+        print(f"     note: {len(voids)} declared enclosed cavity/cavities (size(s) {sizes}).")
     return EXIT_OK
 
 

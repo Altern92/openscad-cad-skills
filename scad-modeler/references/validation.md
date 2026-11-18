@@ -21,7 +21,7 @@ manual.
 | Analytic pre-flight (`assert()` in params.scad) | yes |
 | `check_assumptions.py` (calculations.md Criticality) | yes, opt-in by file |
 | `check_service_envelope.py` | yes, opt-in by file (no file = SKIP, not PASS) |
-| `check_connectivity.py` | yes, always |
+| `check_connectivity.py` | yes, always; an enclosed cavity is FAIL unless `// EXPECTED_CAVITIES: N` matches (P23) |
 | `check_dimensions.py` (EXPECTED_BBOX) | yes; the declaration is required (`declarations`, P15), or `// NO_BBOX: <why>` |
 | `check_features.py` (EXPECTED_HOLE) | yes, opt-in by declaration |
 | `check_topology.py` (EXPECTED_THROUGH_HOLES) | yes; the declaration is required (`declarations`, P15), or `// NO_THROUGH_HOLES_CHECK: <why>` |
@@ -35,6 +35,7 @@ manual.
 | `check_scad_lint.py` (computed defaults, rounded standards) | yes, always |
 | `check_collisions.py` | yes, whenever `assembly.scad` exists (declaration optional — was gated on `joints.json`, a chicken-and-egg) |
 | `motion_sweep.py` | yes, when motion declared |
+| `check_behavior.py` (`behavior`, P23) | yes, opt-in by behavior.json (R-24 requires it when joints.json exists): HOLDS / MOVES / STANDS over a pose grid, parts AND vitamins — see § Assembly behaviour |
 | `check_bore_reachability.py` | yes, opt-in by bores.json |
 | `check_attachment.py` | yes, opt-in by attachments.json |
 | `check_subfeature_overlap.py` | yes, opt-in via `// SUBFEATURES: a, b, c` (2+ names) — renders each solo through the part file's guarded `SUBFEATURE` switch, per part |
@@ -481,6 +482,28 @@ that pins it.
 When writing a fixture, do not assume — derive the expected code by running the
 checker once and reading what it actually returns. That is what caught both
 mistakes above.
+
+---
+
+## Assembly behaviour (`check_behavior.py`, P23, added 2026-11-18)
+
+Every declaration file says what SHOULD touch. INC-2026-11-18-01: a double-wishbone axle passed
+every gate while its arms floated, because the rod ends that join arm and upright (purchased)
+were never modelled. `behavior.json` (copy `templates/behavior.json`) lists every **body**: one or
+more `-D` render sets of `assembly.scad` (parts via `MODE="part"`, vitamins via your own vitamin
+mode), `static` for bodies the motion does not move, and `mass_g` or `density` (g/cm³; default 1.0
+with a NOTE). The pose grid (`poses`, every combination passed as `-D`) replaces a project-made
+sweep script for linkages `motion_sweep.py` cannot express (four-bars, steering plus bump).
+
+| Gate | FAIL when |
+|---|---|
+| HOLDS | a body is in no joint; a joint gap exceeds its `max_gap` at any pose; `max_gap` > 1.0 mm (fixed cap: model the bridging part); the joint graph splits, or a group does not reach a `ground` body |
+| MOVES | two non-joint bodies intersect > 0.01 mm³ at any pose; a `clearance.pairs` entry (or `default`) is undercut |
+| STANDS (only with `ground`) | a ground body's lowest point is off `ground.z` by more than `tol`; the mass centre's XY leaves the convex hull of the ground-contact points (prints the margin) |
+
+Joint pairs may overlap (a ball in its cup, a screw in its insert). Renders are cached in
+`build/behavior/`, keyed on every `.scad` file's content. Exit 0 / 3 / 4 (usage: bad JSON, unknown
+body). Not physics: no forces, friction or strength.
 
 ---
 
