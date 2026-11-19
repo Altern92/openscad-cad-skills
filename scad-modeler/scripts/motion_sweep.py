@@ -147,7 +147,9 @@ def expand_groups(motions):
 def unassigned(paths, motions, static):
     """STLs no driver and no static entry names, plus declared names matching no STL."""
     names = [d.get("part", "") for m in motions for d in m.get("drivers", [])] + list(static)
-    loose = [p for p in paths if not any(str(n).lower() in os.path.basename(p).lower() for n in names if n)]
+    # P26 / AC-3b: exact names -- "wheel" must not cover the mirror copy wheel_l
+    want = {str(n).lower() for n in names if n}
+    loose = [p for p in paths if os.path.splitext(os.path.basename(p))[0].lower() not in want]
     dead = [n for n in static if match_part(paths, n) is None]
     return loose, dead
 
@@ -155,7 +157,7 @@ def unassigned(paths, motions, static):
 def match_part(paths, name):
     """Resolve a declared part name to one of the STL paths."""
     name = str(name).lower()
-    hits = [p for p in paths if name in os.path.basename(p).lower()]
+    hits = [p for p in paths if os.path.splitext(os.path.basename(p))[0].lower() == name]
     if len(hits) == 1:
         return hits[0]
     return None
@@ -212,10 +214,8 @@ def transform_for(driver, t):
 
 
 def _name_matches(declared, driver_part):
-    """Same case-insensitive substring convention as is_declared()/match_part(),
-    applied to two plain declared-name strings instead of an STL path."""
-    a, b = str(declared).lower(), str(driver_part).lower()
-    return a in b or b in a
+    """Same case-insensitive exact-name convention as match_part() (P26 / AC-3b)."""
+    return str(declared).lower() == str(driver_part).lower()
 
 
 def check_gear_mesh_signs(contacts, motions):

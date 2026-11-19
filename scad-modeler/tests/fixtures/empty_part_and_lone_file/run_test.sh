@@ -25,4 +25,13 @@ out=$(bash "$V" thing.scad 2>&1)
 printf 'cube(10);\n' > one.scad; out=$(bash "$V" one.scad 2>&1)
 [ "$(res connectivity "$out")" = "CHECK_RESULT connectivity=PASS" ] \
     || { echo "AC-6: lone one-body file: $(res connectivity "$out")" >&2; fail=1; }
+# AC-2 regression (2026-11-19): with no parts/*.scad the AC-2 grep got no file and read stdin, so a run whose
+# stdin stayed open (deploy_to_canon.sh) hung for hours. Run with an open stdin and a 90 s limit.
+H="$tmp/hang"; mkdir -p "$H/parts"; printf 'cube(1);\n' > "$H/assembly.scad"
+( cd "$H" && bash "$V" --all < <(sleep 120) >/dev/null 2>&1 ) & hp=$!
+for _ in $(seq 90); do kill -0 $hp 2>/dev/null || break; sleep 1; done
+if kill -0 $hp 2>/dev/null; then
+    pkill -P $hp 2>/dev/null; kill $hp 2>/dev/null; pkill -f "sleep 120" 2>/dev/null
+    echo "AC-2: validate --all with no parts and an open stdin hung" >&2; fail=1
+fi
 exit $fail

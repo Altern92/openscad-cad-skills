@@ -610,7 +610,7 @@ if [[ "$MODE" == "--all" ]]; then
             OVERALL_FAIL=1
             log_check "behavior" 1 "check_behavior.py --project-dir ." "FAIL (exit $_bh_rc)"
         fi
-    elif [ -f assembly.scad ] && [ "$(grep -L -E '^[[:space:]]*//[[:space:]]*(PREVIEW_FILE|LIBRARY_FILE)' ${parts[@]+"${parts[@]}"} 2>/dev/null | wc -l)" -ge 2 ]; then
+    elif [ -f assembly.scad ] && [ "$(grep -L -E '^[[:space:]]*//[[:space:]]*(PREVIEW_FILE|LIBRARY_FILE)' ${parts[@]+"${parts[@]}"} </dev/null 2>/dev/null | wc -l)" -ge 2 ]; then
         # P26 / AC-2 (Fable audit 2026-11-19): without behavior.json an assembly with a floating part passed rc=0
         echo "CHECK_RESULT behavior=FAIL"
         echo "  -> assembly with 2+ printable parts and no behavior.json: nothing proves the parts touch, move without collision and stand. Copy templates/behavior.json to the project root and list every part as a body."
@@ -820,6 +820,23 @@ sys.exit(0 if motion else 1)
                     positioned_stls+=("$pstl")
                 fi
             done
+            # P26 / AC-21: LAYOUT instances that reuse a part file (mirror copies like upper_arm_l)
+            # are parts too; without their own STL the left side of an axle was never checked.
+            if [ -f layout.scad ]; then
+                for inst in $(python3 -c 'import re,sys
+print(" ".join(dict.fromkeys(re.findall(r"^\s*\[\s*\"([A-Za-z0-9_]+)\"", open("layout.scad").read(), re.M))))'); do
+                    [ -e "$BUILD_DIR/positioned/$inst.stl" ] && continue
+                    pstl="$BUILD_DIR/positioned/$inst.stl"
+                    "$OPENSCAD" --backend="$BACKEND" --hardwarnings \
+                        -D 'MODE="part"' -D "PART=\"$inst\"" \
+                        -o "$pstl" assembly.scad 2>&1 | render_log
+                    if [ "${PIPESTATUS[0]}" -eq 0 ] && [ -s "$pstl" ]; then
+                        positioned_stls+=("$pstl")
+                    else
+                        rm -f "$pstl"
+                    fi
+                done
+            fi
             shopt -u nullglob
 
             # A positioned part is supposed to be ONE part sitting in assembly
@@ -926,7 +943,7 @@ print(n if n >= 2 else 0)  # P26 / AC-4: one enclosure may span the assembly; co
                     fi
                 fi
             elif [ "$positioned_bogus" -eq 0 ] && [ "$has_motion" != "yes" ] && \
-                 [ "$(grep -L '^[[:space:]]*//[[:space:]]*PREVIEW_FILE' parts/*.scad 2>/dev/null | wc -l)" -le 1 ]; then
+                 [ "$(grep -L '^[[:space:]]*//[[:space:]]*PREVIEW_FILE' parts/*.scad </dev/null 2>/dev/null | wc -l)" -le 1 ]; then
                 # one printable part: nothing to collide with (P8 agent eval, 2026-11-01)
                 echo "CHECK_RESULT collisions=SKIP"
                 log_check "collisions" 0 "n/a" "SKIP: one printable part, no pair to check"

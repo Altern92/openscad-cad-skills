@@ -56,7 +56,7 @@ def table(name):
 
 
 def find_mesh(meshes, sub, what):
-    hit = [n for n in meshes if sub in n]
+    hit = [n for n in meshes if n == sub]  # P26 / AC-3b: exact -- "upright" must not also match upright_l
     if len(hit) != 1:
         usage(f"{what} {sub!r} matches {len(hit)} positioned STL(s) {hit} -- want exactly one")
     return meshes[hit[0]]

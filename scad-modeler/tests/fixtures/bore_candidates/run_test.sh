@@ -33,7 +33,7 @@ openscad -q -o "$tmp/plate.stl" "$tmp/plate.scad"
 out=$(python3 "$B" --bores "$tmp/bores.json" "$tmp/plate.stl" 2>&1) || die "open bores reported blocked"
 # a later union refills the vertical bore with a 0.4 mm skin
 sed 's#^}$#}\ntranslate([7,7,4.6]) cube([6,6,0.4]);#' "$tmp/plate.scad" > "$tmp/sealed.scad"
-openscad -q -o "$tmp/plate_sealed.stl" "$tmp/sealed.scad"
-out=$(python3 "$B" --bores "$tmp/bores.json" "$tmp/plate_sealed.stl" 2>&1); rc=$?
+mkdir -p "$tmp/sealed"; openscad -q -o "$tmp/sealed/plate.stl" "$tmp/sealed.scad"  # same part name: bores match parts exactly (P26)
+out=$(python3 "$B" --bores "$tmp/bores.json" "$tmp/sealed/plate.stl" 2>&1); rc=$?
 [ "$rc" -eq 3 ] || die "sealed bore not caught (exit $rc)"
 exit 0

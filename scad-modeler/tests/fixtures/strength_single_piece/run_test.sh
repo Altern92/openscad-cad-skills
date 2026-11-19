@@ -15,9 +15,11 @@ trimesh.boolean.union([rod, box([0, -1, 24], [30, 1, 26]), box([-3, -1, -1], [0.
 box([4.5, -1, -1], [95.5, 1, 1]).export(f"{d}/short.stl")   # 100 mm span: the 5 % station (5 mm) landed on it
 PY
 cd "$tmp"; fail=0
+cp build/positioned/rod.stl build/positioned/rod_l.stl   # AC-3b: a mirror copy must not make "rod" ambiguous
 case_() { printf '{"name":"%s","part":"%s","support":[0,0,0],"at":[%s,0,0],"force_N":[0,0,-%s],"material":"PETG Basic"}' "$1" "$2" "$3" "$4"; }
 echo "{\"cases\":[$(case_ rod rod 30 5),$(case_ fork fork 30 5),$(case_ short short 100 0.01)]}" > loads.json
 o=$(python3 "$SCAD_MODELER_SCRIPTS/check_strength.py" --project-dir . 2>&1); r=$?
+grep -q <<< "$o" "matches 2" && { echo "AC-3b: part name rod matched its copy rod_l: $o" >&2; fail=1; }
 grep -q <<< "$o" "FAIL load rod" || { echo "baseline: lone 2x2 rod should fail: $o" >&2; fail=1; }
 grep -q <<< "$o" "FAIL load fork" || { echo "AC-8: sibling prong carried the load: $(grep fork <<< "$o")" >&2; fail=1; }
 grep -A1 "FAIL load short" <<< "$o" | grep -q "no material" || { echo "AC-8: bar short of both ends passed: $(grep -A1 short <<< "$o")" >&2; fail=1; }

@@ -651,7 +651,14 @@ inside the part's own mesh: a shelf 110 mm above its base passed every gate (rc 
 - A part that renders nothing FAILs unless it declares `// LIBRARY_FILE: <reason>`; a lone file runs
   connectivity; an unreadable declaration (`EXPECTED_BBOX: [L, W, H]`) FAILs instead of "skipping".
 - Fasteners must seat the head on material and pass through a part; strength cuts one section piece
-  (the one on the support-load line) from 0.2 mm inside each end.
+  (the one on the support-load line) from 0.2 mm inside each end. An interface screw whose head clamps
+  a part from another module sets `"seat_external": "<reason>"`: that waives the head seat only, the
+  shank must still pass through material.
+- Every `LAYOUT` row gets its own positioned STL, including instances that reuse a part file (mirror
+  copies such as `upper_arm_l`); before, the whole left side of an axle never reached collisions,
+  contact_geometry, fasteners or the motion sweep. Name those copies in `joints.json` contacts,
+  `static` or a driver group like any other part. Every part name in every declaration is exact
+  (motion sweep, strength `insert_in`/`part`, fasteners `into`/`mounts`, bores): `upright` never means `upright_l`.
 - The receipt keeps its `--all` record across single-part runs; a receipt written by hand blocks the
   session; locks are checked by file (however written) against whole user messages.
 - `limits.lock` also pins `EXPECTED_BODIES`, `LIBRARY_FILE`, bare `PREVIEW_FILE`, loads `reach` and

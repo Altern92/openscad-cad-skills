@@ -33,6 +33,14 @@ Tier: feature. Keičiami `validate_scad.sh`, `check_joint_graph.py`, `check_beha
   strypas, nepasiekiantis atramos, FAIL.
 - AC-9 (#14): `check_strength.py` priima `fasteners.json` sąrašo formą (nebelūžta).
 
+- AC-21 (rasta pervalidinant RC galinę ašį): kiekviena `LAYOUT` eilutė (ir kopija, naudojanti tą patį dalies failą,
+  pvz. `axle_tube_l`) gauna pozicionuotą STL. Neigiamas: kopija, įlindusi į pagrindą, = collisions FAIL; kopija su
+  1 mm tarpu = PASS (`layout_instances`).
+- AC-3b: tikslūs vardai ir `motion_sweep.py` (`static`, driver), `check_strength.py` (`insert_in`, `part`),
+  `check_fasteners.py` (`into`, `mounts`), `check_bore_reachability.py`: `peg` nebeatitinka `peg_l`, `bloc` nebe `block`.
+- AC-7b: `fasteners.json` `"seat_external": "<priežastis>"` atleidžia tik nuo galvos atramos (kito modulio plokštė);
+  tuščia priežastis = FAIL; kotas tuščioje erdvėje vis tiek FAIL.
+
 **Kvitas ir hook'as**
 - AC-10 (#3): vienos dalies validacija išsaugo ankstesnio kvito `mode` (`--all`), `declarations` ir `skill`.
   Neigiamas: `--all`, pakeistas `loads.json`, `validate_scad.sh a` -> hook vis dar blokuoja.

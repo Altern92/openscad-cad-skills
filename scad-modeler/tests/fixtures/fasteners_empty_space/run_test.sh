@@ -15,4 +15,18 @@ run '{"fasteners":[{"name":"M3 in thin air","start":[200,200,200],"axis":[0,0,-1
     || { echo "AC-7: screw in empty space passed (rc $r): $o" >&2; fail=1; }
 run '{"fasteners":[{"name":"M3 into block","start":[10,10,20],"axis":[0,0,-1],"d":3,"length":12,"into":"block"}]}'
 [ $r -eq 0 ] || { echo "AC-7: real screw into the block failed (rc $r): $o" >&2; fail=1; }
+# AC-7b: an interface screw whose head clamps a plate from another module (6 mm above the block) may waive
+# only the head seat, only with a reason; the shank must still pass through material
+ext='"start":[10,10,26],"axis":[0,0,-1],"d":3,"length":18,"thread_from":6,"into":"block"'
+run '{"fasteners":[{"name":"via plate",'"$ext"',"seat_external":"head on the 6 mm chassis plate (vehicle module)"}]}'
+[ $r -eq 0 ] || { echo "AC-7b: external seat with a reason failed (rc $r): $o" >&2; fail=1; }
+run '{"fasteners":[{"name":"via plate",'"$ext"'}]}'
+[ $r -ne 0 ] && grep -q <<< "$o" "seats on nothing" || { echo "AC-7b: floating head without waiver passed: $o" >&2; fail=1; }
+run '{"fasteners":[{"name":"via plate",'"$ext"',"seat_external":" "}]}'
+[ $r -ne 0 ] && grep -q <<< "$o" "seats on nothing" || { echo "AC-7b: blank waiver reason accepted: $o" >&2; fail=1; }
+run '{"fasteners":[{"name":"air","start":[200,200,200],"axis":[0,0,-1],"d":3,"length":12,"seat_external":"plate elsewhere"}]}'
+[ $r -ne 0 ] && grep -q <<< "$o" "empty space" || { echo "AC-7b: waiver excused a screw in empty space: $o" >&2; fail=1; }
+# AC-3b: 'into' names a part exactly -- the fragment "bloc" no longer finds block.stl
+run '{"fasteners":[{"name":"frag","start":[10,10,20],"axis":[0,0,-1],"d":3,"length":12,"into":"bloc"}]}'
+[ $r -ne 0 ] && grep -q <<< "$o" "matches no positioned STL" || { echo "AC-3b: fragment 'into' accepted: $o" >&2; fail=1; }
 exit $fail

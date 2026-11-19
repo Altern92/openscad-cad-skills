@@ -109,8 +109,8 @@ def load_bores(path):
 
 
 def match_part(bores, stl_path):
-    base = os.path.basename(stl_path).lower()
-    return [b for b in bores if str(b["part"]).lower() in base]
+    base = os.path.splitext(os.path.basename(stl_path))[0].lower()
+    return [b for b in bores if str(b["part"]).lower() == base]  # P26 / AC-3b: exact names
 
 
 def sample_axis(start, end, step_mm):

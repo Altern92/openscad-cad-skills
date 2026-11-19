@@ -3,6 +3,26 @@
   "description": "Append-only structured log of real bugs found and fixed across OpenSCAD skills (scad-modeler, openscad-cad, openscad-organic). Use scripts/incidents.py to check, list, search, show, or add entries.",
   "entries": [
     {
+      "id": "INC-2026-11-19-07",
+      "date": "2026-11-19",
+      "title": "validate_scad.sh hung for hours: AC-2 grep read stdin when no parts",
+      "where": "validate_scad.sh behavior requirement (P26 AC-2)",
+      "symptom": "deploy_to_canon.sh canonical suite ran 5 h 40 min; process tree showed grep -L -E (PREVIEW_FILE|LIBRARY_FILE) waiting with no file argument",
+      "root_cause": "grep -L with an empty parts array reads stdin; dev suite runs had stdin closed so it returned at once, deploy kept stdin open. I trusted the first canon run's 110/0 and did not watch the second run's elapsed time",
+      "fix": "</dev/null on both grep -L calls; fixture case runs --all with an open stdin (< <(sleep 120)) and a 90 s limit, hangs on old code",
+      "promoted_to_rule": "not yet"
+    },
+    {
+      "id": "INC-2026-11-19-06",
+      "date": "2026-11-19",
+      "title": "Mirror LAYOUT copies never positioned, left side of axles unchecked",
+      "where": "validate_scad.sh positioned render, motion_sweep.py name matching",
+      "symptom": "RC rear axle: 'tube L' screws FAIL 'head seats on nothing' while tube R passed; build/positioned had no axle_tube_l/wheel_l/tire_l; front_axle_v4 has 8 such copies that never reached collisions, contact_geometry, fasteners or the motion sweep",
+      "root_cause": "positioned render looped over parts/*.scad file names only; LAYOUT instances reusing a part file were skipped. motion_sweep matched names by substring, so 'wheel' covered 'wheel_l' and 'axle_tube' matched two STLs",
+      "fix": "render every LAYOUT row name too (AC-21); exact names in motion_sweep unassigned/match_part/_name_matches (AC-3b); fixture layout_instances red on old code",
+      "promoted_to_rule": "not yet"
+    },
+    {
       "id": "INC-2026-11-19-05",
       "date": "2026-11-19",
       "title": "install.sh hook warning fired although Stop hook registered",
