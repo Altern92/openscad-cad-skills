@@ -20,13 +20,14 @@ scratch=$(mktemp -d)
 trap 'rm -rf "$scratch"' EXIT
 cp "$INC" "$scratch/inc.json"
 
-python3 "$CLI" list --file "$scratch/inc.json" | grep -q "^INC-2026-11-02-01" || {
+# capture first: grep -q closing the pipe early made list die with BrokenPipe under pipefail (flaky under load)
+out=$(python3 "$CLI" list --file "$scratch/inc.json"); grep -q "^INC-2026-11-02-01" <<< "$out" || {
     echo "list did not return INC-2026-11-02-01" >&2; exit 1
 }
-python3 "$CLI" search "check_features.py" --file "$scratch/inc.json" | grep -q "INC-2026-11-02-01" || {
+out=$(python3 "$CLI" search "check_features.py" --file "$scratch/inc.json"); grep -q "INC-2026-11-02-01" <<< "$out" || {
     echo "search did not find check_features.py incident" >&2; exit 1
 }
-python3 "$CLI" show "INC-2026-11-02-01" --file "$scratch/inc.json" | grep -q '"date": "2026-11-02"' || {
+out=$(python3 "$CLI" show "INC-2026-11-02-01" --file "$scratch/inc.json"); grep -q '"date": "2026-11-02"' <<< "$out" || {
     echo "show did not return JSON for INC-2026-11-02-01" >&2; exit 1
 }
 python3 "$CLI" add \

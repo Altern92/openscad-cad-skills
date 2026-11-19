@@ -3,6 +3,16 @@
   "description": "Append-only structured log of real bugs found and fixed across OpenSCAD skills (scad-modeler, openscad-cad, openscad-organic). Use scripts/incidents.py to check, list, search, show, or add entries.",
   "entries": [
     {
+      "id": "INC-2026-11-19-08",
+      "date": "2026-11-19",
+      "title": "incidents_index_accurate flaky: BrokenPipe under pipefail",
+      "where": "tests/fixtures/incidents_index_accurate",
+      "symptom": "canonical suite FAIL 'list did not return INC-2026-11-02-01' twice with BrokenPipeError; fixture passed alone and 0/300 in an isolated loop",
+      "root_cause": "python incidents.py list | grep -q under set -o pipefail: grep exits at the first match, the still-writing producer dies with EPIPE and pipefail fails the line; output grew past the race point as incidents were added, and the race fires under suite load",
+      "fix": "capture output in a variable, then grep <<< (same assertions)",
+      "promoted_to_rule": "not yet"
+    },
+    {
       "id": "INC-2026-11-19-07",
       "date": "2026-11-19",
       "title": "validate_scad.sh hung for hours: AC-2 grep read stdin when no parts",
