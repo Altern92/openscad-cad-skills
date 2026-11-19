@@ -224,10 +224,18 @@ def main():
     errors = []
     for i, axis in enumerate(['X', 'Y', 'Z']):
         diff = abs(actual[i] - expected[i])
-        if diff > tolerances[i]:
+        # P27 / AC-18 (Fable calculation audit): OpenSCAD polygons are inscribed, so tessellation only ever
+        # SHORTENS an extent; a cube 3 mm too long passed at $fn = 6 under a two-sided 26.8 mm bound. A longer
+        # extent gets the numeric floor only; a shorter one the bound plus that floor (float32 storage: a
+        # $fn = 6 cylinder at exactly the bound failed by 1e-6 mm).
+        tol_i = tolerances[i] if flat_mode or actual[i] <= expected[i] else args.floor
+        if not flat_mode and actual[i] < expected[i]:
+            tol_i += args.floor
+        if diff > tol_i:
             errors.append(
                 f"{axis}: expected {expected[i]:.3f} mm, got {actual[i]:.3f} mm "
-                f"(diff {diff:.4f} mm > tol {tolerances[i]:.4f} mm)"
+                f"(diff {diff:.4f} mm > tol {tol_i:.4f} mm"
+                + (", longer than declared: tessellation cannot make a part longer)" if tol_i == args.floor else ")")
             )
 
     if errors:

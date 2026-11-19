@@ -3,6 +3,26 @@
   "description": "Append-only structured log of real bugs found and fixed across OpenSCAD skills (scad-modeler, openscad-cad, openscad-organic). Use scripts/incidents.py to check, list, search, show, or add entries.",
   "entries": [
     {
+      "id": "INC-2026-11-19-10",
+      "date": "2026-11-19",
+      "title": "Fable calculation audit: 15 checker defects, 12 false PASS",
+      "where": "scad-modeler/scripts: check_strength, motion_sweep, check_fasteners, check_limits, check_behavior, check_features, check_dimensions",
+      "symptom": "Oblique load 5.9 MPa for 30; range_deg [0,-90] swept 2 positions; instances dropped other parts; head_h 0 hid crossings; limits written after approval never failed; stale import() cache; mirrored angle echo ignored; solid pin passed as hole; 203 mm cube passed as 200 at fn 6; others",
+      "root_cause": "Formulas valid only in special cases (principal axes, ascending ranges, two-sided tessellation bound), caches keyed without data files, inventories without implicit defaults",
+      "fix": "P27: each defect fixed with a failing-first fixture (tests/fixtures/p27_*) and mutants; spec docs/superpowers/specs/2026-11-19-p27-calculation-audit-ac.md",
+      "promoted_to_rule": "not yet"
+    },
+    {
+      "id": "INC-2026-11-19-09",
+      "date": "2026-11-19",
+      "title": "Mutant runner scored IndentationError as KILLED (fake kills)",
+      "where": "scad-modeler/tests/tools/semantic_mutants.py",
+      "symptom": "Indented mutant targets (geometry_no_cap, strength_union, fasteners_no_purchased, the first P27 mutants) were KILLED although the checker never ran: the replacement was strip()ped into column 0",
+      "root_cause": "repl.strip() removed indentation; CRASH was detected only by the text 'Traceback', which a SyntaxError/IndentationError at import does not print",
+      "fix": "replacement keeps its indentation; SyntaxError/IndentationError = CRASH; negative case 'indent' in semantic_mutants/bad.tsv must report CRASH",
+      "promoted_to_rule": "not yet"
+    },
+    {
       "id": "INC-2026-11-19-08",
       "date": "2026-11-19",
       "title": "incidents_index_accurate flaky: BrokenPipe under pipefail",

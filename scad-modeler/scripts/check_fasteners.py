@@ -72,6 +72,8 @@ except ImportError:
     sys.exit(2)
 
 STEP, N, CROSS_MARGIN = 0.5, 12, 0.5
+BITE_R = 0.44                     # thread material must start within this x d of the axis (pilot <= 0.88 d)
+DATA_EXT = (".stl", ".dxf", ".svg", ".off", ".3mf", ".obj", ".amf", ".json", ".dat", ".png")
 
 
 def ring(c, ax, r):
@@ -93,6 +95,13 @@ def seg_dist(p1, q1, p2, q2):
     """Closest distance between segments p1q1 and p2q2 (Ericson, Real-Time Collision Detection 5.1.9)."""
     d1, d2, r = q1 - p1, q2 - p2, p1 - p2
     a, e, f = d1 @ d1, d2 @ d2, d2 @ r
+    # P27 / AC-7: a zero-length segment (head_h 0) made 0/0 = NaN, and NaN < margin is False: no crossing
+    if a <= 1e-12 and e <= 1e-12:
+        return float(np.linalg.norm(r))
+    if a <= 1e-12:
+        return float(np.linalg.norm(p1 - (p2 + np.clip(f / e, 0, 1) * d2)))
+    if e <= 1e-12:
+        return float(np.linalg.norm(p2 - (p1 + np.clip(-(d1 @ r) / a, 0, 1) * d1)))
     c, b = d1 @ r, d1 @ d2
     den = a * e - b * b
     s = np.clip((b * f - c * e) / den, 0, 1) if den > 1e-12 else 0.0
@@ -142,9 +151,12 @@ def check_one(f, meshes):
         if not tgt:
             errs.append(f"'into' part {into!r} matches no positioned STL")
         else:
+            # P27 / AC-10: material from r = 0.44 d, i.e. a pilot of at most 0.88 d (ISO tap drills 0.82-0.84 d;
+            # printed pilots run a little over). At r = d/2 an M4 bit "into" a 3.9 mm hole.
+            rb = BITE_R * d
             for t in samples(bf + 0.3, L - 0.3):
-                if not any(m.contains(ring(s + t * ax, ax, d / 2)).all() for m in tgt):
-                    errs.append(f"no thread material at {t:+.1f} mm (r {d / 2:.2f}) in {into}")
+                if not any(m.contains(ring(s + t * ax, ax, rb)).all() for m in tgt):
+                    errs.append(f"no thread material at {t:+.1f} mm (r {rb:.2f}, pilot over {2 * rb:.2f}) in {into}")
     # one message per kind keeps the report readable
     seen, out = set(), []
     for e in errs:
@@ -206,6 +218,17 @@ def covered_host_holes(m, meshes, n=20000, seed=0):
     keys = [key(i) for i in np.flatnonzero(touch)]
     (nv, off), _ = max(((k, keys.count(k)) for k in set(keys)), key=lambda kv: kv[1])
     nv = np.array(nv)
+    # P27 / AC-11: resample only the contact face, ~4 points per mm2 (a fixed 20000 over a 300 mm lid
+    # left a 4 mm hole with under 3 samples). shortcut: capped at 400000 points, ~100000 mm2 of face.
+    fn = P.face_normals
+    face_on = (np.abs(fn @ nv - 1) < 1e-3) & (np.abs(P.triangles_center @ nv - off) < 0.1)
+    if face_on.any():
+        sub = P.submesh([np.flatnonzero(face_on)], append=True)
+        k = int(min(400000, max(n, 4 * sub.area)))
+        sp, sfi = trimesh.sample.sample_surface(sub, k, seed=seed) if "seed" in trimesh.sample.sample_surface.__code__.co_varnames \
+            else trimesh.sample.sample_surface(sub, k)
+        pts = np.vstack([pts, sp]); nrm = np.vstack([nrm, sub.face_normals[sfi]])
+        touch = np.concatenate([touch, inside_host(sp + 0.3 * sub.face_normals[sfi])])
     on_plane = (np.abs(nrm @ nv - 1) < 1e-3) & (np.abs(pts @ nv - off) < 0.1)
     cand = np.flatnonzero(on_plane & ~touch)
     if not len(cand):
@@ -241,7 +264,10 @@ def render_instances(names, outdir="build/positioned", defs=None):
     """Render instance names missing from (or older than every .scad in) outdir via assembly.scad.
     defs: name -> {-D name: value}; default MODE="part" PART="<name>"."""
     os.makedirs(outdir, exist_ok=True)
-    newest = max((os.path.getmtime(p) for p in glob.glob("**/*.scad", recursive=True)), default=0)
+    # P27 / AC-16: import()ed data files count too, not only .scad (build/ output excluded)
+    newest = max((os.path.getmtime(p) for p in glob.glob("**/*", recursive=True)
+                  if p.endswith(".scad") or (p.lower().endswith(DATA_EXT) and not p.startswith("build" + os.sep)
+                                             and os.path.basename(p) not in ("fasteners.json",))), default=0)
     def same_defs(n):   # a body rendered with other -D values is stale too (sidecar <name>.D.json)
         try:
             return json.load(open(f"{outdir}/{n}.D.json")) == defs[n]
@@ -288,7 +314,12 @@ def main():
                 raise ValueError(f"purchased {n!r}: needs {{-D name: string or number}}")
         for m in mounts:
             m["part"], m["on"]
-        fs = [f for f in (data["fasteners"] if isinstance(data, dict) else data) if "start" in f]
+        allf = data["fasteners"] if isinstance(data, dict) else data
+        nostart = [f.get("name", f"#{i + 1}") for i, f in enumerate(allf)
+                   if isinstance(f, dict) and "start" not in f and any(k in f for k in ("name", "axis", "d", "length"))]
+        if nostart:   # P27 / AC-8: a typo ("strat") silently dropped the screw from every check
+            raise ValueError(f"fastener(s) without \"start\": {', '.join(map(str, nostart))}")
+        fs = [f for f in allf if "start" in f]
         for f in fs:
             for k in ("name", "axis", "d", "length"):
                 f[k]
@@ -298,9 +329,11 @@ def main():
     if inst and not a.stls:
         if not os.path.isfile("assembly.scad"):
             print("instances declared but no assembly.scad here", file=sys.stderr); return 2
-        stls, failed = render_instances(inst)
+        ist, failed = render_instances(inst)
         if failed:
             print(f"instances failed to render: {', '.join(failed)}", file=sys.stderr); return 2
+        # P27 / AC-6: the instance renders join build/positioned, they do not replace it (a cover there was ignored)
+        stls = sorted(set(stls) | set(ist))
     if not stls or not fs:
         print("no positioned STLs or no fasteners -- nothing checked", file=sys.stderr); return 2
     if purch:
@@ -311,6 +344,10 @@ def main():
             print(f"purchased bodies failed to render: {', '.join(failed)}", file=sys.stderr); return 2
         stls = list(stls) + pst
     meshes = {os.path.basename(p)[:-4]: trimesh.load(p, force="mesh") for p in stls}
+    leaky = sorted(n for n, m in meshes.items() if not m.is_watertight)
+    if leaky:   # P27 / AC-9: containment on an open mesh is meaningless (a cover missing one face blocked nothing)
+        print(f"not watertight, screw paths cannot be tested: {', '.join(leaky)} -- re-export closed meshes",
+              file=sys.stderr); return 2
     nbad = 0
     for f in fs:
         errs = check_one(f, meshes)

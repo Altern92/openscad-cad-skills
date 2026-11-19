@@ -79,11 +79,15 @@ def inventory(d):
         put(k + ".max_gap", j.get("max_gap"), "max", j.get("why", ""))
         an = j.get("angle") or {}
         put(k + ".angle.max_deg", an.get("max_deg"), "max", an.get("source", ""))
+    # P27 / AC-12 (Fable calculation audit): implicit defaults are inventoried (check_behavior.py's values),
+    # so writing one after approval is a change of a locked limit, not a "new" one that never fails
     cl = b.get("clearance") or {}
-    put("behavior.json clearance.default", cl.get("default"), "min")
+    if b:
+        put("behavior.json clearance.default", cl.get("default", 0.0), "min")
     for p in cl.get("pairs", []):
         put(f"behavior.json clearance[{p.get('a')}|{p.get('b')}].min", p.get("min"), "min", p.get("why", ""))
-    put("behavior.json ground.tol", (b.get("ground") or {}).get("tol"), "max")
+    if b.get("ground") is not None:
+        put("behavior.json ground.tol", (b.get("ground") or {}).get("tol", 0.5), "max")
 
     for c in rows(load(d, "loads.json"), "cases"):
         k = f"loads.json cases[{c.get('name')}]"
@@ -94,13 +98,24 @@ def inventory(d):
             put_eq(f"{k}.{fld}", c.get(fld, defaults.get(fld)))
         f = c.get("force_N")
         if isinstance(f, list) and len(f) == 3:
-            put(k + ".force_N", sum(float(x) ** 2 for x in f) ** 0.5, "min", c.get("source", ""))
+            mag = sum(float(x) ** 2 for x in f) ** 0.5
+            put(k + ".force_N", mag, "min", c.get("source", ""))
+            if mag > 0:   # P27 / AC-12: the direction is the check too (bending -> axial passed on magnitude)
+                put_eq(k + ".force_dir", [round(float(x) / mag, 6) for x in f])
 
     jj = load(d, "joints.json") or {}
     for m in rows(jj, "motion"):  # motion_sweep.py reads motion[].min_clearance_mm (P26 / AC-14)
-        put(f"joints.json motion[{m.get('id')}].min_clearance_mm", m.get("min_clearance_mm", 0.0), "min")
+        k = f"joints.json motion[{m.get('id')}]"
+        put(k + ".min_clearance_mm", m.get("min_clearance_mm", 0.0), "min")
+        put(k + ".step_deg", m.get("step_deg", 2.0), "max")          # P27 / AC-12: coarser = looser
+        rg = m.get("range_deg", [0.0, 360.0])
+        if isinstance(rg, list) and len(rg) == 2 and all(isinstance(x, (int, float)) for x in rg):
+            put(k + ".range_deg[lo]", min(rg), "max")                 # a narrower range is looser
+            put(k + ".range_deg[hi]", max(rg), "min")
+        for dv in m.get("drivers", []):
+            put_eq(f"{k} driver[{dv.get('part')}].teeth", dv.get("teeth"))  # teeth shortens the sweep
     for c in rows(jj, "contacts"):
-        r = c.get("expected_interference_mm")
+        r = c.get("expected_interference_mm", [0.0, 0.0])   # P27 / AC-12: an undeclared range is [0, 0]
         if isinstance(r, list) and len(r) == 2:
             k = f"joints.json contacts[{'|'.join(map(str, c.get('pair', [])))}].expected_interference_mm"
             put(k + "[lo]", r[0], "min", c.get("derivation", ""))
@@ -122,6 +137,16 @@ def inventory(d):
             arg = m.group(2) if m.group(1) == "MARGIN_EXCLUDES_OK" else ""
             inv[f"{rel} {m.group(1)}{(':' + arg) if arg else ''}"] = (1.0, "flag")
     return inv, questions
+
+
+def default_for(k, locked):
+    """The approved value a NEW key overrides (P27 / AC-12), or None when the key is a genuinely new check
+    (a new joint, load case or motion adds a test). A new contact's interference range overrides [0, 0]."""
+    if re.match(r"behavior\.json clearance\[.*\]\.min$", k) and "behavior.json clearance.default" in locked:
+        return float(locked["behavior.json clearance.default"][0])
+    if re.match(r"joints\.json contacts\[.*\]\.expected_interference_mm\[(lo|hi)\]$", k):
+        return 0.0
+    return None
 
 
 def check(d, brief=False):
@@ -171,6 +196,11 @@ def check(d, brief=False):
     for k, (v, dr) in sorted(inv.items()):
         if k not in locked and dr == "flag":
             bad.append(f"{k}: new opt-out (loosened; not in the approved limits)")
+        elif k not in locked:
+            base = default_for(k, locked)
+            if base is not None and ((dr == "max" and v > base + 1e-9) or (dr == "min" and v < base - 1e-9)):
+                bad.append(f"{k}: new limit {v:g} looser than the approved default {base:g} it overrides "
+                           f"(approved by \"{quote}\")")
     for t in tight:
         print(f"NOTE: tightened {t}")
     for x in bad:

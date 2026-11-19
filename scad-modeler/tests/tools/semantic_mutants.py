@@ -42,9 +42,12 @@ def main(scripts, fixtures, tsv):
                                 ignore=shutil.ignore_patterns("tests", "build", "__pycache__", ".git"))
                 s = os.path.join(t, "k", os.path.basename(os.path.abspath(scripts)))
                 with open(os.path.join(s, checker + ".py"), "w", encoding="utf-8") as f:
-                    f.write(src.replace(find, repl.strip(), 1))   # blank replace = delete the fragment
+                    # P27: the replacement keeps its own indentation (strip() made every indented one an
+                    # IndentationError, which prints no Traceback and was scored KILLED); blank = delete
+                    f.write(src.replace(find, repl if repl.strip() else "", 1))
                 rc, out = run_fixture(s, fixtures, fx)
-            verdict = "SURVIVED" if rc == 0 else "CRASH" if "Traceback (most recent call last)" in out else "KILLED"
+            crashed = any(w in out for w in ("Traceback (most recent call last)", "SyntaxError", "IndentationError"))
+            verdict = "SURVIVED" if rc == 0 else "CRASH" if crashed else "KILLED"
         print(f"{verdict:15s} {mid}  ({checker} -> {fx})")
         bad += verdict != "KILLED"
     return 1 if bad else 0

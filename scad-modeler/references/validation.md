@@ -657,6 +657,21 @@ inside the part's own mesh: a shelf 110 mm above its base passed every gate (rc 
   body in `fasteners.json` `"purchased": {"servo": {"MODE": "vit", "VIT": "servo"}}`: the check renders
   it from assembly.scad with those `-D` values into `build/purchased/` (never `build/positioned/`, so
   collisions do not see it) and treats it as material, `into` included (P26c).
+- P27 (Fable calculation audit, 2026-11-19), what the numbers now mean:
+  - strength: bending is unsymmetric (full second-moment tensor), so an oblique load adds both
+    components; an insert's blind depth is bisected to 0.01 mm, not rounded up.
+  - motion: `range_deg` [0, -90] is swept as [-90, 0]; `step_deg` <= 0 is bad input; declared contacts
+    are exempt from `min_clearance_mm`; `teeth` is honoured only if the part really repeats every pitch.
+  - fasteners: `instances` add to build/positioned; a screw without `start` and an open (not watertight)
+    mesh are bad input; thread material must start within 0.44 d (pilot <= 0.88 d); a covered host hole
+    is sampled at a density set by the contact face's area; renders re-make when an imported file changes.
+  - limits.lock: implicit defaults (clearance default, ground tol, interference [0, 0]), motion step and
+    range, `teeth` and the force direction are locked; a new clearance pair or contact range is compared
+    with the default it overrides.
+  - behavior: imported files are part of the render cache key; an angle echo printed twice (mirrored copy)
+    is judged by its worst value.
+  - features: a hole is a contour enclosed by an odd number of others (a solid pin is not a hole).
+  - dimensions: the tessellation bound excuses only a shorter extent; a longer one gets the 0.005 mm floor.
 - Every `LAYOUT` row gets its own positioned STL, including instances that reuse a part file (mirror
   copies such as `upper_arm_l`); before, the whole left side of an axle never reached collisions,
   contact_geometry, fasteners or the motion sweep. Name those copies in `joints.json` contacts,

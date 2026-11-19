@@ -168,6 +168,13 @@ def measure_hole(mesh, point, axis_name, expected_d):
                                   "coordinates and that the axis is right")
 
     poly, pts = min(containing, key=lambda t: t[0].area)
+    # P27 / AC-17 (Fable calculation audit): "not the largest contour" is not "a hole" -- a SOLID Ø8 pin next
+    # to a Ø20 boss passed as an Ø8 bore. A cavity is enclosed by an odd number of other contours.
+    rp = poly.representative_point()
+    depth = sum(1 for q, _ in loops if q is not poly and q.area > poly.area and q.contains(rp))
+    if depth % 2 == 0:
+        return None, None, None, ("the contour around that point is material (a pin or boss outline), "
+                                  "not a cavity -- no hole there")
     if poly.area >= outer_area:
         # The only thing enclosing the point is the part's own silhouette, so
         # there is no cavity here -- measuring it would silently report the

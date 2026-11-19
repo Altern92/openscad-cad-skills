@@ -1,3 +1,4 @@
 stale	check_strength	this text is not in the checker	pass	strength_gates
 crash	check_limits	inv, questions = inventory(d)	raise RuntimeError("boom")	limits_lock
 harmless	check_limits	EXIT_OK, EXIT_NONE, EXIT_FAIL, EXIT_USAGE = 0, 2, 3, 4	EXIT_OK, EXIT_NONE, EXIT_FAIL, EXIT_USAGE = (0, 2, 3, 4)	limits_lock
+indent	check_limits	    for t in tight:	for t in tight:	limits_lock

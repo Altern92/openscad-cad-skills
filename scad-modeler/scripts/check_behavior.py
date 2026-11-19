@@ -49,6 +49,7 @@ import glob
 import hashlib
 import itertools
 import json
+import weakref
 import os
 import re
 import subprocess
@@ -131,6 +132,9 @@ def fmt(v):
 
 
 INC_RE = re.compile(r"^\s*(?:use|include)\s*<([^>]+)>", re.M)
+# P27 / AC-13: import()/surface() data files are part of the render -- a moved import("servo.stl") kept
+# its stale cached mesh. shortcut: literal file names only; a computed path (str(...)) is not followed.
+DATA_RE = re.compile(r"\b(?:import|surface)\s*\(\s*(?:file\s*=\s*)?\"([^\"]+)\"")
 
 
 def deps_hash(scad):
@@ -145,8 +149,15 @@ def deps_hash(scad):
         with open(f, "rb") as fh:
             data = fh.read()
         h.update(f.encode()); h.update(data)
-        for inc in INC_RE.findall(data.decode("utf-8", "replace")):
+        txt = data.decode("utf-8", "replace")
+        for inc in INC_RE.findall(txt):
             todo.append(os.path.normpath(os.path.join(os.path.dirname(f), inc)))
+        for dat in DATA_RE.findall(txt):
+            dp = os.path.normpath(os.path.join(os.path.dirname(f), dat))
+            h.update(dp.encode())
+            if os.path.isfile(dp):
+                with open(dp, "rb") as dh:
+                    h.update(hashlib.sha256(dh.read()).digest())
     return h.hexdigest()
 
 
@@ -212,8 +223,12 @@ def loose_pieces(x, meshes, joints):
     if not partners:
         return []
     key = (x, id(meshes[x])) + tuple(id(meshes[y]) for y, _ in partners)
-    if key in _LOOSE:
-        return _LOOSE[key]
+    refs = [meshes[x]] + [meshes[y] for y, _ in partners]
+    hit = _LOOSE.get(key)
+    # P27 / AC-15: id() of a freed per-pose mesh can be reused; the entry holds weak references and only
+    # counts when they still point at these very objects
+    if hit is not None and all(w() is m for w, m in zip(hit[0], refs)):
+        return hit[1]
     pieces = [q for q in meshes[x].split(only_watertight=False)
               if min(q.extents) > PIECE_MIN_MM and not (q.is_watertight and q.volume < 0)]   # closed + negative = a cavity
     out = []
@@ -247,7 +262,7 @@ def loose_pieces(x, meshes, joints):
                 if not held[j]:
                     held[j] = True; stack.append(j)
         out = [(i, q, sorted(y for y, _ in partners)) for i, q in enumerate(pieces) if not held[i]]
-    _LOOSE[key] = out
+    _LOOSE[key] = ([weakref.ref(m) for m in refs], out)
     return out
 
 
@@ -305,6 +320,7 @@ def echo_values(rnd, scad, defines, names):
     """Run OpenSCAD for its echo output only; {name: float} for `ECHO: NAME = v` lines."""
     scad = os.path.normpath(os.path.join(rnd.project, scad or rnd.scad))
     args = sum((["-D", f"{k}={fmt(v)}"] for k, v in defines.items()), [])
+    args += sum((["-D", f"{k}={v}"] for k, v in rnd.extra), [])   # same command-line defines as the meshes
     out = os.path.join(rnd.cache, hashlib.sha256((rnd.salt(scad) + scad + " ".join(args)).encode()).hexdigest()[:20] + ".echo")
     if not os.path.exists(out):
         r = subprocess.run([rnd.openscad, "-o", out] + args + [scad], cwd=os.path.dirname(scad), capture_output=True, text=True)
@@ -312,10 +328,10 @@ def echo_values(rnd, scad, defines, names):
             raise RuntimeError(f"echo run failed for {scad}: {r.stderr[-400:]}")
     txt = open(out, encoding="utf-8", errors="replace").read()
     vals = {}
-    for n in names:
-        m = re.search(rf"(?:ECHO: |, ){re.escape(n)} = (-?[0-9.]+(?:e[-+]?[0-9]+)?)", txt)   # echo(A=.., B=..) prints one line
-        if m:
-            vals[n] = float(m.group(1))
+    for n in names:   # echo(A=.., B=..) prints one line
+        hits = [float(v) for v in re.findall(rf"(?:ECHO: |, ){re.escape(n)} = (-?[0-9.]+(?:e[-+]?[0-9]+)?)", txt)]
+        if hits:      # P27 / AC-14: every match, worst |value| (a mirrored copy echoes the same name)
+            vals[n] = max(hits, key=abs)
     return vals
 
 

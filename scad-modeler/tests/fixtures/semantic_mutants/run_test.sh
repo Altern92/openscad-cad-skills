@@ -13,7 +13,7 @@ echo "$o"
 [ "$r" -eq 0 ] || { echo "AC-8: a semantic mutant was not killed" >&2; fail=1; }
 o=$(python3 "$R" "$SCAD_MODELER_SCRIPTS" "$F" "$here/bad.tsv"); r=$?
 [ "$r" -eq 1 ] || { echo "AC-8: bad catalogue must exit 1" >&2; fail=1; }
-for w in "NOT_APPLICABLE  stale" "CRASH           crash" "SURVIVED        harmless"; do
+for w in "NOT_APPLICABLE  stale" "CRASH           crash" "SURVIVED        harmless" "CRASH           indent"; do   # indent: P27, a SyntaxError is no kill
     grep -qF <<< "$o" "$w" || { echo "AC-8: runner did not report '$w': $o" >&2; fail=1; }
 done
 exit $fail

@@ -185,6 +185,16 @@ def allowed_depth(entry):
     return float(rng[1]) + 0.01 if rng else 0.05
 
 
+def symmetric_under(mesh, driver, period, tol=0.1, n=3000):
+    """True when the part's surface maps onto itself after turning by one period (within tol mm)."""
+    pts = trimesh.sample.sample_surface(mesh, n, seed=0)[0] if "seed" in trimesh.sample.sample_surface.__code__.co_varnames \
+        else trimesh.sample.sample_surface(mesh, n)[0]
+    T = transform_for(driver, period)
+    moved = trimesh.transform_points(pts, T)
+    _, dist, _ = trimesh.proximity.closest_point(mesh, moved)
+    return float(np.max(dist)) <= tol
+
+
 def transform_for(driver, t):
     """4x4 placement of a driven part at sweep parameter t (degrees)."""
     axis = np.array(driver.get("axis", [0, 0, 1]), dtype=float)
@@ -317,11 +327,13 @@ class Pairwise:
                     m.set_transform(name, transforms[name])
             if m.in_collision_internal():
                 if (a, b) in self.allow and self.depth(a, b, transforms) <= self.allow[(a, b)]:
-                    if 0.0 < worst:
-                        worst, worst_pair = 0.0, (a, b)
                     continue
                 colliding.append((a, b))
                 worst, worst_pair = -1.0, (a, b)
+                continue
+            if (a, b) in self.allow:
+                # P27 / AC-4: a declared contact is held to its interference range only; min_clearance_mm
+                # is for every OTHER pair (before, a hinge pin scored 0.0 and no hinge could pass 0.3)
                 continue
             d = float(m.min_distance_internal())
             if d < worst:
@@ -361,11 +373,19 @@ def run_motion(motion, meshes, paths, contacts, step_override, verbose=True):
               f"involving a moving part is a declared contact.")
         return {"id": motion.get("id"), "pass": True, "samples": 0}
 
-    lo, hi = motion.get("range_deg", [0.0, 360.0])
+    lo, hi = sorted(float(x) for x in motion.get("range_deg", [0.0, 360.0]))   # P27 / AC-3: [0, -90] is [-90, 0]
     step = step_override or float(motion.get("step_deg", 2.0))
+    if not step > 0:
+        print(f"ERROR: motion '{motion.get('id')}': step_deg must be > 0 (got {step:g})", file=sys.stderr)
+        return None
     min_clear = float(motion.get("min_clearance_mm", 0.0))
 
     period = sweep_period(motion)
+    if period and period < (hi - lo) and not all(symmetric_under(meshes[d["_path"]], d, period) for d in drivers):
+        # P27 / AC-5: `teeth` is a claim; a part that does not repeat every pitch gets the full sweep
+        if verbose:
+            print(f"  gear periodicity refused: a driven part does not repeat after {period:.3f}deg -- full range swept")
+        period = None
     if period and period < (hi - lo):
         if verbose:
             z = [d.get("teeth") for d in drivers]

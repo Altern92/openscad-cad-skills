@@ -1,0 +1,1 @@
+{"static": ["pin", "far"], "contacts": [{"pair": ["pin", "arm"], "joint_type": "hinge", "expected_interference_mm": [0, 0.1], "derivation": "line-to-line pin"}], "motion": [{"id": "swing", "range_deg": [0, 90], "step_deg": 5, "min_clearance_mm": 0.0, "drivers": [{"part": "arm", "type": "revolute", "axis": [0, 0, 1], "origin": [0, 0, 0], "ratio": 1}]}]}

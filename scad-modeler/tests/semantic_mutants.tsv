@@ -9,4 +9,12 @@ limits_no_min	check_limits	or (dr == "min" and v < v0 - 1e-9)	 	limits_lock
 geometry_no_cap	check_joint_graph	        elif gap > MAX_GAP_MM:	        elif gap > 1e9:	contact_geometry
 fasteners_no_seat	check_fasteners	            not any(m.contains(ring(s + 0.3 * ax, ax, seat_r)).any() for m in meshes.values()):	            False:	fasteners_empty_space
 strength_union	check_strength	                polys = [min(cand, key=lambda t: t[0])[1]]	                polys = [__import__("shapely.ops").ops.unary_union([c[1] for c in cand])]	strength_single_piece
-fasteners_no_purchased	check_fasteners	        stls = list(stls) + pst	        stls = list(stls)	fasteners_purchased
+fasteners_no_purchased	check_fasteners	stls = list(stls) + pst	stls = list(stls)	fasteners_purchased
+motion_desc_range	motion_sweep	lo, hi = sorted(float(x) for x in motion.get("range_deg", [0.0, 360.0]))   # P27 / AC-3: [0, -90] is [-90, 0]	lo, hi = (float(x) for x in motion.get("range_deg", [0.0, 360.0]))	p27_motion
+fasteners_instances_replace	check_fasteners	stls = sorted(set(stls) | set(ist))	stls = ist	p27_fasteners
+behavior_first_echo	check_behavior	vals[n] = max(hits, key=abs)	vals[n] = hits[0]	p27_behavior
+features_pin_as_hole	check_features	if depth % 2 == 0:	if False:	p27_features_dims
+dims_two_sided	check_dimensions	tol_i = tolerances[i] if flat_mode or actual[i] <= expected[i] else args.floor	tol_i = tolerances[i]	p27_features_dims
+limits_no_step	check_limits	put(k + ".step_deg", m.get("step_deg", 2.0), "max")          # P27 / AC-12: coarser = looser	pass	p27_limits
+strength_mx_only	check_strength	a, b = np.linalg.solve(np.array([[Sxy, Syy], [Sxx, Sxy]]), np.array([mb2[0], -mb2[1]]))	a, b = np.linalg.solve(np.array([[Sxy, Syy], [Sxx, Sxy]]), np.array([mb2[0], 0.0]))	p27_strength
+strength_my_only	check_strength	a, b = np.linalg.solve(np.array([[Sxy, Syy], [Sxx, Sxy]]), np.array([mb2[0], -mb2[1]]))	a, b = np.linalg.solve(np.array([[Sxy, Syy], [Sxx, Sxy]]), np.array([0.0, -mb2[1]]))	p27_strength

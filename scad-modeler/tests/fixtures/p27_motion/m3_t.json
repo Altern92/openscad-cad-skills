@@ -1,0 +1,1 @@
+{"static": ["post"], "motion": [{"id": "spin", "range_deg": [0, 360], "step_deg": 2, "drivers": [{"part": "gear", "type": "revolute", "axis": [0, 0, 1], "origin": [0, 0, 0], "ratio": 1, "teeth": 20}]}]}

@@ -97,9 +97,14 @@ def check_insert(f, spec, m):
     # bottom = where the hole narrows below the insert's hole (solid, or a screw clearance hole
     # continuing past it -- the axis alone saw that as "through", rear_axle_v4 2026-11-18)
     bottom = None
+    solid = lambda t: m.contains(ring(s + t * ax, ax, D3 / 2 - 0.15)).all()
     for t in np.arange(t0 + 0.25, t0 + L + 3.0, 0.25):
-        if m.contains(ring(s + t * ax, ax, D3 / 2 - 0.15)).all():
-            bottom = t; break
+        if solid(t):
+            lo, bottom = t - 0.25, t      # P27 / AC-2: bisect, a 0.25 mm grid rounded a 6.55 hole up to 6.75
+            while bottom - lo > 0.01:
+                mid = (lo + bottom) / 2
+                lo, bottom = (lo, mid) if solid(mid) else (mid, bottom)
+            break
     if bottom is not None and bottom - t0 < L + 1.0 - 0.05:
         out.append(f"blind depth {bottom - t0:.2f} mm < L + 1 = {L + 1.0:.1f} (insert bottoms out, melt has nowhere to go)")
     mid = s + (t0 + L / 2) * ax
@@ -182,12 +187,12 @@ def check_load(case, m, mats):
         mb2 = (R.T @ Mb)[:2]
         sig = abs(float(F @ n)) / A
         if np.linalg.norm(mb2) > 1e-9:
-            e = mb2 / np.linalg.norm(mb2)
-            mperp = np.array([-e[1], e[0]])             # distance from the neutral axis runs along mperp
-            I = mperp[0] ** 2 * Sxx + 2 * mperp[0] * mperp[1] * Sxy + mperp[1] ** 2 * Syy
-            pts = np.vstack([np.asarray(q.exterior.coords) for q in polys])
-            cfar = float(np.max(np.abs((pts - c2) @ mperp)))
-            sig += float(np.linalg.norm(Mb)) * cfar / I
+            # P27 / AC-1 (Fable calculation audit): |M| c / I about the moment axis holds only on a principal
+            # axis; an oblique load on a 20x2 bar read 5.9 MPa for ~30. Unsymmetric bending: sigma = a x + b y
+            # (centroid origin) with Mx = int y sigma, My = -int x sigma; Sxx = int x^2, Syy = int y^2.
+            a, b = np.linalg.solve(np.array([[Sxy, Syy], [Sxx, Sxy]]), np.array([mb2[0], -mb2[1]]))
+            pts = np.vstack([np.asarray(q.exterior.coords) for q in polys]) - c2
+            sig += float(np.max(np.abs(pts @ np.array([a, b]))))
         if worst is None or sig > worst[0]:
             worst = (sig, k + 1, A)
     if gaps:
