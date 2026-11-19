@@ -73,3 +73,14 @@ Tier: feature. Keičiami `validate_scad.sh`, `check_joint_graph.py`, `check_beha
 
 Ne apimtyje: HMAC kvitų parašas (AC-12 gaudo rankinį rašymą įrankiais), hook'o įrašymas į vartotojo
 `settings.json` iš `install.sh` (tik įspėjimas).
+
+## P26c (2026-11-19): purchased bodies in the fastener check
+
+- **AC-22** Given `fasteners.json` `"purchased": {"tab": {"MODE": "vit", "VIT": "tab"}}` and an
+  assembly.scad that renders that body, when `check_fasteners.py` runs, then the body is rendered into
+  `build/purchased/tab.stl` (not `build/positioned/`, so collisions never see it) and counts as
+  material for head seat, shank, pilot and `into`: a screw whose head seats on the purchased tab passes.
+- **AC-22b** Given the same screw without the `purchased` entry, then it FAILs "head seats on nothing".
+- **AC-22c** Given a purchased entry whose render fails (unknown VIT), then rc 2 naming the body;
+  a `-D` key that is not an identifier, or a value that is not a string or number, is bad input (rc 2).
+- Fixture: `scad-modeler/tests/fixtures/fasteners_purchased/`. Use: front_axle_v4 servo tab screws (MG996R).

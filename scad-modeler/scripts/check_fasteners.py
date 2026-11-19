@@ -40,6 +40,11 @@ assembly.scad. Declare what each such part is bolted to, so a part with no screw
             it but host material all around (a hole, not the host's edge) -> "covers host hole
             at (x, y, z)". Intended ones go in the mount's "covered_ok": [[x, y, z], ...].
 Host screw heads under the mounted part are the "head blocked" check: declare the host's screws too.
+
+Purchased bodies a screw clamps (P26c, e.g. a servo tab): name them with the assembly.scad -D values
+that render each one positioned, and they count as material in every test below (`into` may name one):
+  {"purchased": {"servo": {"MODE": "vit", "VIT": "servo"}}, "fasteners": [...]}
+They are rendered to build/purchased/<name>.stl, outside build/positioned, so collision gates never see them.
 shortcut: the contact face is the largest flat patch of the part touching the host; a part touching
 its host on several planes is checked on that one plane only.
 
@@ -53,7 +58,7 @@ Pairwise: head and shank cylinders of two fasteners closer than r1 + r2 + 0.5 mm
 Exit 0 all OK, 3 any failure, 2 bad input.
 shortcut: rings sample 12 points; a feature narrower than ~30 deg of arc can slip between them.
 """
-import argparse, glob, itertools, json, os, subprocess, sys
+import argparse, glob, itertools, json, os, re, subprocess, sys
 from concurrent.futures import ThreadPoolExecutor
 
 try:
@@ -232,16 +237,34 @@ def covered_host_holes(m, meshes, n=20000, seed=0):
     return [c for c in out if not any(np.linalg.norm(c - o) < 3.0 for o in ok)]
 
 
-def render_instances(names, outdir="build/positioned"):
-    """Render instance names missing from (or older than every .scad in) outdir via assembly.scad."""
+def render_instances(names, outdir="build/positioned", defs=None):
+    """Render instance names missing from (or older than every .scad in) outdir via assembly.scad.
+    defs: name -> {-D name: value}; default MODE="part" PART="<name>"."""
     os.makedirs(outdir, exist_ok=True)
     newest = max((os.path.getmtime(p) for p in glob.glob("**/*.scad", recursive=True)), default=0)
-    todo = [n for n in names if not os.path.isfile(f"{outdir}/{n}.stl") or os.path.getmtime(f"{outdir}/{n}.stl") < newest]
+    def same_defs(n):   # a body rendered with other -D values is stale too (sidecar <name>.D.json)
+        try:
+            return json.load(open(f"{outdir}/{n}.D.json")) == defs[n]
+        except (OSError, ValueError):
+            return not explicit
+    explicit = defs is not None and outdir != "build/positioned"
+    defs = defs or {n: {"MODE": "part", "PART": n} for n in names}
+    todo = [n for n in names if not os.path.isfile(f"{outdir}/{n}.stl") or os.path.getmtime(f"{outdir}/{n}.stl") < newest
+            or not same_defs(n)]
     exe = os.environ.get("OPENSCAD", "openscad")
 
     def one(n):
-        r = subprocess.run([exe, "--backend=Manifold", "-o", f"{outdir}/{n}.stl", "--export-format=binstl",
-                            "-D", 'MODE="part"', "-D", f'PART="{n}"', "assembly.scad"], capture_output=True)
+        dv = [x for k, v in defs[n].items() for x in ("-D", f"{k}={json.dumps(v)}")]
+        r = subprocess.run([exe, "--backend=Manifold", *(["--hardwarnings"] if explicit else []), "-o",
+                            f"{outdir}/{n}.stl", "--export-format=binstl", *dv, "assembly.scad"], capture_output=True)
+        if not r.returncode and explicit:
+            json.dump(defs[n], open(f"{outdir}/{n}.D.json", "w"))
+        if r.returncode:
+            for x in (f"{outdir}/{n}.stl", f"{outdir}/{n}.D.json"):
+                try:
+                    os.remove(x)
+                except OSError:
+                    pass
         return n, r.returncode
     with ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as ex:
         failed = [n for n, rc in ex.map(one, todo) if rc]
@@ -257,6 +280,12 @@ def main():
         data = json.load(open(a.fasteners))
         inst = data.get("instances", []) if isinstance(data, dict) else []
         mounts = data.get("mounts", []) if isinstance(data, dict) else []
+        purch = data.get("purchased", {}) if isinstance(data, dict) else {}
+        for n, dv in purch.items():
+            if not re.fullmatch(r"[A-Za-z0-9_]+", n) or not isinstance(dv, dict) or not dv or any(
+                    not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", k) or isinstance(v, bool)
+                    or not isinstance(v, (str, int, float)) for k, v in dv.items()):
+                raise ValueError(f"purchased {n!r}: needs {{-D name: string or number}}")
         for m in mounts:
             m["part"], m["on"]
         fs = [f for f in (data["fasteners"] if isinstance(data, dict) else data) if "start" in f]
@@ -274,6 +303,13 @@ def main():
             print(f"instances failed to render: {', '.join(failed)}", file=sys.stderr); return 2
     if not stls or not fs:
         print("no positioned STLs or no fasteners -- nothing checked", file=sys.stderr); return 2
+    if purch:
+        if not os.path.isfile("assembly.scad"):
+            print("purchased bodies declared but no assembly.scad here", file=sys.stderr); return 2
+        pst, failed = render_instances(list(purch), "build/purchased", purch)
+        if failed:
+            print(f"purchased bodies failed to render: {', '.join(failed)}", file=sys.stderr); return 2
+        stls = list(stls) + pst
     meshes = {os.path.basename(p)[:-4]: trimesh.load(p, force="mesh") for p in stls}
     nbad = 0
     for f in fs:

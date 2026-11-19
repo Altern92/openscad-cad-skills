@@ -9,3 +9,4 @@ limits_no_min	check_limits	or (dr == "min" and v < v0 - 1e-9)	 	limits_lock
 geometry_no_cap	check_joint_graph	        elif gap > MAX_GAP_MM:	        elif gap > 1e9:	contact_geometry
 fasteners_no_seat	check_fasteners	            not any(m.contains(ring(s + 0.3 * ax, ax, seat_r)).any() for m in meshes.values()):	            False:	fasteners_empty_space
 strength_union	check_strength	                polys = [min(cand, key=lambda t: t[0])[1]]	                polys = [__import__("shapely.ops").ops.unary_union([c[1] for c in cand])]	strength_single_piece
+fasteners_no_purchased	check_fasteners	        stls = list(stls) + pst	        stls = list(stls)	fasteners_purchased

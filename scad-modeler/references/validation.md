@@ -653,7 +653,10 @@ inside the part's own mesh: a shelf 110 mm above its base passed every gate (rc 
 - Fasteners must seat the head on material and pass through a part; strength cuts one section piece
   (the one on the support-load line) from 0.2 mm inside each end. An interface screw whose head clamps
   a part from another module sets `"seat_external": "<reason>"`: that waives the head seat only, the
-  shank must still pass through material.
+  shank must still pass through material. A screw that clamps a purchased body (a servo tab) lists that
+  body in `fasteners.json` `"purchased": {"servo": {"MODE": "vit", "VIT": "servo"}}`: the check renders
+  it from assembly.scad with those `-D` values into `build/purchased/` (never `build/positioned/`, so
+  collisions do not see it) and treats it as material, `into` included (P26c).
 - Every `LAYOUT` row gets its own positioned STL, including instances that reuse a part file (mirror
   copies such as `upper_arm_l`); before, the whole left side of an axle never reached collisions,
   contact_geometry, fasteners or the motion sweep. Name those copies in `joints.json` contacts,
