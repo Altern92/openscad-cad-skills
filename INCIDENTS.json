@@ -3,6 +3,16 @@
   "description": "Append-only structured log of real bugs found and fixed across OpenSCAD skills (scad-modeler, openscad-cad, openscad-organic). Use scripts/incidents.py to check, list, search, show, or add entries.",
   "entries": [
     {
+      "id": "INC-2026-11-19-05",
+      "date": "2026-11-19",
+      "title": "install.sh hook warning fired although Stop hook registered",
+      "where": "install.sh (P26 AC-12)",
+      "symptom": "deploy printed 'no Claude Code settings file registers the scad-modeler Stop hook' while ~/.claude/settings.json registers scad-stop-gate",
+      "root_cause": "set -o pipefail: cat exits 1 when one of the listed settings files is missing, so the pipeline failed even though grep matched; my earlier test ran without pipefail",
+      "fix": "{ cat ... || true; } | grep -qE; tested real HOME (no warning) and fake HOME without hook (warning)",
+      "promoted_to_rule": "not yet"
+    },
+    {
       "id": "INC-2026-11-19-04",
       "date": "2026-11-19",
       "title": "Checkers silently passed unreadable or absent inputs",

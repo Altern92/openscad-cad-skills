@@ -82,8 +82,8 @@ echo "installed $(git -C "$SRC" rev-parse --short HEAD) from $REPO into $TARGET"
 
 # P26 / AC-12: the Stop gate only guards a session when Claude Code runs it. Say so when nothing registers it.
 # cat first: BSD grep exits 2 when any listed file is missing, even after a match
-if ! cat "$HOME/.claude/settings.json" "$HOME/.claude/settings.local.json" .claude/settings.json \
-        .claude/settings.local.json 2>/dev/null | grep -qE 'scad_stop_gate|scad-stop-gate'; then
+if ! { cat "$HOME/.claude/settings.json" "$HOME/.claude/settings.local.json" .claude/settings.json \
+        .claude/settings.local.json 2>/dev/null || true; } | grep -qE 'scad_stop_gate|scad-stop-gate'; then
     echo "WARNING: no Claude Code settings file registers the scad-modeler Stop hook, so a session can end without validating." >&2
     echo "         Add a Stop hook running: python3 $TARGET/scad-modeler/hooks/scad_stop_gate.py (README -> Stop gate)." >&2
 fi
