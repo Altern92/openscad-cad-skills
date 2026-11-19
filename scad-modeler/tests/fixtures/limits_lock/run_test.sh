@@ -18,7 +18,7 @@ mk() {  # fresh project in $tmp/p
  "ground": {"z": 0, "bodies": ["base"], "tol": 0.5}}
 J
     echo '{"cases": [{"name": "drop", "part": "arm", "support": [0,0,0], "at": [1,0,0], "force_N": [0,0,-40], "material": "PETG Basic", "safety": 2.0}]}' > loads.json
-    echo '{"contacts": [{"pair": ["arm", "base"], "expected_interference_mm": [0, 0.05]}], "min_clearance_mm": 0.2}' > joints.json
+    echo '{"contacts": [{"pair": ["arm", "base"], "expected_interference_mm": [0, 0.05]}], "motion": [{"id": "swing", "min_clearance_mm": 0.2, "drivers": []}]}' > joints.json
     printf '// EXPECTED_BBOX: [10, 10, 10]\n// EXPECTED_BBOX_TOL: 0.01\ncube(10);\n' > parts/a.scad
     echo '[{"name": "arm_boss", "part": "arm", "to": "base", "min_material_mm": 1.5}]' > attachments.json   # bare-list form (RC projects)
 }
@@ -48,7 +48,8 @@ for c in 'd["joints"][0]["angle"]["max_deg"] = 25|behavior.json|max_deg' \
          'd["cases"][0]["safety"] = 1.5|loads.json|safety' \
          'd["cases"][0]["force_N"] = [0,0,-10]|loads.json|force_N' \
          'd["contacts"][0]["expected_interference_mm"] = [0, 0.5]|joints.json|expected_interference_mm' \
-         'd["min_clearance_mm"] = 0|joints.json|min_clearance_mm' \
+         'd["motion"][0]["min_clearance_mm"] = 0|joints.json|min_clearance_mm' \
+         'd["cases"][0]["reach"] = 80|loads.json|reach' \
          'd[0]["min_material_mm"] = 0.5|attachments.json|min_material_mm'; do
     IFS='|' read -r expr file word <<< "$c"; CASE="loosen $file $word"
     cp limits.lock "$tmp/l"; mk; cp "$tmp/l" limits.lock; edit "$file" "$expr"
@@ -56,6 +57,17 @@ for c in 'd["joints"][0]["angle"]["max_deg"] = 25|behavior.json|max_deg' \
 done
 CASE="loosen BBOX_TOL"; mk; cp "$tmp/l" limits.lock; sed -i '' 's/BBOX_TOL: 0.01/BBOX_TOL: 0.5/' parts/a.scad; expect 3 "loosened" "EXPECTED_BBOX_TOL"
 CASE="new opt-out"; mk; cp "$tmp/l" limits.lock; printf '// NO_JOINT: lazy\n' >> parts/a.scad; expect 3 "loosened" "NO_JOINT"
+# P26 / AC-13 (Fable audit e6): opt-outs the gates honour but the lock missed
+CASE="bare PREVIEW_FILE"; mk; cp "$tmp/l" limits.lock; printf '// PREVIEW_FILE\n' >> parts/a.scad; expect 3 "loosened" "PREVIEW_FILE"
+CASE="LIBRARY_FILE"; mk; cp "$tmp/l" limits.lock; printf '// LIBRARY_FILE: helpers\n' >> parts/a.scad; expect 3 "loosened" "LIBRARY_FILE"
+CASE="EXPECTED_BODIES up"; mk; printf '// EXPECTED_BODIES: 1\n' >> parts/a.scad; python3 "$C" approve --quote "taip, tinka" --project-dir "$tmp/p" >/dev/null
+sed -i '' 's/EXPECTED_BODIES: 1/EXPECTED_BODIES: 2/' parts/a.scad; expect 3 "loosened" "EXPECTED_BODIES"
+for c in 'd["cases"][0]["material"] = "PLA"|material' 'd["cases"][0]["support"] = [5,0,0]|support' 'd["cases"][0]["print_up"] = [1,0,0]|print_up'; do
+    IFS='|' read -r expr word <<< "$c"; CASE="change loads $word"
+    mk; cp "$tmp/l" limits.lock; edit loads.json "$expr"; expect 3 "changed" "$word"
+done
+CASE="lock deleted"; mk; cp "$tmp/l" limits.lock; mkdir -p build; echo '{"mode":"--all","limits_locked":true}' > build/.validation_state.json
+rm limits.lock; expect 3 "is gone"
 CASE="tighten"; mk; cp "$tmp/l" limits.lock; edit behavior.json 'd["joints"][0]["max_gap"] = 0.1'; expect 0 "tightened"
 CASE="bad json"; mk; cp "$tmp/l" limits.lock; echo '{' > loads.json; expect 4 "loads.json"
 # validate_scad.sh wiring: a loosened BBOX_TOL turns the run red

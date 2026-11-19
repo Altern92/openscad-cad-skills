@@ -61,4 +61,11 @@ want = hashlib.sha256(open(q + "/loads.json", "rb").read()).hexdigest()
 assert d and d.get("loads.json") == want, f"AC-1: declarations missing/wrong: {d}"
 assert s.get("skill"), f"AC-1: no skill version in {sorted(s)}"
 PY
+# P26 / AC-10 (Fable audit e1): --all, then a declaration edit, then a single-part run -> still blocked
+echo '{"cases": [{"name": "x"}]}' > "$Q/loads.json"
+(cd "$Q" && bash "$SCAD_MODELER_SCRIPTS/validate_scad.sh" parts/a.scad >/dev/null 2>&1)
+edit "$Q/loads.json" "$tmp/tq.jsonl"
+out=$(printf '{"transcript_path":"%s","stop_hook_active":false,"cwd":"%s"}' "$tmp/tq.jsonl" "$Q" | python3 "$H")
+blocks "$out" && grep -q <<< "$out" 'loads.json' \
+    || { echo "AC-10: single-part run erased the declaration guard: $out $(cat "$Q/build/.validation_state.json")" >&2; fail=1; }
 exit $fail

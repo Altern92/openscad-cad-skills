@@ -125,6 +125,7 @@ DECL_MISSING=""   # P15: parts with no size / through-hole declaration
 RENDER_FAIL=0
 RENDER_FAILED_FILES=""
 LIB_COUNT=0
+CONN_RAN=0
 LIB_SKIPPED=""
 
 validate_file() {
@@ -179,12 +180,21 @@ validate_file() {
     # note on the empty-STL branch below. openscad reports it as "Current top
     # level object is empty." AND exits non-zero, so this has to be tested
     # before the generic render failure, not after it.
+    # P26 / AC-5 (Fable audit e10): "defines a module" was taken as "is a library", so a part that lost its
+    # top-level call passed --all with render/connectivity/declarations=PASS. A library now says so in writing.
     if grep -qi "top level object is empty" "$render_out" \
-        && grep -qE '^[[:space:]]*module[[:space:]]' "$scad"; then
+        && grep -qE '^[[:space:]]*//[[:space:]]*LIBRARY_FILE[[:space:]]*:[[:space:]]*[^[:space:]]' "$scad"; then
         rm -f "$render_out"
         LIB_COUNT=$((LIB_COUNT + 1))
-        echo "SKIP: $scad defines module(s) but instantiates none, so it renders no geometry -- a shared library file, not a printable part. If it was meant to be printable, its top-level call is missing."
+        echo "SKIP: $scad declares LIBRARY_FILE and renders no geometry -- a shared module library, not a printable part."
         return 0
+    fi
+    if grep -qi "top level object is empty" "$render_out"; then
+        rm -f "$render_out"
+        echo "ERROR: $scad renders nothing (no top-level call, or a boolean that removes everything). A shared module library declares // LIBRARY_FILE: <reason>." >&2
+        RENDER_FAIL=1
+        RENDER_FAILED_FILES="$RENDER_FAILED_FILES $scad"
+        return 1
     fi
     rm -f "$render_out"
 
@@ -229,7 +239,9 @@ validate_file() {
     # the legs' contact with the disc they were supposed to hold up, and
     # nothing checked for it because no check looked for it). Declare
     # `// EXPECTED_BODIES: N` in the part file for the rare intentional case.
-    if [[ "$scad" == parts/* ]] && [ "$is_preview" -eq 0 ]; then
+    # P26 / AC-6 (Fable audit e7): a lone file (the openscad-cad path) printed connectivity=PASS without the check
+    if [ "$is_preview" -eq 0 ] && { [[ "$scad" == parts/* ]] || { [ "$MODE" != "--all" ] && [ "$(basename "$scad")" != "assembly.scad" ]; }; }; then
+        CONN_RAN=1
         if ! python3 "$SCRIPT_DIR/check_connectivity.py" --stl "$stl" --scad "$scad"; then
             PART_CONNECTIVITY_FAIL=1
             this_failed=1
@@ -598,6 +610,12 @@ if [[ "$MODE" == "--all" ]]; then
             OVERALL_FAIL=1
             log_check "behavior" 1 "check_behavior.py --project-dir ." "FAIL (exit $_bh_rc)"
         fi
+    elif [ -f assembly.scad ] && [ "$(grep -L -E '^[[:space:]]*//[[:space:]]*(PREVIEW_FILE|LIBRARY_FILE)' ${parts[@]+"${parts[@]}"} 2>/dev/null | wc -l)" -ge 2 ]; then
+        # P26 / AC-2 (Fable audit 2026-11-19): without behavior.json an assembly with a floating part passed rc=0
+        echo "CHECK_RESULT behavior=FAIL"
+        echo "  -> assembly with 2+ printable parts and no behavior.json: nothing proves the parts touch, move without collision and stand. Copy templates/behavior.json to the project root and list every part as a body."
+        OVERALL_FAIL=1
+        log_check "behavior" 1 "validate_scad.sh --all" "FAIL: 2+ part assembly without behavior.json"
     else
         echo "CHECK_RESULT behavior=SKIP"
         echo "  -> no behavior.json: nothing checks that the assembled parts and purchased parts really touch, move without collision and stand. Copy templates/behavior.json to the project root."
@@ -789,6 +807,7 @@ sys.exit(0 if motion else 1)
         {
             echo "--- Rendering positioned parts (assembly coordinates) for the collisions check ---"
             mkdir -p "$BUILD_DIR/positioned"
+            rm -f "$BUILD_DIR/positioned/"*.stl  # P26 / AC-17: a part that no longer renders must not leave a stale mesh
             shopt -s nullglob
             positioned_stls=()
             for scad in ${parts[@]+"${parts[@]}"}; do
@@ -848,7 +867,8 @@ sys.exit(0 if motion else 1)
 import sys
 rows = [l.split() for l in sys.stdin.read().strip().split(chr(10)) if l.strip()]
 asm = [float(x) for x in rows[0]]
-print(sum(1 for r in rows[1:] if all(abs(float(r[a]) - asm[a]) < 0.01 for a in range(3))))
+n = sum(1 for r in rows[1:] if all(abs(float(r[a]) - asm[a]) < 0.01 for a in range(3)))
+print(n if n >= 2 else 0)  # P26 / AC-4: one enclosure may span the assembly; copies of it are 2+
 ')
                 fi
             fi
@@ -876,6 +896,23 @@ print(sum(1 for r in rows[1:] if all(abs(float(r[a]) - asm[a]) < 0.01 for a in r
                     echo "CHECK_RESULT collisions=FAIL"
                     OVERALL_FAIL=1
                     log_check "collisions" 1 "check_collisions.py (via validate_scad.sh)" "FAIL"
+                fi
+                # P26 / AC-1: every declared joint must touch on the positioned meshes
+                if [ -f joints.json ] || [ -f attachments.json ]; then
+                    _cg_out=$(python3 "$SCRIPT_DIR/check_joint_graph.py" --project-dir . --geometry "$BUILD_DIR/positioned" 2>&1); _cg_rc=$?
+                    echo "$_cg_out"
+                    if [ $_cg_rc -eq 0 ] && grep -q '^SKIP' <<< "$_cg_out"; then
+                        echo "CHECK_RESULT contact_geometry=SKIP"
+                    elif [ $_cg_rc -eq 0 ]; then
+                        echo "CHECK_RESULT contact_geometry=PASS"
+                        log_check "contact_geometry" 0 "check_joint_graph.py --geometry" "PASS"
+                    else
+                        echo "CHECK_RESULT contact_geometry=FAIL"
+                        OVERALL_FAIL=1
+                        log_check "contact_geometry" 1 "check_joint_graph.py --geometry" "FAIL (exit $_cg_rc)"
+                    fi
+                else
+                    echo "CHECK_RESULT contact_geometry=SKIP"
                 fi
                 if [ "$has_motion" = "yes" ]; then
                     if python3 "$SCRIPT_DIR/motion_sweep.py" --joints joints.json \
@@ -1121,7 +1158,10 @@ else
     # project-level gates above, so a part whose connectivity or bbox was wrong
     # still ended in "All validations passed." with no verdict line naming it
     # (adversarial review, INCIDENTS.md 2026-09-12).
-    if [ "$PART_CONNECTIVITY_FAIL" -eq 0 ]; then
+    if [ "$PART_CONNECTIVITY_FAIL" -eq 0 ] && [ "$CONN_RAN" -eq 0 ]; then
+        echo "CHECK_RESULT connectivity=SKIP"
+        log_check "connectivity" 0 "n/a" "SKIP: not run on $scad (preview or assembly file)"
+    elif [ "$PART_CONNECTIVITY_FAIL" -eq 0 ]; then
         echo "CHECK_RESULT connectivity=PASS"
         log_check "connectivity" 0 "validate_scad.sh $MODE" "PASS (single part)"
     else
@@ -1287,23 +1327,34 @@ if [ -d "$BUILD_DIR" ] && [ -w "$BUILD_DIR" ]; then
         PREV_STATE="$prev_state" python3 - "$state" <<'PYEOF' 2>/dev/null || true
 import hashlib, json, os, sys
 p = sys.argv[1]
-new = json.load(open(p)); old = json.loads(os.environ["PREV_STATE"]).get("sources") or {}
+new = json.load(open(p)); prev = json.loads(os.environ["PREV_STATE"]); old = prev.get("sources") or {}
 src = new.setdefault("sources", {})
 for f, h in old.items():
     if f not in src and os.path.isfile(f) and hashlib.sha256(open(f, "rb").read()).hexdigest() == h:
         src[f] = h
+# P26 / AC-10 (Fable audit e1): a single-file run overwrote an --all receipt, dropping "mode" and
+# "declarations", so the stop gate stopped guarding them. Keep the --all receipt; record this run apart.
+if prev.get("mode") == "--all" and new.get("mode") != "--all":
+    single = {k: new[k] for k in ("when", "mode", "verdict") if k in new}
+    new = {**prev, "sources": src, "last_single": single}
 tmp = p + ".tmp"; json.dump(new, open(tmp, "w"), separators=(",", ":")); os.replace(tmp, p)
 PYEOF
     fi
     # P25 / AC-1: the receipt also pins the declaration files (behavior.json, loads.json, ...) and the
     # skill version this verdict came from; the stop gate blocks when a declaration changes after it.
     if [ "$MODE" = "--all" ] && [ -f "$state" ]; then
-        SKILL_VER=$(cat "$SCRIPT_DIR/../INSTALLED_COMMIT" 2>/dev/null || echo "dev-$(git -C "$SCRIPT_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)") \
+        PREV_STATE="$prev_state" SKILL_VER=$(cat "$SCRIPT_DIR/../INSTALLED_COMMIT" 2>/dev/null || echo "dev-$(git -C "$SCRIPT_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)") \
         python3 - "$state" <<'PYEOF' 2>/dev/null || true
 import glob, hashlib, json, os, sys
 p = sys.argv[1]; s = json.load(open(p))
 s["declarations"] = {f: hashlib.sha256(open(f, "rb").read()).hexdigest() for f in sorted(glob.glob("*.json"))}
 s["skill"] = os.environ.get("SKILL_VER", "unknown")
+# P26 / AC-13: once a limits.lock existed, its absence is a FAIL (sticky until approve writes a new one)
+try:
+    was = json.loads(os.environ.get("PREV_STATE") or "{}").get("limits_locked", False)
+except ValueError:
+    was = False
+s["limits_locked"] = os.path.isfile("limits.lock") or bool(was)
 tmp = p + ".tmp"; json.dump(s, open(tmp, "w"), separators=(",", ":")); os.replace(tmp, p)
 PYEOF
     fi

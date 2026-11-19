@@ -137,44 +137,111 @@ def norm(t):
     return " ".join(t.split()).casefold()
 
 
-def unquoted_approvals(transcript, cwd):
-    """P5: acceptance.lock files approved this session whose quote is in no user message.
-    The agent may run `acceptance.py approve` only with the user's own words."""
-    user_text, dirs = [], []
+TAG_RE = re.compile(r"<(system-reminder|task-notification|command-[a-z]+|local-command-[a-z]+)>.*?</\1>", re.S)
+RECEIPT_RE = re.compile(r">>?\s*['\"]?([^\s'\";|&<>]*\.validation_state\.json)")
+MIN_QUOTE = 8
+
+
+def human_texts(rec):
+    """Text the human typed in one transcript record, or [] (tool output, injected context, summaries)."""
+    msg = rec.get("message") or {}
+    if not (rec.get("type") == "user" or msg.get("role") == "user"):
+        return []
+    if rec.get("isMeta") or rec.get("isCompactSummary") or rec.get("toolUseResult") is not None:
+        return []
+    content = msg.get("content")
+    parts = [content] if isinstance(content, str) else \
+        [b.get("text") or "" for b in content if isinstance(b, dict) and b.get("type") == "text"] \
+        if isinstance(content, list) else []
+    out = []
+    for t in parts:
+        t = TAG_RE.sub("", t).strip()
+        if t and not t.startswith("<"):
+            out.append(t)
+    return out
+
+
+def session_start(transcript):
+    import datetime
+    with open(transcript, encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            try:
+                ts = json.loads(line).get("timestamp")
+            except (ValueError, AttributeError):
+                continue
+            if ts:
+                try:
+                    return datetime.datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp()
+                except ValueError:
+                    continue
+    return 0.0
+
+
+def unquoted_approvals(transcript, cwd, edited=()):
+    """P5 / P26 AC-11: acceptance.lock / limits.lock written this session whose quote is not a whole
+    message (or a whole line of one) the human typed. Checked by lock FILE, not by command shape:
+    Write-tool locks, `cd x && approve` and continuation lines all count (Fable audit 2026-11-19)."""
+    said, dirs = set(), {cwd}
+    dirs.update(r for r in map(project_root, edited) if r)
     with open(transcript, encoding="utf-8", errors="replace") as fh:
         for line in fh:
             try:
                 rec = json.loads(line)
-                msg = rec.get("message") or {}
+            except ValueError:
+                continue
+            if not isinstance(rec, dict):
+                continue
+            for t in human_texts(rec):
+                said.add(norm(t))
+                said.update(norm(l) for l in t.splitlines() if l.strip())
+            content = (rec.get("message") or {}).get("content")
+            for b in content if isinstance(content, list) else []:
+                if not (isinstance(b, dict) and b.get("type") == "tool_use"):
+                    continue
+                inp = b.get("input") or {}
+                if b.get("name") in EDIT_TOOLS and str(inp.get("file_path", "")).endswith(".lock"):
+                    dirs.add(os.path.dirname(os.path.join(cwd, os.path.expanduser(inp["file_path"]))))
+                elif b.get("name") == "Bash" and "approve" in (inp.get("command") or ""):
+                    cmd = inp.get("command") or ""
+                    for m in re.finditer(r"(?:--project-dir[ =]+|\bcd\s+)['\"]?([^\s'\";&|]+)", cmd):
+                        dirs.add(os.path.join(cwd, os.path.expanduser(m.group(1))))
+    t0 = session_start(transcript)
+    bad = []
+    for d in sorted(dirs):
+        for lockname in ("acceptance.lock", "limits.lock"):
+            lock = os.path.realpath(os.path.join(d, lockname))
+            if not os.path.isfile(lock) or os.path.getmtime(lock) < t0:
+                continue
+            try:
+                quote = norm(json.load(open(lock, encoding="utf-8")).get("quote") or "")
+            except (OSError, ValueError, AttributeError):
+                bad.append(lock); continue
+            if len(quote) < MIN_QUOTE or quote not in said:
+                bad.append(lock)
+    return sorted(set(bad))
+
+
+def hand_written_receipts(transcript, cwd):
+    """P26 / AC-12: a validation receipt the session wrote itself (Edit/Write or a shell redirect)."""
+    out = []
+    with open(transcript, encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            try:
+                content = (json.loads(line).get("message") or {}).get("content")
             except (ValueError, AttributeError):
                 continue
-            content = msg.get("content")
-            if rec.get("type") == "user" or msg.get("role") == "user":
-                if isinstance(content, str):
-                    user_text.append(norm(content))
-                elif isinstance(content, list):  # tool_result blocks are tool output, not the user
-                    user_text += [norm(b.get("text") or "") for b in content
-                                  if isinstance(b, dict) and b.get("type") == "text"]
-                continue
             for b in content if isinstance(content, list) else []:
-                if isinstance(b, dict) and b.get("type") == "tool_use" and b.get("name") == "Bash":
-                    cmd = (b.get("input") or {}).get("command") or ""
-                    m0 = re.search(r"(acceptance|check_limits)\.py\b.*\bapprove\b", cmd)
-                    if m0:
-                        m = re.search(r"--project-dir[ =]+['\"]?([^\s'\"]+)", cmd) or \
-                            re.search(r"\bcd\s+['\"]?([^\s'\";&]+)", cmd)
-                        lockname = "limits.lock" if m0.group(1) == "check_limits" else "acceptance.lock"
-                        dirs.append((os.path.join(cwd, os.path.expanduser(m.group(1))) if m else cwd, lockname))
-    bad = []
-    for d, lockname in dict.fromkeys(dirs):
-        lock = os.path.join(d, lockname)
-        try:
-            quote = norm(json.load(open(lock, encoding="utf-8")).get("quote") or "")
-        except (OSError, ValueError):
-            continue
-        if not quote or not any(quote in t for t in user_text):
-            bad.append(lock)
-    return bad
+                if not (isinstance(b, dict) and b.get("type") == "tool_use"):
+                    continue
+                inp = b.get("input") or {}
+                paths = [inp.get("file_path") or ""] if b.get("name") in EDIT_TOOLS else \
+                    RECEIPT_RE.findall(inp.get("command") or "") if b.get("name") == "Bash" else []
+                for p in paths:
+                    if p.endswith(".validation_state.json"):
+                        p = os.path.realpath(os.path.join(cwd, os.path.expanduser(p)))
+                        if os.path.isfile(p) and "/tests/fixtures/" not in p and p not in out:
+                            out.append(p)
+    return out
 
 
 def command_for(path):
@@ -195,15 +262,22 @@ def main():
     if h.get("stop_hook_active"):
         return
     cwd = h.get("cwd") or os.getcwd()
-    bad = unquoted_approvals(h["transcript_path"], cwd)
+    edited = [p for p in edited_scad(h["transcript_path"], cwd) if "/tests/fixtures/" not in p]
+    forged = hand_written_receipts(h["transcript_path"], cwd)
+    if forged:
+        print(json.dumps({"decision": "block", "reason":
+            "SCAD stop gate: this session wrote a validation receipt itself:\n" + "\n".join(f"- {p}" for p in forged) +
+            "\nOnly validate_scad.sh writes build/.validation_state.json. Delete it and run validate_scad.sh --all."}))
+        return
+    bad = unquoted_approvals(h["transcript_path"], cwd, edited)
     if bad:
         print(json.dumps({"decision": "block", "reason":
             "SCAD stop gate: acceptance.lock / limits.lock was approved with words that are in no user message "
             "of this session:\n" + "\n".join(f"- {b}" for b in bad) +
-            "\nOnly the user approves acceptance numbers. Show them acceptance.json, wait for their "
-            "answer, and run acceptance.py approve --quote with their exact words."}))
+            "\nOnly the user approves acceptance numbers and limits. Show them the numbers, wait for their "
+            "answer, and run approve --quote with one whole message (or one whole line) they typed, at least "
+            f"{MIN_QUOTE} characters."}))
         return
-    edited = [p for p in edited_scad(h["transcript_path"], cwd) if "/tests/fixtures/" not in p]
     stale = [p for p in edited if p.endswith(".scad") and os.path.isfile(p) and not validated(p)]
     stale += [p for p in stale_declarations(edited) if p not in stale]
     if not stale:

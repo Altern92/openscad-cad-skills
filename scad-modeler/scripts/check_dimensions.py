@@ -66,6 +66,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from markers import unparsed  # noqa: E402
 from scad_tessellation import (  # noqa: E402
     NUMERIC_FLOOR_MM,
     bbox_error_bound,
@@ -156,6 +157,12 @@ def main():
         print(f"ERROR: SCAD file not found: {args.scad}", file=sys.stderr)
         sys.exit(EXIT_USAGE)
 
+    bad_decl = unparsed(args.scad, "EXPECTED_BBOX", BBOX_RE)
+    if bad_decl:
+        for l in bad_decl:
+            print(f"FAIL: cannot read declaration `{l}` in {args.scad} -- write it as the documented form "
+                  f"(numbers, not placeholders); an unreadable declaration is not a measured one")
+        return EXIT_MISMATCH
     expected = parse_expected_from_scad(args.scad)
     if expected is None:
         print(f"WARNING: no '// EXPECTED_BBOX: [x, y, z]' line in {args.scad}; skipping.")

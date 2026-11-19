@@ -138,6 +138,8 @@ else if (MODE == "part") {
 } else assert(false, str("ERROR: unknown MODE '", MODE, "'"));
 EOF
     printf '%s\n' '{"contacts": [{"pair": ["box", "lid"], "joint_type": "touching", "expected_interference_mm": [0.0, 0.0], "derivation": "lid plate rests on the box rim at the same Z; the lip enters the cavity with 0.2 mm clearance"}]}' > "$ASM/joints.json"
+    # P26 / AC-2: a 2-part assembly must prove in geometry that the lid sits on the box
+    printf '%s\n' '{"bodies": {"box": {"render": [{"MODE": "part", "PART": "box"}]}, "lid": {"render": [{"MODE": "part", "PART": "lid"}]}}, "joints": [{"a": "box", "b": "lid", "max_gap": 0.05, "why": "lid plate on the rim"}], "ground": {"z": 0, "bodies": ["box"], "tol": 0.05}}' > "$ASM/behavior.json"
     if [ "$ok" -eq 1 ] && ( cd "$ASM" && bash "$GATE" --all ) >"$TMP/asm.gate" 2>&1 \
        && grep -q '^COVERAGE:.* 0 failed, .* 0 inconclusive,' "$TMP/asm.gate"; then
         note "PASS asm_box_lid" "$(grep -m1 'CHECK_RESULT collisions=' "$TMP/asm.gate")"

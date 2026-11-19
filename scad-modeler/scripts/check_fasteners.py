@@ -122,6 +122,14 @@ def check_one(f, meshes):
         empty(t, d / 2, "shank blocked")
     for t in samples(tf + 0.05, L):
         empty(t, 0.35 * d, "no pilot")
+    # P26 / AC-7 (Fable audit e8): a screw at [200, 200, 200] in empty space was "OK" -- every test above
+    # asks that something is ABSENT. A screw must also seat its head on material and pass through some.
+    seat_r = (d / 2 + hd / 2) / 2 + 0.15
+    if not any(m.contains(ring(s + 0.3 * ax, ax, seat_r)).any() for m in meshes.values()):
+        errs.append(f"head seats on nothing at +0.3 mm (r {seat_r:.2f}) -- no part under the head")
+    if not any(m.contains(ring(s + t * ax, ax, d / 2 + 0.6)).any()
+               for t in samples(0.3, L) for m in meshes.values()):
+        errs.append(f"shank passes through no part (r {d / 2 + 0.6:.2f}) -- the screw is in empty space")
     if into:
         tgt = [m for n, m in meshes.items() if into.lower() in n.lower()]
         if not tgt:

@@ -186,10 +186,17 @@ rules:
 
   - id: R-24
     rule: "Assembly behaviour (P23, 2026-11-18, INC-2026-11-18-01): an assembly that declares joints proves them in geometry -- behavior.json lists every body (printed parts AND purchased vitamins), its joints and the motion grid; check_behavior.py fails a body that touches nothing, a joint gap over max_gap (cap 1 mm: a bigger gap is a missing part), a detached group, interference or clearance under the limit at any pose, and an assembly whose mass centre leaves its ground support"
-    applies: "file_exists:joints.json"
+    applies: "file_exists:joints.json,attachments.json"
     kind: auto
     gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
     success_pattern: "CHECK_RESULT behavior=PASS"
+
+  - id: R-27
+    rule: "Joints proven in geometry (P26, 2026-11-19, Fable audit): every joints.json contact and attachments.json part -> to pair names real parts exactly and their positioned meshes are within 1 mm -- a declaration alone let a shelf 110 mm above its base pass every gate"
+    applies: "file_exists:joints.json,attachments.json"
+    kind: auto
+    gate: "bash {skill_dir}/scripts/validate_scad.sh --all"
+    success_pattern: "CHECK_RESULT contact_geometry=PASS"
 
   - id: R-25
     rule: "Static strength (P24, 2026-11-18, INC-2026-11-18-07): every load case in loads.json (support, load point, force, print_up, material with a TDS value) is carried by the printed part -- check_strength.py cuts the positioned mesh every mm between support and load and fails a station with no material or a bending + axial stress over the material's X-Y strength (Z when the stress pulls layers apart) / safety; declared heat-set inserts are measured (hole, blind depth, wall) against references/inserts.json"

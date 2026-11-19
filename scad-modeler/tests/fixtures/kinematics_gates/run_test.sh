@@ -15,6 +15,7 @@ expect() {   # case exit text...
     for w in "$@"; do grep -qF <<< "$o" "$w" || { echo "$c: missing '$w'"; echo "$o"; exit 1; }; done
 }
 expect good 0 "DOF: computed 1, declared 1" "KINEMATICS: PASS" "worst   20.0 deg (limit 25.0)"
+expect subset_at 0 "DOF: computed 1, declared 1 + 0 idle (A) at A=0 B=0"   # P26 / AC-16: dof.at {A: 0} on an A x B grid resolves to a full pose (old: fell back to the last pose)
 expect angle_over 3 "ARM_TILT = 20.0 deg > 10" "KINEMATICS: FAIL"
 expect angle_second 3 "ARM_TWIN = -30.0 deg > 25"   # 2nd name in one echo line
 expect loose 3 "4 DOF > declared 1" "link (3 DOF)"

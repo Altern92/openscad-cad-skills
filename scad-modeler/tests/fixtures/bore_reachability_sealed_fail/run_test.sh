@@ -15,7 +15,7 @@ if [ "$actual" -ne "$EXPECTED_EXIT" ]; then
     echo "$out" >&2
     exit 1
 fi
-if ! grep -qi <<< "$out" "block\|sealed\|FAIL"; then
+if ! grep -q <<< "$out" "BLOCKED: 'bearing_tower_bore'"; then   # P26 / AC-19: the reason, not any "FAIL"
     echo "expected a blocked/sealed report, got:" >&2
     echo "$out" >&2
     exit 1

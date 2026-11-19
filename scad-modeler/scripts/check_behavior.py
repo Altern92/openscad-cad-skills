@@ -45,6 +45,7 @@ Usage: python3 check_behavior.py --project-dir . [--behavior behavior.json] [-D 
 Exit: 0 pass, 3 fail (incl. a body that does not render), 4 usage (bad JSON, unknown body).
 """
 import argparse
+import glob
 import hashlib
 import itertools
 import json
@@ -55,6 +56,8 @@ import sys
 import threading
 import warnings
 from concurrent.futures import ThreadPoolExecutor
+
+from markers import LIBRARY_RE, PREVIEW_RE
 
 EXIT_OK, EXIT_FAIL, EXIT_USAGE = 0, 3, 4
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="trimesh")   # open shells: centroid used instead
@@ -361,6 +364,23 @@ def main():
             e[0], e[1] = sev, msg
     joint_pairs = {frozenset((j["a"], j["b"])) for j in joints}
 
+    # -- HOLDS, coverage (P26 / AC-2): a body list that leaves a printed part out proves nothing about it
+    covered, whole = set(), False
+    for spec in bodies.values():
+        for r in spec["render"]:
+            mode, part = str(r.get("MODE", "")).strip('"'), str(r.get("PART", "")).strip('"')
+            whole |= mode == "assembly"
+            covered.add(part.lower())
+    built = {os.path.splitext(os.path.basename(p))[0] for p in glob.glob(os.path.join(proj, "build", "*.stl"))}
+    for scad in sorted(glob.glob(os.path.join(proj, "parts", "*.scad"))):
+        name = os.path.splitext(os.path.basename(scad))[0]
+        src = open(scad, encoding="utf-8", errors="replace").read()
+        if whole or PREVIEW_RE.search(src) or LIBRARY_RE.search(src) or (built and name not in built):
+            continue
+        if name.lower() not in covered:
+            fails["holds"].append(f"part {name} is in no body -- add it to behavior.json \"bodies\" (render "
+                                  f"{{\"MODE\": \"part\", \"PART\": \"{name}\"}}) so the gate sees it")
+
     # -- HOLDS, static part: membership, cap, graph
     joined = {n for j in joints for n in (j["a"], j["b"])}
     for n in bodies:
@@ -408,7 +428,12 @@ def main():
     static_cache = {}
     typed = any("type" in j for j in joints)
     dofd = d.get("dof")
-    dof_pose = (dofd or {}).get("at") or next((pz for pz in grid if all(v == 0 for v in pz.values())), grid[0])
+    dof_at = (dofd or {}).get("at")
+    # P26 / AC-16: "at" names a subset of the grid keys (like ground.at); pick the first grid pose it matches
+    dof_pose = next((pz for pz in grid if all(pz.get(k) == v for k, v in dof_at.items())), None) if dof_at else \
+        next((pz for pz in grid if all(v == 0 for v in pz.values())), grid[0])
+    if dof_pose is None:
+        usage(f"dof.at {dof_at} matches no pose of the grid {poses_decl}")
     dof_meshes = None
     angle_names = sorted({j["angle"]["echo"] for j in joints if j.get("angle")})
     worst_angle = {}
@@ -573,7 +598,7 @@ def main():
         ndof, J = dof_rank(joints, moving, L)
         want = int(dofd.get("count", 0)) + len(dofd.get("idle", []))
         print(f"DOF: computed {ndof}, declared {dofd.get('count', 0)} + {len(dofd.get('idle', []))} idle "
-              f"({', '.join(map(str, dofd.get('why', [])))}){note}")
+              f"({', '.join(map(str, dofd.get('why', [])))}) at {ptxt}{note}")
         if ndof > want:
             alone = []
             for i, n in enumerate(moving):

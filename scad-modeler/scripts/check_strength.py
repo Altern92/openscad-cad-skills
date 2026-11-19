@@ -151,21 +151,30 @@ def check_load(case, m, mats):
     allow = (mat["z_mpa"] if z_dir else mat["xy_mpa"]) / sf
     worst, fails, gaps = None, [], []
     nst = max(10, int(np.ceil(np.linalg.norm(P - S) / STATION_MM - 1e-6)))   # 50.0000001 mm is 50 stations
-    for k, u in enumerate(np.linspace(0.05, 0.95, nst)):
+    # P26 / AC-8 (Fable audit e9): stations ran 5-95 %, so the root -- where the moment peaks -- was never cut
+    # and a bar stopping 4.5 mm short of both ends passed. Now 0.2 mm inside each end.
+    span = float(np.linalg.norm(P - S)); inset = min(0.2 / span, 0.05)
+    from shapely.geometry import Point
+    for k, u in enumerate(np.linspace(inset, 1 - inset, nst)):
         p = S + u * (P - S)
         sec = m.section(plane_origin=p, plane_normal=n)
         polys = []
         if sec is not None:
             planar, to3 = sec.to_2D(normal=n)
+            p2 = (np.linalg.inv(to3) @ np.r_[p, 1])[:2]
+            # one piece only (P26 / AC-8): the one the support-load line runs through, else the nearest within
+            # reach. Unioning every piece in reach made an unloaded sibling prong carry the load (356 -> 5 MPa).
+            cand = []
             for poly in planar.polygons_full:
                 c3 = (to3 @ np.r_[poly.centroid.x, poly.centroid.y, 0, 1])[:3]
                 if np.linalg.norm(np.cross(c3 - S, n)) <= reach:
-                    polys.append(poly)
+                    cand.append((poly.distance(Point(p2)), poly))
+            if cand:
+                polys = [min(cand, key=lambda t: t[0])[1]]
         if not polys:
             gaps.append(p)
             continue
-        from shapely.ops import unary_union
-        A, c2, Sxx, Syy, Sxy = section_props(unary_union(polys))
+        A, c2, Sxx, Syy, Sxy = section_props(polys[0])
         c3 = (to3 @ np.r_[c2[0], c2[1], 0, 1])[:3]
         Mv = np.cross(P - c3, F)
         Mb = Mv - (Mv @ n) * n                          # bending part; torsion (Mv . n) is not checked
@@ -203,7 +212,8 @@ def main():
     fs = []
     if os.path.isfile(a.fasteners):
         try:
-            fs = [f for f in json.load(open(a.fasteners)).get("fasteners", []) if f.get("insert")]
+            doc = json.load(open(a.fasteners))   # bare list or {"fasteners": [...]} (P26 / AC-9)
+            fs = [f for f in (doc if isinstance(doc, list) else doc.get("fasteners", [])) if f.get("insert")]
         except ValueError as e:
             usage(f"{a.fasteners}: {e}")
     cases = []

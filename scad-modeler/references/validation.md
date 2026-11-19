@@ -17,7 +17,7 @@ manual.
 | Gate | Wired into `validate_scad.sh --all`? |
 |---|---|
 | `env_gate.py` (Python modules, OpenSCAD, included libraries and their `libs.lock` versions; `env=FAIL` → exit 5, nothing else runs) | yes, always first |
-| `hooks/scad_stop_gate.py` (Claude Code Stop hook: a session that edited a `.scad` cannot end until `build/.validation_state.json` holds that file's current sha256; README → Stop gate) | no, runs when the session ends |
+| `hooks/scad_stop_gate.py` (Claude Code Stop hook, when registered in settings -- the installer warns if it is not: a session that edited a `.scad` cannot end until `build/.validation_state.json` holds that file's current sha256; README → Stop gate) | no, runs when the session ends |
 | Analytic pre-flight (`assert()` in params.scad) | yes |
 | `check_assumptions.py` (calculations.md Criticality) | yes, opt-in by file |
 | `check_service_envelope.py` | yes, opt-in by file (no file = SKIP, not PASS) |
@@ -27,6 +27,7 @@ manual.
 | `check_topology.py` (EXPECTED_THROUGH_HOLES) | yes; the declaration is required (`declarations`, P15), or `// NO_THROUGH_HOLES_CHECK: <why>` |
 | `acceptance.py check` (`acceptance`, P5) | yes, when acceptance.json exists: FAIL if unapproved, changed after approval, or a part declares other numbers |
 | `check_joint_graph.py` (`joints`, P4) | yes, 2+ printable parts: FAIL when a part is in no joints.json contact and no attachments.json entry (`part`/`to`) and has no `// NO_JOINT: <reason>` |
+| `check_joint_graph.py --geometry` (`contact_geometry`, P26) | yes, after the positioned render when joints.json or attachments.json exists: every contact pair and attachment `part` → `to` must name real parts exactly and their positioned meshes must be within 1 mm (a declaration alone let a shelf 110 mm above its base pass) |
 | `bore_candidates.py` (P3) | no, a generator: every subtracted cylinder from the CSG tree as a bores.json entry, for you to prune |
 | `check_sensitivity.py` (`sensitivity`, P13) | yes, opt-in by `// SENSITIVE_TO: param`: re-renders with param x1.5, FAIL when bbox and volume do not change (a hard-coded number) |
 | `check_proportions.py` (`proportions`, P6) | yes, opt-in by `// PROPORTION: z/x = 2.6 +- 0.05` (terms x, y, z, `w_x@F`, `w_y@F`): FAIL when a ratio is outside its tolerance or a line is unreadable |
@@ -36,7 +37,7 @@ manual.
 | `check_collisions.py` | yes, whenever `assembly.scad` exists (declaration optional — was gated on `joints.json`, a chicken-and-egg) |
 | `motion_sweep.py` | yes, when motion declared |
 | `check_limits.py` (`limits`, P25) | yes, always: SKIP without `limits.lock`; FAIL when any gate limit was loosened or removed, or a new `NO_*` opt-out appeared — see § Protected limits |
-| `check_behavior.py` (`behavior`, P23) | yes, opt-in by behavior.json (R-24 requires it when joints.json exists): HOLDS / MOVES / STANDS over a pose grid, parts AND vitamins — see § Assembly behaviour |
+| `check_behavior.py` (`behavior`, P23) | yes; required (FAIL when absent) for `assembly.scad` with 2+ printed parts, and every printed part must be a body (P26): HOLDS / MOVES / STANDS over a pose grid, parts AND vitamins — see § Assembly behaviour |
 | `check_bore_reachability.py` | yes, opt-in by bores.json |
 | `check_attachment.py` | yes, opt-in by attachments.json |
 | `check_subfeature_overlap.py` | yes, opt-in via `// SUBFEATURES: a, b, c` (2+ names) — renders each solo through the part file's guarded `SUBFEATURE` switch, per part |
@@ -545,7 +546,7 @@ PASS. `check_limits.py check` lists every limit and which way is looser:
 - part files: `EXPECTED_BBOX_TOL` (bigger), and `NO_*` / `MARGIN_EXCLUDES_OK` / `PREVIEW_FILE` (presence).
 
 Show the list to the user. After their yes, run `check_limits.py approve --quote "<their words>"`;
-the stop hook blocks a quote that is in no user message. After that, a loosened or removed limit or a
+the stop hook blocks a lock (however it was written) whose quote is not one whole message, or one whole line of one, that the user typed (at least 8 characters; injected context does not count). After that, a loosened or removed limit or a
 new opt-out is `limits=FAIL`, and a tightened one passes with a NOTE. A limit whose source or `why`
 says estimate / ◇ / PATIKRINTI prints `OPEN QUESTION`: ask or measure, then re-approve.
 
@@ -638,3 +639,21 @@ size and hole checks would then prove nothing. Per part:
 
 `python3 scripts/stl_extent.py build/<part>.stl` shows the measured extent for step 3's
 comparison.
+
+## Geometry, not declaration (P26, 2026-11-19, Fable audit)
+
+An independent audit found that "joined" and "retained" were proven by a declaration plus a point
+inside the part's own mesh: a shelf 110 mm above its base passed every gate (rc 0). Since P26:
+
+- `contact_geometry` measures every declared joint on the positioned meshes (cap 1 mm); names match
+  exactly (a label "s" used to match every part, in collisions and motion sweep too).
+- `behavior.json` is required for an assembly of 2+ printed parts and must list every printed part.
+- A part that renders nothing FAILs unless it declares `// LIBRARY_FILE: <reason>`; a lone file runs
+  connectivity; an unreadable declaration (`EXPECTED_BBOX: [L, W, H]`) FAILs instead of "skipping".
+- Fasteners must seat the head on material and pass through a part; strength cuts one section piece
+  (the one on the support-load line) from 0.2 mm inside each end.
+- The receipt keeps its `--all` record across single-part runs; a receipt written by hand blocks the
+  session; locks are checked by file (however written) against whole user messages.
+- `limits.lock` also pins `EXPECTED_BODIES`, `LIBRARY_FILE`, bare `PREVIEW_FILE`, loads `reach` and
+  (any change) `material`, `print_up`, `support`, `at`, `part`, and `motion[].min_clearance_mm`;
+  deleting the lock after it existed FAILs. The marker regexes live in `scripts/markers.py`.

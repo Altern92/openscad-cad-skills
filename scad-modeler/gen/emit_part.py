@@ -358,7 +358,7 @@ def emit(doc, json_path, kit_root):
 
 def emit_box_with_lid(doc, json_path, kit_root, out_path=None):
     """Composite 2-part project (audit §5 #2, P5 #8):
-    parts/box.scad + parts/lid.scad + assembly.scad + joints.json.
+    parts/box.scad + parts/lid.scad + assembly.scad + joints.json + behavior.json.
     """
     p = resolve_params("box_with_lid", doc["params"])
     box_params = {k: p[k] for k in ("w", "d", "h", "wall", "floor", "corner_r", "hole", "inset")}
@@ -423,6 +423,14 @@ def emit_box_with_lid(doc, json_path, kit_root, out_path=None):
             ),
         }]
     }
+    # P26 / AC-2: a 2+ part assembly needs behavior.json -- the geometry must prove the lid sits on the box
+    behavior = {
+        "bodies": {"box": {"render": [{"MODE": "part", "PART": "box"}]},
+                   "lid": {"render": [{"MODE": "part", "PART": "lid"}]}},
+        "joints": [{"a": "box", "b": "lid", "max_gap": 0.05,
+                    "why": "lid plate rests on the box rim (joints.json contact, interference [0, 0])"}],
+        "ground": {"z": 0, "bodies": ["box"], "tol": 0.05},
+    }
     if out_path is not None:
         abs_out = os.path.abspath(out_path)
         proj_dir = os.path.dirname(abs_out) if abs_out.endswith(".scad") else abs_out
@@ -440,6 +448,9 @@ def emit_box_with_lid(doc, json_path, kit_root, out_path=None):
                 fh.write(asm_scad)
         with open(os.path.join(proj_dir, "joints.json"), "w", encoding="utf-8") as fh:
             json.dump(joints, fh, ensure_ascii=False, indent=2)
+            fh.write("\n")
+        with open(os.path.join(proj_dir, "behavior.json"), "w", encoding="utf-8") as fh:
+            json.dump(behavior, fh, ensure_ascii=False, indent=2)
             fh.write("\n")
     return asm_scad
 

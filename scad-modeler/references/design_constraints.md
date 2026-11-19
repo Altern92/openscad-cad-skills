@@ -135,3 +135,6 @@ If it can become a check, make it one. A line without a check is a reminder; a c
 - A gate limit (max_gap, max_deg, clearance, safety, BBOX_TOL, a NO_* opt-out) is the user's decision, not a knob:
   editing it until the gate passes hides the defect it was set to catch (2026-11-18: a 15 deg ball limit picked by the agent,
   25 in params.scad). — check: `limits` gate (check_limits.py, limits.lock, R-26); estimate limits print OPEN QUESTION
+- A declaration is a claim, not a proof: "shelf attached to base" passed every gate with the shelf 110 mm in the air,
+  because joints were checked only as names and a point inside the part's own mesh (Fable audit 2026-11-19).
+  — check: `contact_geometry` gate (positioned meshes ≤ 1 mm), `behavior` lists every printed part (P26)

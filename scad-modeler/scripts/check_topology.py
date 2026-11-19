@@ -30,6 +30,9 @@ import os
 import re
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from markers import unparsed
+
 EXIT_OK, EXIT_FAIL, EXIT_USAGE = 0, 3, 4
 DECL_RE = re.compile(r"^\s*//\s*EXPECTED_THROUGH_HOLES\s*:\s*([0-9]+)")
 
@@ -51,6 +54,12 @@ def main():
             print(f"ERROR: file not found: {p}", file=sys.stderr)
             return EXIT_USAGE
 
+    bad_decl = unparsed(a.scad, "EXPECTED_THROUGH_HOLES", DECL_RE)
+    if bad_decl:
+        for l in bad_decl:
+            print(f"FAIL: cannot read declaration `{l}` in {a.scad} -- write it as the documented form "
+                  f"(numbers, not placeholders); an unreadable declaration is not a measured one")
+        return EXIT_FAIL
     expected = None
     with open(a.scad, encoding="utf-8", errors="replace") as f:
         for line in f:

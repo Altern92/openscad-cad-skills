@@ -63,6 +63,9 @@ import os
 import re
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from markers import unparsed
+
 EXIT_OK = 0
 EXIT_MISMATCH = 1
 EXIT_USAGE = 4
@@ -204,6 +207,12 @@ def main():
             print(f"ERROR: file not found: {path}", file=sys.stderr)
             return EXIT_USAGE
 
+    bad_decl = unparsed(args.scad, "EXPECTED_HOLE", HOLE_RE)
+    if bad_decl:
+        for l in bad_decl:
+            print(f"FAIL: cannot read declaration `{l}` in {args.scad} -- write it as the documented form "
+                  f"(numbers, not placeholders); an unreadable declaration is not a measured one")
+        return EXIT_MISMATCH
     holes = parse_holes(args.scad)
     if not holes:
         print(f"WARNING: no '// EXPECTED_HOLE: [x, y, z, \"Z\", d]' line in "

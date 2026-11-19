@@ -254,11 +254,12 @@ def load_contacts(path):
 
 def match_contact(contacts, path_a, path_b):
     """Find the declaration covering this pair, if any (order-insensitive)."""
-    a = os.path.basename(path_a).lower()
-    b = os.path.basename(path_b).lower()
+    # exact part names (P26 / AC-3): a fragment like "s" used to match every pair
+    a = os.path.splitext(os.path.basename(path_a))[0].lower()
+    b = os.path.splitext(os.path.basename(path_b))[0].lower()
     for entry in contacts:
         n1, n2 = (str(x).lower() for x in entry["pair"])
-        if (n1 in a and n2 in b) or (n1 in b and n2 in a):
+        if (n1 == a and n2 == b) or (n1 == b and n2 == a):
             return entry
     return None
 

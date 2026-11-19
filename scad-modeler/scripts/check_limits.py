@@ -19,6 +19,7 @@ Exit: 0 pass, 2 no limits.lock (SKIP), 3 a limit was loosened or removed, 4 usag
 import argparse
 import datetime
 import glob
+import hashlib
 import json
 import os
 import re
@@ -26,11 +27,14 @@ import sys
 
 EXIT_OK, EXIT_NONE, EXIT_FAIL, EXIT_USAGE = 0, 2, 3, 4
 LOCK = "limits.lock"
-OPT_OUT = re.compile(r"^\s*//\s*(NO_JOINT|NO_RETENTION|NO_BBOX|NO_THROUGH_HOLES_CHECK|PREVIEW_FILE"
-                     r"|MARGIN_EXCLUDES_OK)\s*:\s*(\S*)", re.M)
+# colon optional (P26 / AC-13): validate_scad.sh honours a bare `// PREVIEW_FILE`; LIBRARY_FILE drops a part too
+OPT_OUT = re.compile(r"^\s*//\s*(NO_JOINT|NO_RETENTION|NO_BBOX|NO_THROUGH_HOLES_CHECK|PREVIEW_FILE|LIBRARY_FILE"
+                     r"|MARGIN_EXCLUDES_OK)\b(?:[ \t]*:[ \t]*(\S*))?", re.M)
+COUNTS = re.compile(r"^\s*//\s*(EXPECTED_BODIES|EXPECTED_CAVITIES)\s*:\s*([0-9]+)", re.M)
 BBOX_TOL = re.compile(r"^\s*//\s*EXPECTED_BBOX_TOL\s*:\s*(\[[^\]]*\]|[-0-9.eE]+)", re.M)
 ESTIMATE = re.compile(r"estimate|◇|PATIKRINTI|unverified|guess", re.I)
-# direction: "max" = a bigger value is looser, "min" = a smaller value is looser, "flag" = presence is looser
+# direction: "max" = a bigger value is looser, "min" = a smaller value is looser, "flag" = presence is looser,
+# "eq" = any change is a different check (material, print direction, support/load points; value = hash)
 
 
 def load(d, name):
@@ -57,6 +61,11 @@ def inventory(d):
     """{key: (value, direction)} for every limit a gate reads; questions = [(key, text)]."""
     inv, questions = {}, []
 
+    def put_eq(key, obj):
+        if obj is not None:
+            h = hashlib.sha256(json.dumps(obj, sort_keys=True).encode()).hexdigest()[:12]
+            inv[key] = (float(int(h, 16)), "eq")
+
     def put(key, val, direction, note=""):
         if isinstance(val, (int, float)) and not isinstance(val, bool):
             inv[key] = (float(val), direction)
@@ -79,13 +88,17 @@ def inventory(d):
     for c in rows(load(d, "loads.json"), "cases"):
         k = f"loads.json cases[{c.get('name')}]"
         put(k + ".safety", c.get("safety", 2.0), "min", c.get("source", ""))
+        put(k + ".reach", c.get("reach", 30.0), "max", c.get("source", ""))  # wider reach unions more material
+        defaults = {"material": "PETG Basic", "print_up": [0, 0, 1]}  # check_strength.py's defaults
+        for fld in ("material", "print_up", "support", "at", "part"):
+            put_eq(f"{k}.{fld}", c.get(fld, defaults.get(fld)))
         f = c.get("force_N")
         if isinstance(f, list) and len(f) == 3:
             put(k + ".force_N", sum(float(x) ** 2 for x in f) ** 0.5, "min", c.get("source", ""))
 
     jj = load(d, "joints.json") or {}
-    if isinstance(jj, dict):
-        put("joints.json min_clearance_mm", jj.get("min_clearance_mm"), "min")
+    for m in rows(jj, "motion"):  # motion_sweep.py reads motion[].min_clearance_mm (P26 / AC-14)
+        put(f"joints.json motion[{m.get('id')}].min_clearance_mm", m.get("min_clearance_mm", 0.0), "min")
     for c in rows(jj, "contacts"):
         r = c.get("expected_interference_mm")
         if isinstance(r, list) and len(r) == 2:
@@ -103,6 +116,8 @@ def inventory(d):
             vals = json.loads(m.group(1)) if m.group(1).startswith("[") else [float(m.group(1))] * 3
             for axis, v in zip("xyz", vals):
                 put(f"{rel} EXPECTED_BBOX_TOL.{axis}", v, "max")
+        for m in COUNTS.finditer(text):
+            put(f"{rel} {m.group(1)}", int(m.group(2)), "max")
         for m in OPT_OUT.finditer(text):
             arg = m.group(2) if m.group(1) == "MARGIN_EXCLUDES_OK" else ""
             inv[f"{rel} {m.group(1)}{(':' + arg) if arg else ''}"] = (1.0, "flag")
@@ -116,10 +131,19 @@ def check(d, brief=False):
               f"the answer goes through check_limits.py approve, never through an edit")
     lock_path = os.path.join(d, LOCK)
     if not os.path.isfile(lock_path):
+        try:
+            was = json.load(open(os.path.join(d, "build", ".validation_state.json"))).get("limits_locked")
+        except (OSError, ValueError, AttributeError):
+            was = False
+        if was:  # P26 / AC-13: deleting the lock must not turn the gate into a SKIP
+            print(f"FAIL limits: {LOCK} existed at the last validate --all and is gone -- restore it or "
+                  f"re-approve with the user's words (check_limits.py approve --quote)")
+            return EXIT_FAIL
         print(f"SKIP: {len(inv)} limit(s) not locked: no {LOCK}. Show the user the limits "
               f"(check_limits.py check lists them) and run approve --quote with their words.")
         for k, (v, dr) in ([] if brief else sorted(inv.items())):
-            print(f"  {k} = {v:g} ({'bigger' if dr == 'max' else 'smaller' if dr == 'min' else 'present'} = looser)")
+            print(f"  {k} = " + ("(value pinned; any change)" if dr == "eq" else
+                  f"{v:g} ({'bigger' if dr == 'max' else 'smaller' if dr == 'min' else 'present'} = looser)"))
         return EXIT_NONE
     try:
         lock = json.load(open(lock_path, encoding="utf-8"))
@@ -130,10 +154,16 @@ def check(d, brief=False):
     bad, tight = [], []
     for k, (v0, dr) in sorted(((k, tuple(v)) for k, v in locked.items())):
         if k not in inv:
-            if dr != "flag":
+            if dr == "eq":
+                bad.append(f"{k}: removed (approved by \"{quote}\")")
+            elif dr != "flag":
                 bad.append(f"{k}: removed (approved {v0:g} by \"{quote}\")")
             continue
         v = inv[k][0]
+        if dr == "eq":
+            if v != v0:
+                bad.append(f"{k}: changed (approved by \"{quote}\") -- a different check, not the approved one")
+            continue
         if (dr == "max" and v > v0 + 1e-9) or (dr == "min" and v < v0 - 1e-9):
             bad.append(f"{k}: {v0:g} -> {v:g} (loosened; approved {v0:g} by \"{quote}\")")
         elif v != v0 and dr != "flag":

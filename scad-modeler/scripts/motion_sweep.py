@@ -162,10 +162,11 @@ def match_part(paths, name):
 
 
 def declared_entry(contacts, a, b):
-    a, b = os.path.basename(a).lower(), os.path.basename(b).lower()
-    for e in contacts:
+    stem = lambda p: os.path.splitext(os.path.basename(p))[0].lower()
+    a, b = stem(a), stem(b)
+    for e in contacts:  # exact part names (P26 / AC-3)
         n1, n2 = (str(x).lower() for x in e["pair"])
-        if (n1 in a and n2 in b) or (n1 in b and n2 in a):
+        if (n1 == a and n2 == b) or (n1 == b and n2 == a):
             return e
     return None
 

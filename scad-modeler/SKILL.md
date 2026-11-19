@@ -78,7 +78,8 @@ Every answer becomes a declaration; prose is checked by nothing:
 | Parts made in a Python/trimesh script | export to `build/positioned/<name>.stl`; `fasteners.json` `mounts` (part → host) | `check_fasteners.py` (`mounts`: ≥1 screw through it into the host; host heads under it = head blocked) |
 | Machine axes (groups) | `joints.json` driver `"parts": [...]` + top-level `"static": [...]` | `motion_sweep.py` (unassigned part = FAIL) |
 | Purchased-part fit | `joints.json` contact with `expected_interference_mm` and `derivation` | `check_collisions.py`, `motion_sweep.py` |
-| Does it hold / move / stand (parts AND vitamins, over the motion) | `behavior.json`: bodies, joints with `max_gap` ≤ 1 mm, pose grid, clearances, ground (required once `joints.json` exists, R-24; INC-2026-11-18-01) | `check_behavior.py` (gate `behavior`) |
+| Does it hold / move / stand (parts AND vitamins, over the motion) | `behavior.json`: bodies (EVERY printed part is a body), joints with `max_gap` ≤ 1 mm, pose grid, clearances, ground (required for any assembly of 2+ printed parts, R-24; INC-2026-11-18-01, P26) | `check_behavior.py` (gate `behavior`) |
+| Is every declared joint real (P26) | contact / attachment names = exact part names | `check_joint_graph.py --geometry` (gate `contact_geometry`: positioned meshes within 1 mm, R-27) |
 | Is it a mechanism, not a pile (P24) | `behavior.json` joints `type` (`fixed`/`ball`/`revolute`/`slider`) + `at` (+ `axis`), `dof` {count, why, idle}; ball/rod-end tilt `angle` {echo, max_deg, source} | `check_behavior.py` (`KINEMATICS`: DOF by Jacobian rank, loose body named, angle per pose) |
 | Heat-set inserts, loads (P24) | `fasteners.json` `insert`/`insert_in`/`insert_from`; `loads.json` cases (support, at, force_N, print_up, material) | `check_strength.py` (gate `strength`: insert hole Ø/depth/wall, beam stress with Z-layer strength) |
 
@@ -140,6 +141,7 @@ one). `python3 scripts/doctor.py` confirms BOSL2 is really installed.
 // EXPECTED_BODIES: 2                          // only if genuinely multi-shell
 // SENSITIVE_TO: wall                          // re-render with wall x1.5; unchanged = hard-coded
 // PREVIEW_FILE: <why>                         // a file showing variants side by side, not one part
+// LIBRARY_FILE: <why>                         // a module library under parts/ (renders nothing on purpose)
 ```
 
 `declarations=FAIL` when the first two are missing or their reason is empty. Never use
@@ -227,7 +229,7 @@ Then render a preview and look at it:
 **Approved numbers (P5).** Multi-part project: put the size and through-hole count the
 user agreed to in `acceptance.json` (`{"parts": {"plate": {"bbox": [40, 20, 5],
 "through_holes": 2}}}`), show it, and after their yes run
-`$S/acceptance.py approve --quote "<their exact words>"`; `$S/acceptance.py emit`
+`$S/acceptance.py approve --quote "<their exact words>"` (one whole message, or one whole line of it, ≥ 8 characters -- the stop hook checks every lock written this session); `$S/acceptance.py emit`
 prints the declaration lines. A failing part is fixed in the geometry, never in its
 comment. You cannot approve your own numbers.
 

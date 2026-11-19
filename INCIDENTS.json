@@ -3,6 +3,46 @@
   "description": "Append-only structured log of real bugs found and fixed across OpenSCAD skills (scad-modeler, openscad-cad, openscad-organic). Use scripts/incidents.py to check, list, search, show, or add entries.",
   "entries": [
     {
+      "id": "INC-2026-11-19-04",
+      "date": "2026-11-19",
+      "title": "Checkers silently passed unreadable or absent inputs",
+      "where": "check_dimensions/topology/features/sensitivity, validate_scad.sh render+connectivity, check_fasteners, check_strength, check_rules",
+      "symptom": "Fable audit e7-e10: EXPECTED_BBOX [L,W,H] = PASS; module-only part = PASS; lone file connectivity=PASS unrun; screw in empty space OK; unloaded prong carried load (356->5 MPa); root never cut; echoed CHECK_RESULT satisfied a rule",
+      "root_cause": "Each gate had a fallback that read 'nothing to check' as success",
+      "fix": "P26 AC-5..9, AC-15, AC-18: each fallback now FAILs or reports SKIP; fixtures declarations_unparsed, empty_part_and_lone_file, fasteners_empty_space, strength_single_piece, rules_ignore_echoed_verdict",
+      "promoted_to_rule": "not yet"
+    },
+    {
+      "id": "INC-2026-11-19-03",
+      "date": "2026-11-19",
+      "title": "Lock approvals and receipts could be self-issued",
+      "where": "hooks/scad_stop_gate.py, check_limits.py",
+      "symptom": "Fable audit e3/e4/e6: --quote \"a\", quotes from injected SKILL text, Write-tool locks, cd && approve, hand-written receipts, deleted limits.lock (SKIP), bare PREVIEW_FILE and EXPECTED_BODIES unlocked",
+      "root_cause": "Hook parsed approve COMMANDS (one regex shape) and accepted any substring of any user-role record; receipt trusted as written; lock inventory used its own marker regex",
+      "fix": "P26 AC-11..14: locks checked by file vs whole human messages/lines >= 8 chars, receipt writes by tools block, shared markers.py, more inventoried fields, sticky limits_locked",
+      "promoted_to_rule": "not yet"
+    },
+    {
+      "id": "INC-2026-11-19-02",
+      "date": "2026-11-19",
+      "title": "My P25 hook fix let a single-part run erase the declaration guard",
+      "where": "validate_scad.sh receipt merge + hooks/scad_stop_gate.py",
+      "symptom": "Fable audit e1: --all, edit loads.json, validate one part -> hook silent",
+      "root_cause": "Single-part mode rewrote the receipt with mode=<file> and no declarations; the 2026-11-18 hook fix skips non --all receipts, and its fixture asserted that as correct",
+      "fix": "P26 AC-10: a single-part run keeps the previous --all receipt (mode, verdict, declarations, skill) and records itself under last_single; fixture case in stop_gate_declarations",
+      "promoted_to_rule": "not yet"
+    },
+    {
+      "id": "INC-2026-11-19-01",
+      "date": "2026-11-19",
+      "title": "Floating part passed every gate: joints proven by declaration only",
+      "where": "scad-modeler check_joint_graph.py, check_attachment.py, check_behavior.py, validate_scad.sh",
+      "symptom": "Fable audit e8: shelf 110 mm above its base -> joints/attachment/collisions/behavior=PASS, rc 0; behavior.json may omit parts or be absent; fragment names (\"s\") matched every part",
+      "root_cause": "Gates checked that a joint was DECLARED and that a point lies inside the part's own mesh; nothing measured distance between the declared parts; behavior.json optional and its body list unchecked",
+      "fix": "P26: gate contact_geometry (positioned mesh distance <= 1 mm, exact names), behavior.json required for 2+ part assemblies and must cover every printed part; fixture contact_geometry",
+      "promoted_to_rule": "not yet"
+    },
+    {
       "id": "INC-2026-11-18-12",
       "date": "2026-11-18",
       "title": "P25 stop hook flagged every json near any validation receipt",

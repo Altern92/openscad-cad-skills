@@ -11,8 +11,8 @@ A part is joined when it appears in
   - joints.json "contacts": {"pair": ["a", "b"], ...}, or
   - attachments.json: {"part": "c", "to": "a", ...} (as part or as "to"),
 or it says why not: `// NO_JOINT: <reason>` (a loose tray, a spare).
-Names match case-insensitively as substrings, the same rule check_collisions.py
-uses. Parts are parts/*.scad minus PREVIEW_FILE; when build/ holds rendered
+Names match the part name exactly (case-insensitive; P26 / AC-3 -- substrings let a
+label like "s" match every part). Parts are parts/*.scad minus PREVIEW_FILE; when build/ holds rendered
 STLs, only parts that rendered count (a shared module library renders nothing).
 
 Retention (INC-2026-11-07-01): a joints.json contact only says two parts TOUCH,
@@ -29,8 +29,14 @@ Being only the "to" side of an attachment does not count.
 The joint graph's components are printed too: two joined clusters that never
 meet are legal here but worth a look.
 
+Geometry (P26 / AC-1, Fable audit 2026-11-19): a declaration alone proved nothing -- a
+shelf 110 mm above its base passed. With --geometry build/positioned every declared joint
+(contact pair, attachment part -> to) is measured on the positioned meshes: farther apart
+than MAX_GAP_MM, or a name with no positioned STL, is a FAIL.
+
 Usage:
     python3 check_joint_graph.py --project-dir .
+    python3 check_joint_graph.py --project-dir . --geometry build/positioned
 
 Exit codes:
     0  pass, or SKIP (fewer than 2 parts)
@@ -45,9 +51,77 @@ import re
 import sys
 
 EXIT_OK, EXIT_FAIL, EXIT_USAGE = 0, 3, 4
-NO_JOINT_RE = re.compile(r"^[ \t]*//[ \t]*NO_JOINT[ \t]*:[ \t]*\S", re.M)
-NO_RETENTION_RE = re.compile(r"^[ \t]*//[ \t]*NO_RETENTION[ \t]*:[ \t]*\S", re.M)
-PREVIEW_RE = re.compile(r"^\s*//\s*PREVIEW_FILE", re.M)
+from markers import LIBRARY_RE, NO_JOINT_RE, NO_RETENTION_RE, PREVIEW_RE
+MAX_GAP_MM = 1.0  # same cap as behavior.json max_gap: a bigger gap is a missing part
+
+
+def mesh_gap(a, b):
+    """Smallest distance between two meshes (0 when they touch or overlap)."""
+    import numpy as np
+    import trimesh
+    lo, hi = np.maximum(a.bounds[0], b.bounds[0]), np.minimum(a.bounds[1], b.bounds[1])
+    box = float(np.linalg.norm(np.maximum(lo - hi, 0.0)))
+    if box > MAX_GAP_MM:  # the boxes alone are already too far apart (a lower bound)
+        return box
+    best = float("inf")
+    for m, n in ((a, b), (b, a)):
+        pts = np.vstack([m.vertices, trimesh.sample.sample_surface(m, 4000, seed=0)[0]])
+        if n.is_watertight and n.contains(pts).any():
+            return 0.0
+        best = min(best, float(trimesh.proximity.closest_point(n, pts)[1].min()))
+    return best
+
+
+def bridge(x, y, printed, behavior):
+    """Chain x -> ... -> y in behavior.json joints whose inner bodies are all non-printed (purchased parts:
+    ball cups, bearings, pins). check_behavior.py renders those bodies and measures each of their joints,
+    so a gap between two printed parts that a modelled vitamin fills is proven there, not here."""
+    adj = {}
+    for j in (behavior or {}).get("joints", []) if isinstance(behavior, dict) else []:
+        a, b = str(j.get("a", "")).lower(), str(j.get("b", "")).lower()
+        adj.setdefault(a, set()).add(b); adj.setdefault(b, set()).add(a)
+    bodies = behavior.get("bodies", {}) if isinstance(behavior, dict) else {}
+    # printed = rendered as a part (mirror copies like upper_arm_l included), not only the positioned STL names
+    printed = set(printed) | {str(k).lower() for k, b in bodies.items()
+                              if any(str(r.get("MODE", "")).strip('"') in ("part", "assembly")
+                                     for r in (b or {}).get("render", []) if isinstance(r, dict))}
+    from collections import deque
+    seen, stack = {x: None}, deque([x])   # breadth first: the shortest bridge is the one to report
+    while stack:
+        n = stack.popleft()
+        for m in adj.get(n, ()):
+            if m == y and n != x:
+                path = [n]
+                while seen[path[-1]] not in (None, x):
+                    path.append(seen[path[-1]])
+                return path[::-1]
+            if m not in seen and m not in printed:
+                seen[m] = n; stack.append(m)
+    return None
+
+
+def geometry(edges, pos_dir, behavior=None):
+    """FAIL lines for declared joints whose positioned meshes are apart or missing."""
+    import trimesh
+    stls = {os.path.splitext(os.path.basename(p))[0].lower(): p for p in glob.glob(os.path.join(pos_dir, "*.stl"))}
+    meshes, bad, n = {}, [], 0
+    for x, y in dict.fromkeys(tuple(sorted((str(a).lower(), str(b).lower()))) for a, b in edges):
+        gone = [v for v in (x, y) if v not in stls]
+        if gone:
+            bad.append(f"FAIL: contact_geometry, {x} <-> {y}: no part named {', '.join(gone)} in {pos_dir} "
+                       f"-- a declaration must name a real part exactly")
+            continue
+        for v in (x, y):
+            meshes.setdefault(v, trimesh.load(stls[v], force="mesh"))
+        gap = mesh_gap(meshes[x], meshes[y]); n += 1
+        via = bridge(x, y, set(stls), behavior) if gap > MAX_GAP_MM else None
+        if via:
+            print(f"INFO: contact_geometry, {x} and {y} are {gap:.1f} mm apart, bridged by purchased "
+                  f"{' -> '.join(via)} (behavior.json; the behavior gate measures those joints)")
+        elif gap > MAX_GAP_MM:
+            bad.append(f"FAIL: contact_geometry, {x} and {y} are declared joined but are {gap:.1f} mm apart "
+                       f"(cap {MAX_GAP_MM} mm) -- move the part onto its support or add the part that bridges the gap")
+    return bad, n
 
 
 def load(path):
@@ -60,14 +134,16 @@ def load(path):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--project-dir", default=".")
-    d = ap.parse_args().project_dir
+    ap.add_argument("--geometry", metavar="DIR", help="positioned STL dir: measure every declared joint")
+    args = ap.parse_args()
+    d = args.project_dir
 
     built = {os.path.splitext(os.path.basename(p))[0] for p in glob.glob(os.path.join(d, "build", "*.stl"))}
     parts, excused, ret_excused = [], set(), set()
     for scad in sorted(glob.glob(os.path.join(d, "parts", "*.scad"))):
         name = os.path.splitext(os.path.basename(scad))[0]
         src = open(scad, encoding="utf-8", errors="replace").read()
-        if PREVIEW_RE.search(src) or (built and name not in built):
+        if PREVIEW_RE.search(src) or LIBRARY_RE.search(src) or (built and name not in built):
             continue
         parts.append(name)
         if NO_JOINT_RE.search(src):
@@ -95,8 +171,18 @@ def main():
             (edges.append((a["part"], a["to"])) if a.get("to") else singles.append(a["part"]))
             holders.append(a["part"])
 
+    if args.geometry:
+        try:
+            behavior = load(os.path.join(d, "behavior.json"))
+        except (ValueError, OSError):
+            behavior = None
+        bad, n = geometry(edges, args.geometry, behavior)
+        print("\n".join(bad) if bad else f"PASS: contact_geometry, {n} declared joint(s) touch within {MAX_GAP_MM} mm "
+              f"or are bridged by modelled purchased parts (INFO lines)")
+        return EXIT_FAIL if bad else EXIT_OK
+
     def hits(label):
-        return [p for p in parts if str(label).lower() in p.lower()]
+        return [p for p in parts if str(label).lower() == p.lower()]  # exact (P26 / AC-3)
 
     joined, adj = set(), {p: set() for p in parts}
     for x, y in edges:

@@ -242,15 +242,18 @@ def main():
             #   anything else          -> FAIL, including a value the pattern
             #                             declines to accept and a check that
             #                             emitted no line at all
+            # P26 / AC-18: only real verdict lines count -- an echo("CHECK_RESULT x=PASS") in a part prints
+            # `ECHO: "CHECK_RESULT ..."` and used to satisfy the rule.
+            verdicts = "\n".join(l for l in output.splitlines() if l.startswith("CHECK_RESULT "))
             chk = re.search(r"CHECK_RESULT ([a-z_]+)=", success_pattern)
             actual = None
             if chk is not None:
                 hit = re.search(
-                    r"CHECK_RESULT %s=(\w+)" % re.escape(chk.group(1)), output
+                    r"^CHECK_RESULT %s=(\w+)" % re.escape(chk.group(1)), verdicts, re.M
                 )
                 actual = hit.group(1) if hit else None
 
-            if re.search(success_pattern, output):
+            if re.search(success_pattern, verdicts):
                 results.append((r["id"], "PASS", r["rule"], tail))
                 continue
             if actual == "INCONCLUSIVE":
