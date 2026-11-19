@@ -10,7 +10,7 @@ cat > assembly.scad <<'S'
 MODE = is_undef(MODE) ? "assembly" : MODE;
 PART = is_undef(PART) ? "" : PART;
 if (PART == "a") cube([20, 20, 10]);
-if (PART == "b") import("servo.stl");
+if (PART == "b") import(convexity = 4, file = "servo.stl");   // P27b: named argument before file
 S
 echo '{"bodies": {"a": {"render": [{"MODE": "part", "PART": "a"}]}, "b": {"render": [{"MODE": "part", "PART": "b"}]}}, "joints": [{"a": "a", "b": "b", "max_gap": 0.3, "why": "sits on top"}]}' > behavior.json
 mk 0; o=$(python3 "$B" --project-dir . 2>&1); r=$?

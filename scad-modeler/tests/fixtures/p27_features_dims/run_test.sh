@@ -28,4 +28,11 @@ printf '// EXPECTED_BBOX: [20, 20, 5]\n$fn = 6;\ncylinder(d = 20, h = 5);\n' > h
 "$OPENSCAD" --backend=Manifold -o hex.stl hex.scad >/dev/null 2>&1
 o=$(python3 "$SCAD_MODELER_SCRIPTS/check_dimensions.py" --stl hex.stl --scad hex.scad 2>&1); r=$?
 [ $r -eq 0 ] || { echo "AC-18 baseline: a \$fn=6 cylinder (inscribed, shorter in Y) failed: $o" >&2; fail=1; }
+# P27b: offset(delta) on a curve really is longer than nominal (mitred corners): it must pass, at $fn 48 and default
+for fn in 48 0; do
+    printf '// EXPECTED_BBOX: [44, 44, 3]\n$fn = %s;\nlinear_extrude(3) offset(delta = 2) circle(d = 40);\n' $fn > od$fn.scad
+    "$OPENSCAD" --backend=Manifold -o od$fn.stl od$fn.scad >/dev/null 2>&1
+    o=$(python3 "$SCAD_MODELER_SCRIPTS/check_dimensions.py" --stl od$fn.stl --scad od$fn.scad 2>&1); r=$?
+    [ $r -eq 0 ] || { echo "P27b: offset(delta) circle at \$fn=$fn failed: $o" >&2; fail=1; }
+done
 exit $fail

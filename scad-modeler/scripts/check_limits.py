@@ -27,6 +27,7 @@ import sys
 
 EXIT_OK, EXIT_NONE, EXIT_FAIL, EXIT_USAGE = 0, 2, 3, 4
 LOCK = "limits.lock"
+SCHEMA = 2   # 2 = P27b inventory (implicit defaults, motion, drivers, contacts, force direction)
 # colon optional (P26 / AC-13): validate_scad.sh honours a bare `// PREVIEW_FILE`; LIBRARY_FILE drops a part too
 OPT_OUT = re.compile(r"^\s*//\s*(NO_JOINT|NO_RETENTION|NO_BBOX|NO_THROUGH_HOLES_CHECK|PREVIEW_FILE|LIBRARY_FILE"
                      r"|MARGIN_EXCLUDES_OK)\b(?:[ \t]*:[ \t]*(\S*))?", re.M)
@@ -101,7 +102,7 @@ def inventory(d):
             mag = sum(float(x) ** 2 for x in f) ** 0.5
             put(k + ".force_N", mag, "min", c.get("source", ""))
             if mag > 0:   # P27 / AC-12: the direction is the check too (bending -> axial passed on magnitude)
-                put_eq(k + ".force_dir", [round(float(x) / mag, 6) for x in f])
+                put_eq(k + ".force_dir", [round(float(x) / mag, 6) + 0.0 for x in f])   # + 0.0: -0.0 is 0.0
 
     jj = load(d, "joints.json") or {}
     for m in rows(jj, "motion"):  # motion_sweep.py reads motion[].min_clearance_mm (P26 / AC-14)
@@ -112,9 +113,15 @@ def inventory(d):
         if isinstance(rg, list) and len(rg) == 2 and all(isinstance(x, (int, float)) for x in rg):
             put(k + ".range_deg[lo]", min(rg), "max")                 # a narrower range is looser
             put(k + ".range_deg[hi]", max(rg), "min")
-        for dv in m.get("drivers", []):
-            put_eq(f"{k} driver[{dv.get('part')}].teeth", dv.get("teeth"))  # teeth shortens the sweep
+        # P27b (Fable review): the whole driver is the check -- teeth added, ratio 0.001, a moved axis or a
+        # dropped driver (the part turns static) all passed; one hash over the motion's driver set
+        put_eq(k + ".drivers", sorted((json.dumps(dv, sort_keys=True) for dv in m.get("drivers", [])), key=str))
     for c in rows(jj, "contacts"):
+        # P27b: a declared contact is itself a waiver (overlap allowed, may set its own clearance): a new one is
+        # a new opt-out; its own min_clearance_mm overrides the motion's
+        inv[f"joints.json contact[{'|'.join(sorted(map(str, c.get('pair', []))))}]"] = (1.0, "flag")
+        if "min_clearance_mm" in c:
+            put(f"joints.json contacts[{'|'.join(map(str, c.get('pair', [])))}].min_clearance_mm", c["min_clearance_mm"], "min")
         r = c.get("expected_interference_mm", [0.0, 0.0])   # P27 / AC-12: an undeclared range is [0, 0]
         if isinstance(r, list) and len(r) == 2:
             k = f"joints.json contacts[{'|'.join(map(str, c.get('pair', [])))}].expected_interference_mm"
@@ -146,6 +153,10 @@ def default_for(k, locked):
         return float(locked["behavior.json clearance.default"][0])
     if re.match(r"joints\.json contacts\[.*\]\.expected_interference_mm\[(lo|hi)\]$", k):
         return 0.0
+    m = re.match(r"joints\.json contacts\[.*\]\.min_clearance_mm$", k)
+    if m:   # a contact's own clearance overrides the smallest motion clearance that was approved
+        vals = [float(v[0]) for kk, v in locked.items() if kk.endswith("].min_clearance_mm") and kk.startswith("joints.json motion[")]
+        return min(vals) if vals else 0.0
     return None
 
 
@@ -176,6 +187,9 @@ def check(d, brief=False):
     except (ValueError, KeyError) as e:
         return usage(f"{LOCK}: unreadable ({e})")
     quote = lock.get("quote", "")
+    if lock.get("schema", 1) < SCHEMA:
+        print(f"OPEN QUESTION: {LOCK} was approved before schema {SCHEMA} (P27b): implicit defaults, motion step/range, "
+              f"drivers, contacts and force direction are NOT protected until the user re-approves (approve --quote)")
     bad, tight = [], []
     for k, (v0, dr) in sorted(((k, tuple(v)) for k, v in locked.items())):
         if k not in inv:
@@ -227,7 +241,7 @@ def main():
     if not (a.quote or "").strip():
         return usage("approve needs --quote \"<the user's own words>\"; the stop hook checks it")
     inv, _ = inventory(a.project_dir)
-    lock = {"limits": {k: list(v) for k, v in sorted(inv.items())}, "quote": a.quote.strip(),
+    lock = {"schema": SCHEMA, "limits": {k: list(v) for k, v in sorted(inv.items())}, "quote": a.quote.strip(),
             "when": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
     p = os.path.join(a.project_dir, LOCK)
     with open(p + ".tmp", "w", encoding="utf-8") as f:

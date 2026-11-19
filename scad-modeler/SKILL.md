@@ -202,8 +202,8 @@ sweeps it (`mechanics`). Every motion entry needs a `drivers` list:
 hinged on its back edge (y = 60) opens upward with axis −X; +X swings it into the box.
 Meshing external gears need opposite-sign `ratio` (1.0 and −0.5); `prismatic` takes mm per
 degree. Undriven parts are static; contact pairs may overlap only within their range.
-`min_clearance_mm` (default 0) applies to every pair except the declared contacts, which are
-held to their interference range (P27).
+`min_clearance_mm` (default 0) applies to every pair, declared contacts too, unless a contact
+states its own `"min_clearance_mm"` (e.g. 0 for a hinge pin; `limits.lock` holds it).
 
 ## 7. Validation cycle (every part and the assembly)
 

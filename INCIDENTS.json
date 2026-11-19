@@ -3,6 +3,16 @@
   "description": "Append-only structured log of real bugs found and fixed across OpenSCAD skills (scad-modeler, openscad-cad, openscad-organic). Use scripts/incidents.py to check, list, search, show, or add entries.",
   "entries": [
     {
+      "id": "INC-2026-11-19-11",
+      "date": "2026-11-19",
+      "title": "P27 fixes reviewed by Fable: 3 false PASS, 3 false FAIL, 1 slowdown",
+      "where": "scad-modeler/scripts (motion_sweep, check_limits, check_fasteners, check_dimensions, check_behavior)",
+      "symptom": "teeth symmetry missed a 1 mm nub; driver/contact loosenings passed the lock; declared contact exempted the whole body pair; trimesh is_watertight rejected valid 4-face edges (front_axle_v4 servo); offset(delta) failed one-sided bbox; 0.44 d failed M10x1; covered-hole check 344 s",
+      "root_cause": "P27 fixes verified only by their author's own fixtures; each fix encoded one case, not the general rule",
+      "fix": "P27b: vertex symmetry test, schema-2 lock (driver sets, contact flags, contact clearance, -0.0), per-pair clearance with explicit contact override, odd-edge leak test, pitch-based bite, offset(delta) overshoot, cluster-first covered holes; 12 mutants all killed",
+      "promoted_to_rule": "not yet"
+    },
+    {
       "id": "INC-2026-11-19-10",
       "date": "2026-11-19",
       "title": "Fable calculation audit: 15 checker defects, 12 false PASS",

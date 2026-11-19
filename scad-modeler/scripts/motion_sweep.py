@@ -187,8 +187,10 @@ def allowed_depth(entry):
 
 def symmetric_under(mesh, driver, period, tol=0.1, n=3000):
     """True when the part's surface maps onto itself after turning by one period (within tol mm)."""
-    pts = trimesh.sample.sample_surface(mesh, n, seed=0)[0] if "seed" in trimesh.sample.sample_surface.__code__.co_varnames \
+    # P27b: every vertex too -- 3000 random samples missed a 1x1x2 mm nub on a 120 mm disc; any feature has vertices
+    smp = trimesh.sample.sample_surface(mesh, n, seed=0)[0] if "seed" in trimesh.sample.sample_surface.__code__.co_varnames \
         else trimesh.sample.sample_surface(mesh, n)[0]
+    pts = np.vstack([mesh.vertices, smp])
     T = transform_for(driver, period)
     moved = trimesh.transform_points(pts, T)
     _, dist, _ = trimesh.proximity.closest_point(mesh, moved)
@@ -310,34 +312,37 @@ class Pairwise:
     """One FCL manager per pair, so a pair can be measured or skipped
     individually -- trimesh's internal check has no per-pair exemption."""
 
-    def __init__(self, meshes, pairs, allow=None):
+    def __init__(self, meshes, pairs, allow=None, req=None, default_req=0.0):
         self.mgr, self.pairs, self.meshes, self.allow = {}, pairs, meshes, allow or {}
+        self.req, self.default_req = req or {}, default_req
         for a, b in pairs:
             m = CollisionManager()
             m.add_object(a, meshes[a])
             m.add_object(b, meshes[b])
             self.mgr[(a, b)] = m
 
+    def need(self, pair):
+        return self.req.get(pair, self.default_req)
+
     def evaluate(self, transforms):
-        """Returns (worst_clearance, worst_pair, colliding_pairs)."""
-        worst, worst_pair, colliding = float("inf"), None, []
+        """Returns (worst_clearance, worst_pair, colliding_pairs); worst = smallest margin over each pair's
+        own required clearance (P27b: a declared contact may state its own, else the motion's applies)."""
+        worst, worst_pair, colliding, margin = float("inf"), None, [], float("inf")
         for (a, b), m in self.mgr.items():
             for name in (a, b):
                 if name in transforms:
                     m.set_transform(name, transforms[name])
             if m.in_collision_internal():
                 if (a, b) in self.allow and self.depth(a, b, transforms) <= self.allow[(a, b)]:
+                    d = 0.0          # overlap within its declared range: clearance 0
+                else:
+                    colliding.append((a, b))
+                    worst, worst_pair, margin = -1.0, (a, b), -float("inf")
                     continue
-                colliding.append((a, b))
-                worst, worst_pair = -1.0, (a, b)
-                continue
-            if (a, b) in self.allow:
-                # P27 / AC-4: a declared contact is held to its interference range only; min_clearance_mm
-                # is for every OTHER pair (before, a hinge pin scored 0.0 and no hinge could pass 0.3)
-                continue
-            d = float(m.min_distance_internal())
-            if d < worst:
-                worst, worst_pair = d, (a, b)
+            else:
+                d = float(m.min_distance_internal())
+            if d - self.need((a, b)) < margin:
+                worst, worst_pair, margin = d, (a, b), d - self.need((a, b))
         return worst, worst_pair, colliding
 
     def depth(self, a, b, transforms):
@@ -368,6 +373,10 @@ def run_motion(motion, meshes, paths, contacts, step_override, verbose=True):
              if (a in moving or b in moving) and not (a in group and group.get(b) == group[a])]
     allow = {(a, b): allowed_depth(declared_entry(contacts, a, b))
              for a, b in pairs if is_declared(contacts, a, b)}
+    # P27b (Fable review): exempting every declared pair from min_clearance_mm hid near-misses elsewhere
+    # on the same two bodies. A declared contact keeps the motion's clearance unless it states its own.
+    req = {(a, b): float(declared_entry(contacts, a, b)["min_clearance_mm"])
+           for a, b in pairs if is_declared(contacts, a, b) and "min_clearance_mm" in declared_entry(contacts, a, b)}
     if not pairs:
         print(f"  '{motion.get('id', 'motion')}': nothing to check -- every pair "
               f"involving a moving part is a declared contact.")
@@ -393,7 +402,7 @@ def run_motion(motion, meshes, paths, contacts, step_override, verbose=True):
                   f"{hi - lo:.0f}deg (teeth {z}) -- one tooth pitch repeats")
         hi = lo + period
 
-    engine = Pairwise(meshes, pairs, allow)
+    engine = Pairwise(meshes, pairs, allow, req, min_clear)
 
     def sample(t):
         tf = {d["_path"]: transform_for(d, t) for d in drivers}
@@ -417,7 +426,7 @@ def run_motion(motion, meshes, paths, contacts, step_override, verbose=True):
     results.sort(key=lambda r: r[0])
     worst = min(results, key=lambda r: r[1])
     clashes = [r for r in results if r[3]]
-    violations = [r for r in results if not r[3] and r[1] < min_clear]
+    violations = [r for r in results if not r[3] and r[2] and r[1] < engine.need(r[2]) - 1e-12]
 
     ok = not clashes and not violations
     out = {
@@ -425,7 +434,7 @@ def run_motion(motion, meshes, paths, contacts, step_override, verbose=True):
         "swept_deg": [lo, hi], "step_deg": step,
         "min_clearance_required_mm": min_clear,
         "worst": {"t_deg": round(worst[0], 4),
-                  "clearance_mm": (None if worst[1] < 0 else round(worst[1], 4)),
+                  "clearance_mm": (None if worst[1] < 0 or math.isinf(worst[1]) else round(worst[1], 4)),
                   "pair": [os.path.basename(x) for x in worst[2]] if worst[2] else None,
                   "interfering": worst[1] < 0},
         "clash_t_deg": [round(r[0], 3) for r in clashes],

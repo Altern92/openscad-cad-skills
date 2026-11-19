@@ -134,7 +134,7 @@ def fmt(v):
 INC_RE = re.compile(r"^\s*(?:use|include)\s*<([^>]+)>", re.M)
 # P27 / AC-13: import()/surface() data files are part of the render -- a moved import("servo.stl") kept
 # its stale cached mesh. shortcut: literal file names only; a computed path (str(...)) is not followed.
-DATA_RE = re.compile(r"\b(?:import|surface)\s*\(\s*(?:file\s*=\s*)?\"([^\"]+)\"")
+DATA_RE = re.compile(r"\b(?:import|surface)\s*\([^)\"]*?\"([^\"]+)\"")   # P27b: also import(convexity=4, file="x")
 
 
 def deps_hash(scad):

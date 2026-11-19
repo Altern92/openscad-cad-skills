@@ -14,7 +14,19 @@ motion_desc_range	motion_sweep	lo, hi = sorted(float(x) for x in motion.get("ran
 fasteners_instances_replace	check_fasteners	stls = sorted(set(stls) | set(ist))	stls = ist	p27_fasteners
 behavior_first_echo	check_behavior	vals[n] = max(hits, key=abs)	vals[n] = hits[0]	p27_behavior
 features_pin_as_hole	check_features	if depth % 2 == 0:	if False:	p27_features_dims
-dims_two_sided	check_dimensions	tol_i = tolerances[i] if flat_mode or actual[i] <= expected[i] else args.floor	tol_i = tolerances[i]	p27_features_dims
+dims_two_sided	check_dimensions	tol_i = tolerances[i] if flat_mode or actual[i] <= expected[i] else over[i]	tol_i = tolerances[i]	p27_features_dims
 limits_no_step	check_limits	put(k + ".step_deg", m.get("step_deg", 2.0), "max")          # P27 / AC-12: coarser = looser	pass	p27_limits
 strength_mx_only	check_strength	a, b = np.linalg.solve(np.array([[Sxy, Syy], [Sxx, Sxy]]), np.array([mb2[0], -mb2[1]]))	a, b = np.linalg.solve(np.array([[Sxy, Syy], [Sxx, Sxy]]), np.array([mb2[0], 0.0]))	p27_strength
 strength_my_only	check_strength	a, b = np.linalg.solve(np.array([[Sxy, Syy], [Sxx, Sxy]]), np.array([mb2[0], -mb2[1]]))	a, b = np.linalg.solve(np.array([[Sxy, Syy], [Sxx, Sxy]]), np.array([0.0, -mb2[1]]))	p27_strength
+motion_sym_samples_only	motion_sweep	pts = np.vstack([mesh.vertices, smp])	pts = smp	p27_motion
+motion_contact_exempt	motion_sweep	return self.req.get(pair, self.default_req)	return 0.0 if pair in self.allow else self.default_req	p27_motion
+fasteners_bite_half_d	check_fasteners	return min((d - p) / 2 + 0.04 * d, d / 2 - 0.01)	return d / 2	p27_fasteners
+fasteners_bite_044	check_fasteners	return min((d - p) / 2 + 0.04 * d, d / 2 - 0.01)	return 0.44 * d	p27_fasteners
+fasteners_watertight_strict	check_fasteners	return bool((counts % 2).any())	return not m.is_watertight	p27_fasteners
+fasteners_no_leak_check	check_fasteners	return bool((counts % 2).any())	return False	p27_fasteners
+limits_no_default_for	check_limits	base = default_for(k, locked)	base = None	p27_limits
+limits_force_dir_negzero	check_limits	put_eq(k + ".force_dir", [round(float(x) / mag, 6) + 0.0 for x in f])	put_eq(k + ".force_dir", [round(float(x) / mag, 6) for x in f])	p27_limits
+limits_no_drivers	check_limits	put_eq(k + ".drivers", sorted((json.dumps(dv, sort_keys=True) for dv in m.get("drivers", [])), key=str))	pass	p27_limits
+strength_grid_depth	check_strength	while bottom - lo > 0.01:	while False:	p27_strength
+dims_no_offset_allowance	check_dimensions	if not flat_mode and uses_offset_delta(args.scad):	if False:	p27_features_dims
+behavior_no_data_files	check_behavior	for dat in DATA_RE.findall(txt):	for dat in []:	p27_behavior

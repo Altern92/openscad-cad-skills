@@ -62,3 +62,16 @@ carries the fix, a mutant in `tests/semantic_mutants.tsv`.
 ## Not changed (with reason)
 - check_collisions `bounded_depth`: suspected only (a thin fin deep in a block measures its thickness).
   Kept: the fixture of the audit failed correctly; recorded in NEXT.md for a measured follow-up.
+
+## P27b (Fable review of P27, same day): 3 false PASS, 3 false FAIL, 1 slowdown in the P27 fixes
+- **AC-4b** A declared contact keeps the motion's `min_clearance_mm` unless it states its own (the P27
+  exemption covered the whole body pair and hid a 0.1 mm near-miss elsewhere on the lid and box).
+- **AC-5b** `teeth` symmetry is tested on every vertex plus samples (a 1x1x2 mm nub on a 120 mm disc slipped).
+- **AC-12b** limits.lock schema 2: whole driver set per motion, every contact as an opt-out flag, a contact's
+  own clearance vs the approved motion clearance, -0.0 == 0.0 in the force direction; an old lock prints an
+  OPEN QUESTION.
+- **AC-9b** Open mesh = an edge with an odd face count (4-face edges from touching solids are valid).
+- **AC-10b** Thread material from (d - P)/2 + 0.04 d (ISO coarse P, or `pitch`): M10x1 into 9.0 passes.
+- **AC-11b** Covered-hole search clusters first and tests one centroid per cluster (344 s -> 12 s).
+- **AC-13b** `import(convexity = 4, file = "x")` is followed for the behavior cache key.
+- **AC-18b** `offset(delta=)` in the file allows the circumscribed overshoot on the longer side.

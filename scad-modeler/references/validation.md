@@ -660,18 +660,23 @@ inside the part's own mesh: a shelf 110 mm above its base passed every gate (rc 
 - P27 (Fable calculation audit, 2026-11-19), what the numbers now mean:
   - strength: bending is unsymmetric (full second-moment tensor), so an oblique load adds both
     components; an insert's blind depth is bisected to 0.01 mm, not rounded up.
-  - motion: `range_deg` [0, -90] is swept as [-90, 0]; `step_deg` <= 0 is bad input; declared contacts
-    are exempt from `min_clearance_mm`; `teeth` is honoured only if the part really repeats every pitch.
-  - fasteners: `instances` add to build/positioned; a screw without `start` and an open (not watertight)
-    mesh are bad input; thread material must start within 0.44 d (pilot <= 0.88 d); a covered host hole
-    is sampled at a density set by the contact face's area; renders re-make when an imported file changes.
-  - limits.lock: implicit defaults (clearance default, ground tol, interference [0, 0]), motion step and
-    range, `teeth` and the force direction are locked; a new clearance pair or contact range is compared
-    with the default it overrides.
+  - motion: `range_deg` [0, -90] is swept as [-90, 0]; `step_deg` <= 0 is bad input; a declared contact
+    keeps the motion's `min_clearance_mm` unless it states its own (P27b); `teeth` is honoured only if
+    every vertex of the part maps onto it after one pitch.
+  - fasteners: `instances` add to build/positioned; a screw without `start` and an open mesh (an edge with
+    an odd number of faces; 4-face edges from touching solids are fine) are bad input; thread material
+    must start at the tap drill (d - P)/2 + 0.04 d, P from ISO coarse or the fastener's `pitch`; a covered
+    host hole is found by clustering the uncovered contact face (density by area); renders re-make when an
+    imported file changes.
+  - limits.lock (schema 2): implicit defaults (clearance default, ground tol, interference [0, 0]), motion
+    step and range, each motion's whole driver set, every contact (a new one is a new opt-out) and the
+    force direction are locked; a new clearance pair, contact range or contact clearance is compared with
+    the default it overrides. An older lock prints an OPEN QUESTION until the user re-approves.
   - behavior: imported files are part of the render cache key; an angle echo printed twice (mirrored copy)
     is judged by its worst value.
   - features: a hole is a contour enclosed by an odd number of others (a solid pin is not a hole).
-  - dimensions: the tessellation bound excuses only a shorter extent; a longer one gets the 0.005 mm floor.
+  - dimensions: the tessellation bound excuses only a shorter extent; a longer one gets the 0.005 mm floor,
+    or the circumscribed overshoot when the file uses `offset(delta=)` (its mitred corners stick out).
 - Every `LAYOUT` row gets its own positioned STL, including instances that reuse a part file (mirror
   copies such as `upper_arm_l`); before, the whole left side of an axle never reached collisions,
   contact_geometry, fasteners or the motion sweep. Name those copies in `joints.json` contacts,

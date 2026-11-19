@@ -61,6 +61,7 @@ Exit codes:
     4  usage/runtime error (missing file, unreadable mesh, trimesh absent)
 """
 import argparse
+import math
 import os
 import re
 import sys
@@ -133,6 +134,19 @@ def parse_expected_from_scad(scad_path):
         print(f"ERROR: cannot read SCAD file {scad_path}: {e}", file=sys.stderr)
         sys.exit(EXIT_USAGE)
     return None
+
+
+def uses_offset_delta(scad, _seen=None):
+    _seen = _seen or set()
+    real = os.path.realpath(scad)
+    if real in _seen or not os.path.isfile(scad):
+        return False
+    _seen.add(real)
+    txt = open(scad, encoding="utf-8", errors="replace").read()
+    if re.search(r"\boffset\s*\([^)]*\bdelta\b", txt):
+        return True
+    return any(uses_offset_delta(os.path.join(os.path.dirname(scad), inc), _seen)
+               for inc in re.findall(r"^\s*(?:use|include)\s*<([^>]+)>", txt, re.M))
 
 
 def main():
@@ -221,6 +235,14 @@ def main():
                       f"{', '.join('XYZ'[i] for i in looser)} -- the derived bound is "
                       "used there (a declaration can only tighten the gate).")
 
+    # P27b (Fable review): offset(delta=) on a curve mitres its corners OUTSIDE the nominal radius (a Ø40
+    # circle + delta 2 at $fn 48 measured 44.009). Only then does the longer side get the circumscribed
+    # polygon's overshoot 2 r (sec(pi/n) - 1); otherwise the floor. shortcut: a text scan of the file and
+    # its includes, not of what is actually rendered.
+    over = [args.floor] * 3
+    if not flat_mode and uses_offset_delta(args.scad):
+        over = [args.floor + 2 * (abs(e) / 2) * (1 / math.cos(math.pi / fragments_for_r(abs(e) / 2, fn, fa, fs)) - 1)
+                for e in expected]
     errors = []
     for i, axis in enumerate(['X', 'Y', 'Z']):
         diff = abs(actual[i] - expected[i])
@@ -228,14 +250,14 @@ def main():
         # SHORTENS an extent; a cube 3 mm too long passed at $fn = 6 under a two-sided 26.8 mm bound. A longer
         # extent gets the numeric floor only; a shorter one the bound plus that floor (float32 storage: a
         # $fn = 6 cylinder at exactly the bound failed by 1e-6 mm).
-        tol_i = tolerances[i] if flat_mode or actual[i] <= expected[i] else args.floor
+        tol_i = tolerances[i] if flat_mode or actual[i] <= expected[i] else over[i]
         if not flat_mode and actual[i] < expected[i]:
             tol_i += args.floor
         if diff > tol_i:
             errors.append(
                 f"{axis}: expected {expected[i]:.3f} mm, got {actual[i]:.3f} mm "
                 f"(diff {diff:.4f} mm > tol {tol_i:.4f} mm"
-                + (", longer than declared: tessellation cannot make a part longer)" if tol_i == args.floor else ")")
+                + (", longer than declared: only offset(delta) on a curve can make a part longer)" if actual[i] > expected[i] and not flat_mode else ")")
             )
 
     if errors:

@@ -37,6 +37,20 @@ python3 -c "import trimesh; m=trimesh.load('build/positioned/plate.stl'); m.upda
 run plain.json; [ $r -eq 2 ] && grep -q "watertight" <<< "$o" || { echo "AC-9: open mesh accepted (rc $r): $o" >&2; fail=1; }
 asm 3.9; rm build/positioned/cover.stl
 run plain.json; [ $r -ne 0 ] && grep -q "no thread material" <<< "$o" || { echo "AC-10: 3.9 mm pilot for M4 passed: $o" >&2; fail=1; }
+# P27b: the bite follows the pitch -- M10x1 into its ISO 9.0 mm tap drill is fine (0.44 d failed it)
+asm 9.0; rm build/positioned/cover.stl
+echo '[{"name":"m10f","start":[0,0,5],"axis":[0,0,-1],"d":10,"pitch":1.0,"length":16,"head_d":16,"head_h":6,"into":"base","thread_from":5}]' > m10.json
+sed -i '' 's/cylinder(d=4.4,h=10)/cylinder(d=10.5,h=10)/' assembly.scad
+"$OPENSCAD" --backend=Manifold -o build/positioned/plate.stl -D 'PART="plate"' assembly.scad >/dev/null 2>&1
+run m10.json; [ $r -eq 0 ] || { echo "P27b: M10x1 into its 9.0 mm tap drill failed: $o" >&2; fail=1; }
+# P27b: OpenSCAD's touching cubes give 4-face edges -- closed, not leaky
+asm 3.3; rm build/positioned/cover.stl
+printf 'translate([100,0,0]) { cube(10); translate([10,10,0]) cube(10); }\n' > edge.scad   # two cubes sharing an edge
+"$OPENSCAD" --backend=Manifold -o build/positioned/edge.stl edge.scad >/dev/null 2>&1
+python3 -c "import trimesh,sys; sys.exit(0 if not trimesh.load('build/positioned/edge.stl').is_watertight else 1)" \
+    || echo "note: this OpenSCAD wrote no 4-face edge; the case below proves nothing here" >&2
+o=$(python3 "$F" --fasteners plain.json 2>&1); r=$?
+[ $r -eq 0 ] || { echo "P27b: 4-face edges (cubes sharing an edge) rejected (rc $r): $o" >&2; fail=1; }
 # AC-11: lids of 60 / 150 / 300 mm cover an unused Ø4 host hole at x = +20
 for L in 60 150 300; do
     rm -rf build; mkdir -p build/positioned

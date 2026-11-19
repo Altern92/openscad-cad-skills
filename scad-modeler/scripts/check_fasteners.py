@@ -72,8 +72,25 @@ except ImportError:
     sys.exit(2)
 
 STEP, N, CROSS_MARGIN = 0.5, 12, 0.5
-BITE_R = 0.44                     # thread material must start within this x d of the axis (pilot <= 0.88 d)
-DATA_EXT = (".stl", ".dxf", ".svg", ".off", ".3mf", ".obj", ".amf", ".json", ".dat", ".png")
+# ISO 261 coarse pitch by nominal d (mm); a fine thread sets "pitch" on the fastener
+COARSE_PITCH = {1.6: 0.35, 2: 0.4, 2.5: 0.45, 3: 0.5, 3.5: 0.6, 4: 0.7, 5: 0.8, 6: 1.0, 8: 1.25, 10: 1.5, 12: 1.75,
+                14: 2.0, 16: 2.0, 18: 2.5, 20: 2.5, 22: 2.5, 24: 3.0, 27: 3.0, 30: 3.5, 33: 3.5, 36: 4.0}
+DATA_EXT = (".stl", ".dxf", ".svg", ".off", ".3mf", ".obj", ".amf", ".dat", ".png")
+
+
+def bite_radius(f):
+    """Radius from which thread material must be solid: the tap drill d - P (ISO) plus 0.04 d for printed
+    pilots running over (P27b: a fixed 0.44 d failed M10x1 into its own 9.0 mm tap drill)."""
+    d = float(f["d"])
+    p = float(f.get("pitch") or COARSE_PITCH.get(d) or COARSE_PITCH[min(COARSE_PITCH, key=lambda k: abs(k - d))])
+    return min((d - p) / 2 + 0.04 * d, d / 2 - 0.01)
+
+
+def leaky(m):
+    """True for a mesh with a boundary: an edge used by an ODD number of faces. trimesh's is_watertight also
+    rejects 4-face edges, which OpenSCAD writes for touching cubes or a hole tangent to a wall (P27b)."""
+    _, counts = np.unique(m.edges_sorted, axis=0, return_counts=True)
+    return bool((counts % 2).any())
 
 
 def ring(c, ax, r):
@@ -153,7 +170,7 @@ def check_one(f, meshes):
         else:
             # P27 / AC-10: material from r = 0.44 d, i.e. a pilot of at most 0.88 d (ISO tap drills 0.82-0.84 d;
             # printed pilots run a little over). At r = d/2 an M4 bit "into" a 3.9 mm hole.
-            rb = BITE_R * d
+            rb = bite_radius(f)
             for t in samples(bf + 0.3, L - 0.3):
                 if not any(m.contains(ring(s + t * ax, ax, rb)).all() for m in tgt):
                     errs.append(f"no thread material at {t:+.1f} mm (r {rb:.2f}, pilot over {2 * rb:.2f}) in {into}")
@@ -233,29 +250,35 @@ def covered_host_holes(m, meshes, n=20000, seed=0):
     cand = np.flatnonzero(on_plane & ~touch)
     if not len(cand):
         return []
-    q = pts[cand] + 0.3 * nv
-    deep = ~inside_host(q + 1.0 * nv)            # void continues into the host: a hole, not a dent
-    cand, q = cand[deep], q[deep]
-    holes = []
-    for i, c in zip(cand, q):                    # surrounded by host material at some radius
-        if any(inside_host(ring(c, nv, r)).mean() > 0.9 for r in (3.0, 6.0, 10.0)):
-            holes.append(pts[i])
-    if not holes:
-        return []
+    # P27b: cluster the uncovered face points FIRST (link 1.5 mm), then test one centroid per cluster: a
+    # per-point loop over ~160k candidates under a 200 mm window took 344 s. A cluster wider than 20 mm is an
+    # opening, not a screw hole (its centroid could never be surrounded by host material at r <= 10).
+    from scipy.sparse.csgraph import connected_components
     from scipy.spatial import cKDTree
-    H = np.array(holes); tree = cKDTree(H); seen = np.zeros(len(H), bool); out = []
-    for i in range(len(H)):
-        if seen[i]:
-            continue
-        grp, todo = set(), [i]
-        while todo:
-            j = todo.pop()
-            if j in grp:
-                continue
-            grp.add(j); todo += tree.query_ball_point(H[j], 1.5)
-        seen[list(grp)] = True
-        if len(grp) >= 3:
-            out.append(H[list(grp)].mean(axis=0))
+    _, keep = np.unique(np.round(pts[cand] / 0.5).astype(np.int64), axis=0, return_index=True)
+    H = pts[cand[np.sort(keep)]]
+    if not len(H):
+        return []
+    ncl, lab = connected_components(cKDTree(H).sparse_distance_matrix(cKDTree(H), 1.5), directed=False)
+    cents = []
+    for k in range(ncl):
+        g = H[lab == k]
+        if len(g) >= 3 and np.ptp(g, axis=0).max() <= 20.0:
+            cents.append(g.mean(axis=0))
+    if not cents:
+        return []
+    C = np.array(cents)
+    q = C + 0.3 * nv
+    C, q = C[~inside_host(q + 1.0 * nv)], q[~inside_host(q + 1.0 * nv)]   # void continues into the host
+    ring0 = ring(np.zeros(3), nv, 1.0)
+    surrounded = np.zeros(len(q), bool)
+    for r in (3.0, 6.0, 10.0):
+        todo = np.flatnonzero(~surrounded)
+        if not len(todo):
+            break
+        pr = (q[todo, None, :] + r * ring0[None, :, :]).reshape(-1, 3)
+        surrounded[todo] = inside_host(pr).reshape(len(todo), -1).mean(axis=1) > 0.9
+    out = list(C[surrounded])
     ok = [np.array(c, float) for c in m.get("covered_ok", [])]
     return [c for c in out if not any(np.linalg.norm(c - o) < 3.0 for o in ok)]
 
@@ -344,9 +367,9 @@ def main():
             print(f"purchased bodies failed to render: {', '.join(failed)}", file=sys.stderr); return 2
         stls = list(stls) + pst
     meshes = {os.path.basename(p)[:-4]: trimesh.load(p, force="mesh") for p in stls}
-    leaky = sorted(n for n, m in meshes.items() if not m.is_watertight)
-    if leaky:   # P27 / AC-9: containment on an open mesh is meaningless (a cover missing one face blocked nothing)
-        print(f"not watertight, screw paths cannot be tested: {', '.join(leaky)} -- re-export closed meshes",
+    open_ = sorted(n for n, m in meshes.items() if leaky(m))
+    if open_:   # P27 / AC-9: containment on an open mesh is meaningless (a cover missing one face blocked nothing)
+        print(f"not watertight, screw paths cannot be tested: {', '.join(open_)} -- re-export closed meshes",
               file=sys.stderr); return 2
     nbad = 0
     for f in fs:
