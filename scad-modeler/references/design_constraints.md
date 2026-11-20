@@ -138,3 +138,7 @@ If it can become a check, make it one. A line without a check is a reminder; a c
 - A declaration is a claim, not a proof: "shelf attached to base" passed every gate with the shelf 110 mm in the air,
   because joints were checked only as names and a point inside the part's own mesh (Fable audit 2026-11-19).
   — check: `contact_geometry` gate (positioned meshes ≤ 1 mm), `behavior` lists every printed part (P26)
+- One body that is several separate shells (all ball studs of a corner as one `balls` vitamin) proves no joint: "balls <-> upright"
+  passed with the upper ball 5 mm off its lug, because any one ball touching was enough (user caught it 2026-11-20, vehicle_v4:
+  "the upright must hang on 3 points"). Give each ball, rod end and pin its own body and its own joint. — check: manual
+  (planned P28: `check_behavior.py` FAILs a joint body whose mesh has more than one shell unless declared `multi_shell`)

@@ -3,6 +3,16 @@
   "description": "Append-only structured log of real bugs found and fixed across OpenSCAD skills (scad-modeler, openscad-cad, openscad-organic). Use scripts/incidents.py to check, list, search, show, or add entries.",
   "entries": [
     {
+      "id": "INC-2026-11-20-01",
+      "date": "2026-11-20",
+      "title": "behavior HOLDS passed a 3-point upright with one ball detached: all balls were one body",
+      "where": "esp32_rc_modelis front_axle_v4 + vehicle_v4 behavior.json (check_behavior.py)",
+      "symptom": "User: the front upright should hang on 3 points (lower ball, upper ball, tie rod) and the gate counted it good. Reproduced: upper ball moved 5 mm off its lug, old behavior.json still printed 'joint balls <-> upright widest gap 0.00' and HOLDS PASS.",
+      "root_cause": "The vitamin 'balls' (4 ball studs: lower, upper, steering arm, bar) was declared as ONE body; a joint between two bodies passes when any point of one touches the other, so one ball touching proved all four points. check_behavior.py does not reject a joint body made of several disconnected shells.",
+      "fix": "front_axle_v4 assembly.scad: v_balls/v_tierod_cups take which=; vit ball_lo/ball_up/ball_sa/ball_bar, tr_cup_bar/tr_cup_sa. gen_behavior.py (front, vehicle): one body + one joint per ball and rod end. New gate FAILs 'ball_up <-> upright gap 5.00' on the same mutation; real geometry 0.00 mm at all 9 poses both sides.",
+      "promoted_to_rule": "design_constraints.md line (manual); NEXT.md P28: check_behavior FAIL on multi-shell joint bodies"
+    },
+    {
       "id": "INC-2026-11-19-11",
       "date": "2026-11-19",
       "title": "P27 fixes reviewed by Fable: 3 false PASS, 3 false FAIL, 1 slowdown",
