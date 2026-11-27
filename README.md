@@ -47,7 +47,7 @@ review and was still wrong; each such case is logged in [`INCIDENTS.json`](INCID
 
 Known gaps (see [Limits](#limits)): strength only for heat-set insert holes and simple beams, no slicer gates, no measured PETG
 tolerances yet, motion checking samples rather than proves. Planned work is tracked in
-`NEXT.md` (in Lithuanian, the maintainer's working notes).
+[`NEXT.md`](NEXT.md) (the maintainer's work queue and roadmap).
 
 ## Install
 
@@ -298,7 +298,7 @@ verdict does not block; it blocks at most once per stop. Add to `~/.claude/setti
 | `docs/superpowers/specs/` | acceptance criteria for each change |
 | `.claude-plugin/` | plugin manifest and its one-plugin marketplace (`/plugin marketplace add`) |
 | `install.sh` | the GitHub installer without the plugin system |
-| `NEXT.md` | maintainer's work queue (Lithuanian) |
+| `NEXT.md` | maintainer's work queue and roadmap (history in `docs/archive/`) |
 
 ## Development
 
