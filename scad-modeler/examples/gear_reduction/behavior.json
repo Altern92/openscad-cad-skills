@@ -1,0 +1,32 @@
+{
+  "_comment": "A bare gear pair: the two gears must stay in mesh (gap <= 0.3 mm) through the motion. No frame or shafts, so no ground and no stands gate.",
+  "scad": "assembly.scad",
+  "bodies": {
+    "pinion": {
+      "render": [
+        {
+          "MODE": "part",
+          "PART": "pinion"
+        }
+      ],
+      "density": 1.27
+    },
+    "spur": {
+      "render": [
+        {
+          "MODE": "part",
+          "PART": "spur"
+        }
+      ],
+      "density": 1.27
+    }
+  },
+  "joints": [
+    {
+      "a": "pinion",
+      "b": "spur",
+      "max_gap": 0.3,
+      "why": "teeth in mesh at the gear_dist() centre distance"
+    }
+  ]
+}

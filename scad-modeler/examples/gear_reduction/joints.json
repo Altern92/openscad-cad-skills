@@ -1,27 +1,62 @@
 {
-  "_comment": "gear_module=1.0, pinion=11T, spur=66T -> center_distance = 1.0*(11+66)/2 = 38.5mm. Meshing external gears turn OPPOSITE ways, so spur's ratio is negative and equal to -(pinion_teeth/spur_teeth). expected_interference_mm and multi_region_ok were both set from an ACTUAL measurement of this exact pair (check_collisions.py -- see the example's own README), not guessed: real involute teeth interpenetrate deeper than a simple press-fit backlash range (measured max penetration depth 1.383mm here, module-1 addendum-scale, not the ~0.1-0.5mm a bearing/shaft press fit would use), and a standard involute pair's contact ratio (>1 by design) means 2-3 adjacent tooth pairs are legitimately in simultaneous contact near the pitch point at any static pose -- confirmed 3 disjoint contact patches, all clustered within ~2.5mm x ~7mm near the line of centers, not scattered to unrelated geometry.",
-
+  "_comment": "gear_module=1.0, pinion 11T, spur 66T. Centre distance comes from BOSL2 gear_dist() = 38.845 mm, not m*(z1+z2)/2 = 38.5: the 11T pinion gets an automatic profile shift of 0.357 (P29, 2026-11-27; at 38.5 the teeth jammed and an earlier 0.5-2.0 mm interference window hid it). motion_sweep.py checks the distance itself from \"module\". With the phase in params.scad the teeth interleave with backlash 0.15, so no overlap is allowed. Meshing external gears turn opposite ways: spur ratio = -(11/66).",
   "contacts": [
     {
-      "pair": ["pinion", "spur"],
+      "pair": [
+        "pinion",
+        "spur"
+      ],
       "joint_type": "gear_mesh",
-      "expected_interference_mm": [0.5, 2.0],
+      "expected_interference_mm": [
+        0.0,
+        0.05
+      ],
       "multi_region_ok": true,
-      "derivation": "measured, not guessed: actual max penetration depth 1.383mm for this module=1, 11T/66T pair at center_distance=38.5mm (gear_module*(pinion_teeth+spur_teeth)/2) -- see this file's top-level _comment for the full measurement",
-      "expected_bounds": [[3.0, -7.0, -4.0], [9.0, 7.0, 4.0]]
+      "derivation": "correct centre distance + phase leave backlash, so real teeth do not overlap; 0.05 mm is mesh noise",
+      "module": 1.0
     }
   ],
-
   "motion": [
     {
       "id": "reduction_stage",
       "drivers": [
-        {"part": "pinion", "type": "revolute",
-         "axis": [0, 0, 1], "origin": [0, 0, 0], "ratio": 1.0, "teeth": 11},
-        {"part": "spur", "type": "revolute",
-         "axis": [0, 0, 1], "origin": [38.5, 0, 0], "ratio": -0.16667, "teeth": 66}
+        {
+          "part": "pinion",
+          "type": "revolute",
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "origin": [
+            0,
+            0,
+            0
+          ],
+          "ratio": 1.0,
+          "teeth": 11
+        },
+        {
+          "part": "spur",
+          "type": "revolute",
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "origin": [
+            38.8453,
+            0,
+            0
+          ],
+          "ratio": -0.16667,
+          "teeth": 66
+        }
       ],
-      "range_deg": [0, 360],
+      "range_deg": [
+        0,
+        360
+      ],
       "step_deg": 2.0,
       "min_clearance_mm": 0.0
     }

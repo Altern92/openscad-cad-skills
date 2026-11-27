@@ -3,6 +3,26 @@
   "description": "Append-only structured log of real bugs found and fixed across OpenSCAD skills (scad-modeler, openscad-cad, openscad-organic). Use scripts/incidents.py to check, list, search, show, or add entries.",
   "entries": [
     {
+      "id": "INC-2026-11-27-02",
+      "date": "2026-11-27",
+      "title": "First P29 gear-axis check had 7 holes a fresh review reproduced (keyed gear skipped silently, declared not measured axes, helical false FAIL, tilt passed)",
+      "where": "`scad-modeler/scripts/motion_sweep.py` `check_gear_axes()` first version; fixture `p29_gear_axes`",
+      "symptom": "fixture green, but a keyed spur at a wrong centre distance passed rc 0, a helical pair at the right distance failed, a 1.5 deg tilted gear passed, tolerance 0.3 mm still passed the fixture",
+      "root_cause": "the checks were chained (distance only after a measured axis), the fixture had no case near the tolerance, and the same session wrote and judged it",
+      "fix": "P29b: distance always checked (measured axes, else declared origins, labelled); helical passed to gear_dist(); inertia-axis tilt check; every unchecked gear_mesh prints NOT CHECKED; bad profile_shift = exit 4; boundary cases 0.1 mm fail / 0.03 mm pass; mutants tol 0.3, helical ignored, tilt off all killed",
+      "promoted_to_rule": "no -- process: a fresh reviewer for every new checker (same lesson as P27b)"
+    },
+    {
+      "id": "INC-2026-11-27-01",
+      "date": "2026-11-27",
+      "title": "README's headline example rotted to 3 FAIL with CI green, and its gears sat 0.345 mm too close behind a 0.5-2.0 mm interference window",
+      "where": "`scad-modeler/examples/gear_reduction/` (params.scad, joints.json, parts/*.scad)",
+      "symptom": "validate_scad.sh --all rc 1 (dimensions, joints, behavior) while the README promised exit 0; moving the spur a further 1.2 mm closer still passed collisions and the motion sweep",
+      "root_cause": "no fixture ran the example, so P15/P23/P25 gates broke it unseen; centre distance written as m*(z1+z2)/2 = 38.5 although BOSL2 auto-shifts the 11T pinion (gear_dist = 38.845); no tooth phase; the interference window was fitted to the jam it hid; the sweep rotated the spur about the stale joints.json origin, not where the layout put it",
+      "fix": "P29: center_distance = gear_dist(), gear_spin phase, interference [0, 0.05] (sweep min clearance 0.139 mm), NO_RETENTION with reason, behavior.json; motion_sweep.py checks each toothed driver's real axis and the gear_mesh centre distance against gear_dist() when \"module\" is declared; fixture example_gear_reduction keeps the example green",
+      "promoted_to_rule": "no -- enforced by motion_sweep.py (mechanics gate) and fixture example_gear_reduction"
+    },
+    {
       "id": "INC-2026-11-20-01",
       "date": "2026-11-20",
       "title": "behavior HOLDS passed a 3-point upright with one ball detached: all balls were one body",

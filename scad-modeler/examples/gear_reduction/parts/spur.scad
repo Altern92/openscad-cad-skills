@@ -2,6 +2,7 @@
 include <../params.scad>
 include <BOSL2/std.scad>
 include <BOSL2/gears.scad>
+// NO_RETENTION: a bare gear pair -- the shafts and frame that hold it are outside this example
 
 // EXPECTED_HOLE: [0, 0, 0, "Z", 5.0]
 // EXPECTED_BBOX: [67.95, 67.997, 8]   // z = gear_thickness; x/y = tooth tips, measured (BOSL2 2.0.750)
@@ -9,6 +10,6 @@ include <BOSL2/gears.scad>
 // SENSITIVE_TO: gear_thickness
 module spur() {
     spur_gear(mod=gear_module, teeth=spur_teeth, thickness=gear_thickness,
-               shaft_diam=shaft_d, pressure_angle=20, backlash=0.15);
+               shaft_diam=shaft_d, pressure_angle=20, backlash=0.15, gear_spin=spur_spin);
 }
 spur();

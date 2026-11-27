@@ -286,6 +286,142 @@ def check_gear_mesh_signs(contacts, motions):
     return failures
 
 
+AXIS_TOL_MM = 0.05      # P29: a gear 0.05 mm off its axis or its centre distance already changes backlash
+
+
+def _unit(v):
+    v = np.array(v, dtype=float)
+    return v / np.linalg.norm(v)
+
+
+def _bosl2_gear_dist(mod, z1, z2, pressure_angle, ps1, ps2, helical=0.0):
+    """BOSL2 gear_dist() via OpenSCAD; ps None = BOSL2's auto profile shift. Returns (mm, error)."""
+    import shutil, subprocess, tempfile
+    exe = os.environ.get("OPENSCAD") or shutil.which("openscad") or "/Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD"
+    kw = f"mod={mod}, teeth1={z1}, teeth2={z2}, pressure_angle={pressure_angle}, helical={helical}"
+    if ps1 is not None:
+        kw += f", profile_shift1={ps1}, profile_shift2={ps2}"
+    with tempfile.TemporaryDirectory() as d:
+        src, out = os.path.join(d, "g.scad"), os.path.join(d, "g.echo")
+        with open(src, "w") as f:
+            f.write("include <BOSL2/std.scad>\ninclude <BOSL2/gears.scad>\n"
+                    f"echo(P29_DIST=gear_dist({kw}));\n")
+        try:
+            subprocess.run([exe, "-o", out, src], capture_output=True, timeout=120)
+            txt = open(out).read()
+        except Exception as e:
+            return None, str(e)
+    for line in txt.splitlines():
+        if "P29_DIST" in line:
+            try:
+                return float(line.split("=")[-1]), None
+            except ValueError:
+                return None, line.strip()
+    return None, "no gear_dist echo (BOSL2 missing?)"
+
+
+def check_gear_axes(contacts, motions, meshes, paths):
+    """P29 (2026-11-27): a toothed driver must turn about the part's real axis, and a gear_mesh with
+    "module" must sit at BOSL2 gear_dist(). Real case: examples/gear_reduction sat 0.345 mm too close
+    (11T pinion auto profile shift ignored) and a spur moved a further 1.2 mm in the layout -- the sweep
+    still rotated it about the stale joints.json origin and passed. P29b (fresh review): the distance is
+    measured between the REAL axes when known, a gear whose axis cannot be measured still gets its
+    centre distance checked from the declared origins, direction is checked too, and every gear_mesh
+    that is not checked says why. Returns (failures, notes, degraded, usage_errors)."""
+    failures, notes, usage, degraded = [], [], [], False
+    axes = {}   # (motion id, part) -> dict(point, dir, teeth, measured)
+    for mi, motion in enumerate(motions):
+        mid = motion.get("id", f"#{mi}")
+        for d in motion.get("drivers", []):
+            z = d.get("teeth")
+            if not z or d.get("type", "revolute") != "revolute":
+                continue
+            name = str(d.get("part", "")).lower()
+            a, o = _unit(d.get("axis", [0, 0, 1])), np.array(d.get("origin", [0, 0, 0]), float)
+            entry = {"point": o, "dir": a, "teeth": int(z), "measured": False}
+            axes[(mid, name)] = entry
+            path = match_part(paths, d.get("part", ""))
+            if path is None or path not in meshes:
+                notes.append(f"NOT CHECKED: axis of '{d['part']}' -- no single STL named like it")
+                continue
+            mesh = meshes[path]
+            radius = float(np.max(np.linalg.norm(np.cross(mesh.vertices - mesh.center_mass, a), axis=1)))
+            # direction: the inertia axis nearest the declared one (a gear's symmetry axis is a principal axis)
+            vals, vecs = mesh.principal_inertia_components, mesh.principal_inertia_vectors
+            k = int(np.argmax(np.abs(vecs @ a)))
+            others = [v for i, v in enumerate(vals) if i != k]
+            distinct = min(abs(vals[k] - v) for v in others) > 1e-3 * max(abs(vals[k]), 1e-9)
+            if distinct:
+                tilt = math.degrees(math.acos(min(1.0, abs(float(vecs[k] @ a)))))
+                rim = radius * math.sin(math.radians(tilt))
+                if rim > AXIS_TOL_MM:
+                    failures.append(f"axis: driver '{d['part']}' in motion '{mid}' declares axis "
+                                    f"{list(np.round(a, 4))}, but the part's symmetry axis is tilted {tilt:.2f} deg "
+                                    f"from it ({rim:.3f} mm at its rim). Fix the part's rotation or the axis.")
+                    continue
+            rel = mesh.center_mass - o
+            off = rel - np.dot(rel, a) * a
+            probe = dict(d, origin=list(o + off), ratio=1.0)
+            if not symmetric_under(mesh, probe, 360.0 / float(z)):
+                notes.append(f"NOT CHECKED: axis of '{d['part']}' -- not symmetric under one tooth pitch about the "
+                             f"declared axis through its centre of mass (keyway, flat, hub feature -- or a wrong "
+                             f"axis direction); its centre distance below uses the declared origin")
+                continue
+            dist = float(np.linalg.norm(off))
+            if dist > AXIS_TOL_MM:
+                failures.append(f"axis: driver '{d['part']}' in motion '{mid}' turns about "
+                                f"{list(np.round(o, 3))}, but the part's real axis is {dist:.3f} mm away (through "
+                                f"{list(np.round(o + off, 3))}). The layout and joints.json disagree -- fix the one "
+                                f"that is wrong; the sweep would rotate the part about a point it does not turn on.")
+            entry.update(point=o + off, measured=True)
+    for c in contacts:
+        if str(c.get("joint_type", "")).lower() != "gear_mesh" or len(c.get("pair", [])) != 2:
+            continue
+        n1, n2 = (str(x).lower() for x in c["pair"])
+        pairs = [(axes[(m, n1)], axes[(m, n2)]) for (m, n) in list(axes) if n == n1 and (m, n2) in axes]
+        if not pairs:
+            notes.append(f"NOT CHECKED: centre distance {n1}<->{n2} -- both need a revolute driver with \"teeth\" "
+                         f"in the same motion block")
+            continue
+        if "module" not in c:
+            notes.append(f"NOT CHECKED: centre distance {n1}<->{n2} -- the gear_mesh contact has no \"module\"")
+            continue
+        ps = c.get("profile_shift", "auto")
+        if ps == "auto":
+            ps1 = ps2 = None
+        elif isinstance(ps, list) and len(ps) == 2 and all(isinstance(x, (int, float)) for x in ps):
+            ps1, ps2 = float(ps[0]), float(ps[1])
+        else:
+            usage.append(f"gear_mesh {n1}<->{n2}: \"profile_shift\" must be \"auto\" or [x1, x2], got {ps!r}")
+            continue
+        try:
+            mod, pa, hel = float(c["module"]), float(c.get("pressure_angle", 20)), float(c.get("helical", 0))
+        except (TypeError, ValueError):
+            usage.append(f"gear_mesh {n1}<->{n2}: \"module\", \"pressure_angle\" and \"helical\" must be numbers")
+            continue
+        for e1, e2 in pairs:
+            if abs(float(e1["dir"] @ e2["dir"])) < math.cos(math.radians(0.1)):
+                notes.append(f"NOT CHECKED: centre distance {n1}<->{n2} -- the axes are not parallel "
+                             f"(bevel/crossed gears are not spur gear_dist())")
+                continue
+            want, err = _bosl2_gear_dist(mod, e1["teeth"], e2["teeth"], pa, ps1, ps2, hel)
+            if want is None:
+                notes.append(f"NOT CHECKED: centre distance {n1}<->{n2} -- gear_dist() unavailable ({err})")
+                degraded = True
+                continue
+            rel = e2["point"] - e1["point"]
+            have = float(np.linalg.norm(rel - np.dot(rel, e1["dir"]) * e1["dir"]))
+            src = "measured axes" if e1["measured"] and e2["measured"] else "declared origin(s)"
+            if abs(have - want) > AXIS_TOL_MM:
+                failures.append(f"centre distance {n1}<->{n2}: axes are {have:.3f} mm apart ({src}), BOSL2 "
+                                f"gear_dist(module {mod}, {e1['teeth']}T/{e2['teeth']}T, profile shift {ps}, "
+                                f"helical {hel}) = {want:.3f} mm ({have - want:+.3f} mm). Take the distance from "
+                                f"gear_dist(), not m*(z1+z2)/2 (BOSL2 shifts small pinions automatically).")
+            else:
+                notes.append(f"OK: centre distance {n1}<->{n2} {have:.3f} mm ({src}) = gear_dist() {want:.3f} mm")
+    return failures, notes, degraded, usage
+
+
 def sweep_period(motion):
     """One tooth pitch of sweep parameter, or None if it doesn't apply.
 
@@ -535,6 +671,20 @@ def main():
             print(f"DEGRADED: {p} is not watertight -- results unreliable.")
             degraded = True
         meshes[p] = m
+
+    axis_failures, axis_notes, axis_degraded, axis_usage = check_gear_axes(contacts, motions, meshes, args.stls)
+    for n in axis_notes:
+        print(n)
+    if axis_usage:
+        for u in axis_usage:
+            print(f"ERROR: {u}")
+        return EXIT_USAGE
+    if axis_failures:
+        print("FAIL: gear axis / centre distance check (before any sweep runs):")
+        for f in axis_failures:
+            print(f"  - {f}")
+        return EXIT_FAIL
+    degraded = degraded or axis_degraded
 
     print(f"Sweeping {len(motions)} motion(s) over {len(meshes)} parts:")
     out = []
