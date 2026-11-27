@@ -29,11 +29,19 @@ Both checks below reuse only what's already a dependency of this skill
 (pyembree accelerates it if installed, but the pure-Python fallback
 works and was confirmed directly against a synthetic box).
 
+P38 additions (2026-11-27): build volume (--bed), overhang REGIONS with a
+1 mm^2 area floor and a facet tolerance, bridge span (<= 5 mm), and a
+bed-contact WARN. The rules and their thresholds are re-written here (not
+copied) from the ideas in earthtojake/text-to-cad
+(https://github.com/earthtojake/text-to-cad, MIT, packages/cad printing
+rules); no source from it is included in this file. Each threshold below names
+its source URL; one marked "unverified" is our own value and only warns.
+
 SCOPE -- what this does NOT check
 ----------------------------------
-- Bridging (unsupported spans between two supported points, as opposed to
-  a single unsupported downward face) -- a different geometric question,
-  not covered by either check here.
+- Bridging is a COARSE check (see _bridge_span): a flat ceiling carried on
+  two opposite sides; arches, diagonal bridges and cantilevers are not
+  classified, a cantilever stays an UNSUPPORTED OVERHANG.
 - Minimum feature size (see above).
 - Wall-thickness accuracy NEAR AN EDGE where two non-parallel surfaces
   meet (e.g. a flat cap's rim next to a steeply sloped side, a sharp
@@ -60,13 +68,14 @@ SCOPE -- what this does NOT check
 Usage:
     python3 check_printability.py --stl build/part.stl
     python3 check_printability.py --stl build/part.stl --overhang-deg 50 \\
-        --nozzle-d 0.4 --min-wall 0.8
+        --nozzle-d 0.4 --min-wall 0.8 --bed 220 220 250
 
 Exit codes:
     0  pass
     2  degraded (mesh not watertight, or ray-casting failed for some
        samples -- treat as not fully checked)
-    3  fail -- overhang or thin-wall violation found
+    3  fail -- overhang, bridge span, build volume or thin-wall violation found
+       (the bed-contact corner WARN never changes the exit code)
     4  usage error
 """
 import argparse
@@ -76,21 +85,108 @@ import sys
 EXIT_OK, EXIT_DEGRADED, EXIT_FAIL, EXIT_USAGE = 0, 2, 3, 4
 
 
+# Thresholds. Sources verified 2026-11-27 (page text read).
+# 45 deg: Hubs "an overhang can usually be printed up to 45" --
+#   https://www.hubs.com/knowledge-base/how-design-parts-fdm-3d-printing/
+# 5 mm bridge: same page, "unless the bridge is less than 5mm" (also
+#   https://xometry.pro/en/articles/fdm-design-tips/ "Bridges longer than 5 mm").
+BRIDGE_MAX_MM = 5.0
+# 5 deg "flat": text-to-cad's own cut-off for a flat (bridge) ceiling; unverified, no guide gives it.
+# It only CLASSIFIES: a region that is not flat (or not carried) stays an overhang judged by the
+# verified 45 deg rule, and a flat region is already flagged by that rule, so changing this value
+# can move a region between "bridge" and "overhang" but never turns a PASS into a FAIL.
+FLAT_DEG = 5.0
+# 1 mm^2 region floor: text-to-cad's own OVERHANG_AREA_MM2; unverified, no guide gives it.
+MIN_REGION_MM2 = 1.0
+# 1 deg facet tolerance: our own value for tessellation/STL-rounding noise on faceted curves
+# (a 45 deg design must not read 44.99 and FAIL). unverified. A bare cone is already safe
+# (inscribed facets are steeper from horizontal); arches and sphere facets are not.
+# shortcut: fixed 1 deg, upgrade to a per-facet chord tolerance if coarse $fn parts false-flag.
+FACET_TOL_DEG = 1.0
+# 256^3: the Bambu Lab X1/P1 plate size, unverified here (no page fetched); Hubs gives 200^3 as
+# typical desktop, up to 900x600x900 -- https://www.hubs.com/knowledge-base/3d-printing-geometry-restrictions/
+DEFAULT_BED = (256.0, 256.0, 256.0)
+# 100 deg: a first-layer corner sharper than this warns. Our own threshold (unverified); the advice
+# is Hubs "include a 45 chamfer or radius on all edges touching the build plate" --
+#   https://www.hubs.com/knowledge-base/how-design-parts-fdm-3d-printing/
+SHARP_CORNER_DEG = 100.0
+# 50 mm: only a footprint with a side this long warns (warping grows with length); our own
+# advisory value, unverified.
+WARP_MIN_SIDE_MM = 50.0
+# 80 %: carried edges at each end must cover this share of the region's length along the other
+# axis for it to count as a bridge (else it is a cantilever/partial support); our own value, unverified.
+CARRIED_COVER = 0.8
+
+
+def _regions(mesh, mask):
+    """Connected components (shared-edge) of the faces selected by mask."""
+    import numpy as np
+    import trimesh
+    idx = np.flatnonzero(mask)
+    if not len(idx):
+        return []
+    adj = mesh.face_adjacency
+    keep = mask[adj[:, 0]] & mask[adj[:, 1]]
+    return [np.asarray(c) for c in
+            trimesh.graph.connected_components(adj[keep], nodes=idx, min_len=1)]
+
+
+def _bridge_span(mesh, faces, up):
+    """Span (mm) of a flat down-facing region carried on two opposite sides, else None.
+    A region edge is 'carried' when the face across it lies below the ceiling (a wall going
+    down); an edge whose neighbour is above it is open. A direction counts as a bridge when
+    carried edges touch both ends of the region's extent along it.
+    shortcut: extent of the region's bounding box along two in-plane axes, so a diagonal or
+    L-shaped bridge is overestimated; upgrade to text-to-cad's per-point span (meshops_printing
+    `span`, ~70 lines) if a real part false-fails."""
+    import numpy as np
+    inr = np.zeros(len(mesh.faces), bool)
+    inr[faces] = True
+    adj = mesh.face_adjacency
+    cross = inr[adj[:, 0]] ^ inr[adj[:, 1]]
+    other = np.where(inr[adj[:, 0]], adj[:, 1], adj[:, 0])[cross]
+    ev = mesh.vertices[mesh.face_adjacency_edges[cross]]   # (n, 2, 3) edge end points
+    mid = ev.mean(axis=1)
+    h = mesh.triangles_center.dot(up)
+    carried = h[other] < h[faces].mean() - 1e-4
+    if not carried.any():
+        return None
+    pts, evc = mid[carried], ev[carried]
+    u = np.cross(up, [1.0, 0, 0] if abs(up[0]) < 0.9 else [0, 1.0, 0])
+    u /= np.linalg.norm(u)
+    reg = mesh.triangles[faces].reshape(-1, 3)
+    spans = []
+    for ax in (u, np.cross(up, u)):
+        lo, hi = reg.dot(ax).min(), reg.dot(ax).max()
+        ob = np.cross(up, ax)
+        olo, ohi = reg.dot(ob).min(), reg.dot(ob).max()
+        p, qe = pts.dot(ax), evc.dot(ob)
+        ok = True
+        for end in (p <= lo + 0.1 * (hi - lo), p >= hi - 0.1 * (hi - lo)):
+            # shortcut: min..max of the carried points, so two posts at the far corners count as
+            # full cover; upgrade to a union of edge intervals if such a part false-passes.
+            ok = ok and end.any() and (qe[end].max() - qe[end].min()) >= CARRIED_COVER * (ohi - olo)
+        if ok:
+            spans.append(hi - lo)
+    return float(min(spans)) if spans else None
+
+
 def check_overhang(mesh, build_axis, overhang_deg, baseplate_eps):
-    """Flag faces whose normal points more than (90 - overhang_deg) away
-    from straight up along build_axis -- i.e. within overhang_deg of
-    pointing straight down, matching the common slicer convention
-    "needs support past N degrees from vertical". Returns (bad_area_mm2,
-    total_downward_area_mm2, worst_angle_deg) or (0.0, 0.0, None) if no
-    downward-facing, non-baseplate area exists at all.
+    """Flag downward faces within overhang_deg of pointing straight down
+    (theta < 90 - overhang_deg - FACET_TOL_DEG, theta = angle between the
+    face normal and straight down), group them into connected REGIONS,
+    drop regions under MIN_REGION_MM2, and split off flat ceilings carried
+    on two sides as bridges (<= BRIDGE_MAX_MM is fine, longer is reported
+    separately). Bridges are only classified while the overhang check is on
+    (overhang_deg < 90). Returns a dict: total_down_area, worst_angle,
+    regions [(area, centre)], bridges [(area, span, centre)], small (count
+    of ignored regions).
 
     Faces resting directly on the build plate (centroid height along
     build_axis within baseplate_eps of the mesh's own minimum height) are
-    excluded from consideration -- they are supported BY THE PLATE, not
-    floating, and flagging a part's own flat bottom as "unsupported
-    overhang" would be a false positive on every single printable part.
-    Confirmed as a real bug during testing: a plain 20mm cube's flat
-    bottom face was initially flagged before this exclusion was added.
+    excluded -- they are supported BY THE PLATE. Confirmed as a real bug
+    during testing: a plain 20mm cube's flat bottom face was initially
+    flagged before this exclusion was added.
     """
     import numpy as np
     normals = mesh.face_normals
@@ -98,24 +194,90 @@ def check_overhang(mesh, build_axis, overhang_deg, baseplate_eps):
     up = np.array(build_axis, dtype=float)
     up = up / np.linalg.norm(up)
     heights = mesh.triangles_center.dot(up)
-    min_height = float(heights.min())
-    on_baseplate = heights <= (min_height + baseplate_eps)
+    on_baseplate = heights <= (heights.min() + baseplate_eps)
 
-    # cos(theta) where theta is the angle from straight-DOWN (-up) to the
-    # face normal: theta=0 -> normal points straight down (worst, a flat
-    # downward ceiling); theta=90 -> normal is horizontal (a vertical
-    # wall, always fine regardless of overhang_deg).
     cos_theta = normals.dot(-up)
     downward = (cos_theta > 0) & ~on_baseplate
+    out = dict(total_down_area=0.0, worst_angle=None, regions=[], bridges=[], small=0)
     if not np.any(downward):
-        return 0.0, 0.0, None
-    theta_deg = np.degrees(np.arccos(np.clip(cos_theta[downward], -1.0, 1.0)))
-    total_down_area = float(areas[downward].sum())
-    # "needs support past overhang_deg from vertical" == theta < (90 - overhang_deg)
-    bad = theta_deg < (90.0 - overhang_deg)
-    bad_area = float(areas[downward][bad].sum()) if np.any(bad) else 0.0
-    worst = float(theta_deg.min()) if len(theta_deg) else None
-    return bad_area, total_down_area, worst
+        return out
+    theta = np.degrees(np.arccos(np.clip(cos_theta, -1.0, 1.0)))
+    out["total_down_area"] = float(areas[downward].sum())
+    out["worst_angle"] = float(theta[downward].min())
+    flagged = downward & (theta < (90.0 - overhang_deg - FACET_TOL_DEG))
+
+    def centre(c):
+        return (mesh.triangles_center[c] * areas[c][:, None]).sum(axis=0) / areas[c].sum()
+
+    if overhang_deg < 90.0:
+        for c in _regions(mesh, flagged & (theta < FLAT_DEG)):
+            span = _bridge_span(mesh, c, up)
+            if span is not None:
+                flagged[c] = False
+                if areas[c].sum() >= MIN_REGION_MM2:
+                    out["bridges"].append((float(areas[c].sum()), span, centre(c)))
+    for c in _regions(mesh, flagged):
+        a = float(areas[c].sum())
+        if a < MIN_REGION_MM2:
+            out["small"] += 1
+        else:
+            out["regions"].append((a, centre(c)))
+    return out
+
+
+def _build_extents(mesh, build_axis):
+    """Part extents as (across1, across2, along build axis) so they compare with bed (X, Y, Z).
+    Axis-aligned build axis: the other two STL axes in order; otherwise projections on the axis
+    and two in-plane axes (x-ish first)."""
+    import numpy as np
+    up = np.array(build_axis, dtype=float)
+    up /= np.linalg.norm(up)
+    k = int(np.argmax(abs(up)))
+    if abs(up[k]) > 0.999:
+        e = mesh.extents
+        return [float(e[i]) for i in range(3) if i != k] + [float(e[k])]
+    u = np.cross(up, [1.0, 0, 0] if abs(up[0]) < 0.9 else [0, 1.0, 0])
+    u /= np.linalg.norm(u)
+    v = np.cross(up, u)
+    return [float(np.ptp(mesh.vertices.dot(a))) for a in (v, u, up)]
+
+
+def check_build_volume(mesh, bed, build_axis=(0, 0, 1)):
+    """(fits, turned) -- bbox extents (STL axes) vs bed; turned = an axis permutation (a 90 deg
+    turn) that fits when the as-modelled orientation does not, else None.
+    Z of the bed is compared with the extent along build_axis.
+    shortcut: axis-aligned bbox only, no free rotation; upgrade to text-to-cad's hull rotation
+    (meshops_printing `lie`) for angled parts."""
+    import itertools
+    ext = _build_extents(mesh, build_axis)
+    fits = all(e <= b + 1e-6 for e, b in zip(ext, bed))
+    if fits:
+        return True, None
+    for perm in itertools.permutations(ext):
+        if all(e <= b + 1e-6 for e, b in zip(perm, bed)):
+            return False, perm
+    return False, None
+
+
+def check_bed_contact(mesh, build_axis, baseplate_eps):
+    """Vertices of the plate-contact faces whose summed corner angle is <= SHARP_CORNER_DEG
+    (a convex corner of the first-layer footprint). Interior angle at a vertex = sum of the
+    contact triangles' corner angles there; a straight edge is 180, a rectangle corner 90."""
+    import numpy as np
+    up = np.array(build_axis, dtype=float)
+    up /= np.linalg.norm(up)
+    h = mesh.triangles_center.dot(up)
+    contact = (h <= h.min() + baseplate_eps) & (mesh.face_normals.dot(-up) > 0.99)
+    if not contact.any():
+        return []
+    ang = np.zeros(len(mesh.vertices))
+    np.add.at(ang, mesh.faces[contact].ravel(), np.degrees(mesh.face_angles[contact]).ravel())
+    cv = mesh.vertices[np.unique(mesh.faces[contact])]
+    side = max(float(np.ptp(cv.dot(a))) for a in (np.cross(up, [1.0, 0, 0] if abs(up[0]) < 0.9 else [0, 1.0, 0]),
+                                                  np.cross(up, np.cross(up, [1.0, 0, 0] if abs(up[0]) < 0.9 else [0, 1.0, 0]))))
+    if side < WARP_MIN_SIDE_MM:
+        return []
+    return [mesh.vertices[i] for i in np.flatnonzero((ang > 0) & (ang <= SHARP_CORNER_DEG))]
 
 
 def check_wall_thickness(mesh, min_wall, sample_cap=1500, seed=0):
@@ -194,6 +356,9 @@ def main():
                      help="mm: a downward face within this height of the mesh's own "
                           "minimum (along --build-axis) is treated as resting on the "
                           "build plate, not a floating overhang (default 0.05mm)")
+    ap.add_argument("--bed", type=float, nargs=3, metavar=("X", "Y", "Z"), default=None,
+                     help="printer build volume in mm (default 256 256 256, unverified "
+                          "Bambu-class size); the part bbox in the STL's own axes must fit")
     args = ap.parse_args()
 
     try:
@@ -232,20 +397,62 @@ def main():
 
     failures = []
 
-    bad_area, total_down_area, worst_angle = check_overhang(
-        mesh, build_axis, args.overhang_deg, args.baseplate_eps)
-    if total_down_area == 0.0:
+    bed = tuple(args.bed) if args.bed else DEFAULT_BED
+    fits, turned = check_build_volume(mesh, bed, build_axis)
+    ext = _build_extents(mesh, build_axis)
+    print(f"Build volume: part {ext[0]:.1f} x {ext[1]:.1f} x {ext[2]:.1f} mm (build axis last) vs bed "
+          f"{bed[0]:g} x {bed[1]:g} x {bed[2]:g} mm"
+          f"{'' if args.bed else ' (default bed, unverified: set --bed)'}"
+          f" -- {'fits' if fits else 'DOES NOT FIT'}.")
+    if not fits:
+        hint = (f" It would fit after a 90 deg turn (extents {turned[0]:.1f} x {turned[1]:.1f} "
+                f"x {turned[2]:.1f}); that changes the build direction, re-check overhang."
+                if turned else " No 90 deg turn fits either.")
+        msg = (f"part {ext[0]:.1f} x {ext[1]:.1f} x {ext[2]:.1f} mm exceeds bed "
+               f"{bed[0]:g} x {bed[1]:g} x {bed[2]:g} mm.{hint}")
+        if args.bed:
+            failures.append("BUILD VOLUME: " + msg)
+        else:  # AC-C2: the default bed is unverified, so it can only warn
+            print("WARN: BUILD VOLUME: " + msg + " (default bed 256^3 unverified; pass --bed X Y Z)")
+
+    ov = check_overhang(mesh, build_axis, args.overhang_deg, args.baseplate_eps)
+    if ov["total_down_area"] == 0.0:
         print("Overhang: no downward-facing area at all -- nothing to flag.")
     else:
+        bad_area = sum(a for a, _ in ov["regions"])
+        total_down_area = ov["total_down_area"]
         pct = 100.0 * bad_area / total_down_area
         print(f"Overhang: {bad_area:.1f} mm^2 of {total_down_area:.1f} mm^2 downward-"
               f"facing area ({pct:.1f}%) exceeds {args.overhang_deg:.0f} deg from "
-              f"vertical (worst face {90.0 - worst_angle:.1f} deg from vertical).")
+              f"vertical (worst face {90.0 - ov['worst_angle']:.1f} deg from vertical).")
+        for i, (a, c) in enumerate(ov["regions"], 1):
+            print(f"  overhang region {i}: {a:.1f} mm^2, centre ({c[0]:.1f}, {c[1]:.1f}, {c[2]:.1f})")
+        if ov["small"]:
+            print(f"  {ov['small']} region(s) under {MIN_REGION_MM2:g} mm^2 ignored "
+                  f"(floor unverified: text-to-cad's own value).")
+        for a, span, c in ov["bridges"]:
+            ok = span <= BRIDGE_MAX_MM
+            print(f"  bridge: {a:.1f} mm^2 flat ceiling carried both sides, span {span:.1f} mm "
+                  f"at ({c[0]:.1f}, {c[1]:.1f}, {c[2]:.1f}) -- "
+                  f"{'ok (<= %g mm)' % BRIDGE_MAX_MM if ok else 'TOO LONG'}")
+            if not ok:
+                failures.append(
+                    f"BRIDGE SPAN: flat ceiling {a:.1f} mm^2 at ({c[0]:.1f}, {c[1]:.1f}, "
+                    f"{c[2]:.1f}) spans {span:.1f} mm > {BRIDGE_MAX_MM:g} mm between its supports "
+                    f"-- will sag; add a support, split the span or change orientation.")
         if bad_area > 0.0:
             failures.append(
-                f"UNSUPPORTED OVERHANG: {bad_area:.1f} mm^2 steeper than "
-                f"{args.overhang_deg:.0f} deg from vertical (build axis {build_axis}) "
+                f"UNSUPPORTED OVERHANG: {bad_area:.1f} mm^2 in {len(ov['regions'])} region(s) "
+                f"steeper than {args.overhang_deg:.0f} deg from vertical "
+                f"(build axis {build_axis}) "
                 f"-- will need support material or a different print orientation.")
+
+    corners = check_bed_contact(mesh, build_axis, args.baseplate_eps)
+    if corners:
+        where = ", ".join(f"({c[0]:.1f}, {c[1]:.1f})" for c in corners[:4])
+        print(f"WARN: BED CONTACT: {len(corners)} sharp corner(s) (<= {SHARP_CORNER_DEG:g} deg) on "
+              f"the plate-contact face, e.g. {where} -- sharp first-layer corners lift/warp; "
+              f"add a 45 deg chamfer or radius (threshold unverified: our own value; advice: Hubs).")
 
     if mesh.is_watertight:
         min_t, n_samples, n_below, n_misses = check_wall_thickness(

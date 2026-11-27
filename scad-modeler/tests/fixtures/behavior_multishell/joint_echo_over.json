@@ -1,0 +1,1 @@
+{"scad": "assembly.scad", "poses": {"A": [0, 20]}, "bodies": {"base": {"render": [{"PART": "base"}], "static": true}, "arm": {"scad": "hinge.scad", "render": [{}]}}, "joints": [{"a": "base", "b": "arm", "max_gap": 0.3, "why": "pin", "angle": {"echo": "ARM_TILT", "max_deg": 10, "source": "fixture limit"}}]}

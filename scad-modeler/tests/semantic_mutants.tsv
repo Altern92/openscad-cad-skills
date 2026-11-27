@@ -30,3 +30,9 @@ limits_no_drivers	check_limits	put_eq(k + ".drivers", sorted((json.dumps(dv, sor
 strength_grid_depth	check_strength	while bottom - lo > 0.01:	while False:	p27_strength
 dims_no_offset_allowance	check_dimensions	if not flat_mode and uses_offset_delta(args.scad):	if False:	p27_features_dims
 behavior_no_data_files	check_behavior	for dat in DATA_RE.findall(txt):	for dat in []:	p27_behavior
+printability_bed_volume	check_printability	fits = all(e <= b + 1e-6 for e, b in zip(ext, bed))	fits = True	printability_bed_volume
+printability_bridge_any_span	check_printability	ok = span <= BRIDGE_MAX_MM	ok = True	printability_bridge
+printability_bridge_no_carrier	check_printability	if span is not None:	if False:	printability_bridge
+printability_no_area_floor	check_printability	if a < MIN_REGION_MM2:	if False:	printability_overhang_region
+printability_no_facet_tol	check_printability	FACET_TOL_DEG = 1.0	FACET_TOL_DEG = 0.0	printability_overhang_region
+printability_no_bed_warn	check_printability	if corners:	if False:	printability_bed_warp

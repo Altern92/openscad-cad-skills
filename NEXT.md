@@ -41,7 +41,7 @@ the only assembly checker. Research note: vault
 
 Priority order: P30 → P38 → P35 → P31 → P32 → P36 → P37 → P39. P33 only on user demand. P34 is deliberately not planned.
 
-- [ ] **P30 Visible demo (highest impact, least code).** A short GIF or video at the top of
+- [x] **P30 Visible demo** ✅ 2026-11-27 wave 1: `examples/gear_reduction/make_demo.py` → `jam_vs_gear_dist.gif` (880×360, 30 frames) at the top of README. Remaining idea: hosted web demo. **Was: (highest impact, least code).** A short GIF or video at the top of
   `README.md`: prompt → model → checker FAIL → fix → OK (the gear-jam case from P29 is ready
   material). Optional later: a web page or hosted demo so people can see results without
   Claude Code. Goal: a visitor understands the value in 10 seconds (supports donations).
@@ -64,7 +64,7 @@ Priority order: P30 → P38 → P35 → P31 → P32 → P36 → P37 → P39. P33
     each part; (c) a check that, for each `joints.json` pair, hole Ø = peg Ø + declared
     clearance (FAIL otherwise; mutant: hole 0.3 mm too small). Targets the class-B incidents
     (holes that do not match their pegs).
-- [ ] **P35 Assembly sequence (can it be put together?).** Idea from SOMA's explode (each part's
+- [x] **P35 Assembly sequence** ✅ 2026-11-27 wave 1: `check_assembly_sequence.py`, gate `assembly_sequence`, `assembly.json` exceptions + `press_fit`, fixture `assembly_sequence`. Limit: straight translation only. **Was: (can it be put together?).** Idea from SOMA's explode (each part's
   removal direction). For each part, search for a collision-free straight removal direction
   (axis-aligned first, then a sphere of directions) with the parts not yet removed; no order in
   which every part can leave = FAIL ("part X is trapped"). Declare exceptions (snap fits, flex,
@@ -76,7 +76,7 @@ Priority order: P30 → P38 → P35 → P31 → P32 → P36 → P37 → P39. P33
   interface clearances) or Parametric CAD Bench v3 (arXiv 2611.02659, open FreeCAD verifier;
   Claude Code + Opus 5.5 scored 61.03 % there) and publish the result in README. Needs the
   maintainer's approval if runs cost money. Gives P30 a number instead of a claim.
-- [ ] **P38 Port FDM printability rules from text-to-cad** (MIT, same library: trimesh).
+- [ ] **P38 Port FDM printability** (first batch ✅ 2026-11-27 wave 1: build volume, overhang regions, bridge span, bed-contact warning; left: knife edges, stair stepping, support volume) **Was: rules from text-to-cad** (MIT, same library: trimesh).
   Source: `earthtojake/text-to-cad` `packages/cad/src/cad/trimesh/_printing.py` (1714 lines) and
   `packages/cad/src/cad/_internal/dfm/printing.py` (rules with numbers and cited sources, e.g. FDM
   wall 0.8 mm = two 0.4 mm beads, Hubs; in-place print fits fuse under 0.76 mm, Xometry). Ours
@@ -105,11 +105,9 @@ Priority order: P30 → P38 → P35 → P31 → P32 → P36 → P37 → P39. P33
   FAIL: upper ball 22.8°); 3 g landing `loads.json` on the arms.
   Spec: `docs/superpowers/specs/2026-11-18-p24-kinematics-strength-ac.md`.
 - [ ] **P28 candidates.**
-  - `check_behavior.py` HOLDS accepts a body made of several separate shells as one (proven:
-    4 balls, top one pulled 5 mm away, still PASS). Fix: FAIL when a joint body mesh has >1
-    component without a declared `multi_shell`; negative test with 2 balls, one far away.
-  - `check_behavior.py` `echo_values` reads angle `echo` only from the top-level `scad`, not
-    from joint bodies' `scad` (loud FAIL, not a false PASS).
+  - ~~multi-shell body accepted as one~~ ✅ 2026-11-27: not reproducible on current code
+    (`loose_pieces` FAILs a ball pulled 5 mm away); fixture `behavior_multishell` keeps it so.
+  - ~~angle `echo` only from the top-level scad~~ ✅ 2026-11-27: joint bodies' own `scad` read too.
   - `bounded_depth` suspected: a thin plate deep inside a block is measured by its thickness.
   - `$fn/$fa/$fs` into `limits.lock`; HMAC receipts; hook installation from `install.sh`.
   - Second external audit: DOF/ground, joint_graph `bridge`, `hole_radius`, printability,

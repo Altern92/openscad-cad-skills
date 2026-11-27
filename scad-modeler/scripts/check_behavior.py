@@ -477,7 +477,14 @@ def main():
             dof_meshes = dict(meshes)
         if angle_names:
             try:
-                vals = echo_values(rnd, d.get("scad"), pose, angle_names)
+                # P28 / AC-A3: the echo may live in the top-level scad or in a joint body's own "scad"
+                # (pulled in by use<>); run each distinct file once (echo_values caches), keep the worst |value|
+                vals = {}
+                for s in dict.fromkeys([d.get("scad")] + [bodies[n].get("scad") for j in joints if j.get("angle")
+                                                          for n in (j["a"], j["b"])]):
+                    for n, v in echo_values(rnd, s, pose, angle_names).items():
+                        if n not in vals or abs(v) > abs(vals[n]):
+                            vals[n] = v
             except RuntimeError as e:
                 print(f"FAIL render: {e}"); print("BEHAVIOR: render failure"); return EXIT_FAIL
             for j in joints:

@@ -931,6 +931,23 @@ print(n if n >= 2 else 0)  # P26 / AC-4: one enclosure may span the assembly; co
                 else
                     echo "CHECK_RESULT contact_geometry=SKIP"
                 fi
+                # P35: can every part be taken out along a straight line (assembly order)?
+                _as_out=$(python3 "$SCRIPT_DIR/check_assembly_sequence.py" --project-dir . --positioned "$BUILD_DIR/positioned" 2>&1); _as_rc=$?
+                echo "$_as_out"
+                if [ $_as_rc -eq 0 ] && grep -q '^SKIP' <<< "$_as_out"; then
+                    echo "CHECK_RESULT assembly_sequence=SKIP"
+                    log_check "assembly_sequence" 0 "check_assembly_sequence.py" "SKIP: no positioned STLs"
+                elif [ $_as_rc -eq 0 ]; then
+                    echo "CHECK_RESULT assembly_sequence=PASS"
+                    log_check "assembly_sequence" 0 "check_assembly_sequence.py" "PASS"
+                elif [ $_as_rc -eq 2 ]; then
+                    echo "CHECK_RESULT assembly_sequence=INCONCLUSIVE"
+                    log_check "assembly_sequence" 0 "INCONCLUSIVE" "INCONCLUSIVE: assembly sequence not decided (exit $_as_rc)"
+                else
+                    echo "CHECK_RESULT assembly_sequence=FAIL"
+                    OVERALL_FAIL=1
+                    log_check "assembly_sequence" 1 "check_assembly_sequence.py" "FAIL (exit $_as_rc)"
+                fi
                 if [ "$has_motion" = "yes" ]; then
                     if python3 "$SCRIPT_DIR/motion_sweep.py" --joints joints.json \
                         ${positioned_stls[@]+"${positioned_stls[@]}"} ; then

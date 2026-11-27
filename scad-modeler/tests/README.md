@@ -81,6 +81,11 @@ check always fails."
 | `validate_libs_state_and_warning` | the state file records library versions; a preflight stopped by a WARNING is not reported as a failed assert() |
 | `printability_overhang_fail` | `check_printability.py` flags a genuinely steep (77°) overhang |
 | `printability_wall_fail` | `check_printability.py` flags a genuinely thin (0.3mm) wall |
+| `assembly_sequence` | `check_assembly_sequence.py` (P35): open box + block + lid PASS with an order; a pin sealed in a closed housing FAILs "trapped" (exit 3); the same pin in `assembly.json` `inserted_before` PASSes and is named; no positioned STLs SKIP; two plates sharing a face slide apart (contact is not collision) |
+| `printability_bed_volume` | P38: part bbox vs `--bed` (default 256³); too big FAILs and says when a 90° turn fits |
+| `printability_overhang_region` | P38: overhang reported per region (area, centre); a true-45° cone, a 45.5° wedge (inside the 1° facet tolerance) and a sub-1 mm² nub pass |
+| `printability_bridge` | P38: flat ceiling carried both sides FAILs above 5 mm, passes at 4 mm; a one-sided shelf stays an UNSUPPORTED OVERHANG |
+| `printability_bed_warp` | P38: sharp corners on the plate face print `WARN: BED CONTACT` (exit stays 0); a rounded footprint prints none |
 | `collisions_candidate_touch` | `check_collisions.py` classifies an undeclared, exactly-touching pair as CANDIDATE INTENTIONAL TOUCH (Phase-2 Pattern 2), with a stub printed |
 | `collisions_near_miss` | `check_collisions.py` surfaces a 0.15mm gap as a non-fatal NEAR MISS note, not a failure |
 | `motion_sign_fail` | `motion_sweep.py` refuses to sweep a `gear_mesh` pair whose drivers share the same sign |

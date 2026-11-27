@@ -1,0 +1,1 @@
+{"scad": "assembly.scad", "poses": {"A": [0]}, "bodies": {"upright": {"render": [{"PART": "upright"}], "static": true}, "balls": {"render": [{"PART": "balls"}]}}, "joints": [{"a": "upright", "b": "balls", "max_gap": 0.3, "why": "balls seated in cups"}]}

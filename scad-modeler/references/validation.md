@@ -34,6 +34,7 @@ manual.
 | `check_silhouette.py` (`silhouette`, P6) | yes, opt-in by `// SILHOUETTE: front ref.png >= 0.85`: IoU of the projected outline vs a cut-out reference, each normalised to its own bbox; needs Pillow |
 | `declarations` (in validate_scad.sh) | yes, every printable part: FAIL when it declares neither the size nor the through-holes (or their NO_ form with a reason) |
 | `check_scad_lint.py` (computed defaults, rounded standards) | yes, always |
+| `check_assembly_sequence.py` (`assembly_sequence`, P35) | yes, after the positioned render (2+ parts): greedy disassembly, each part must slide out along some straight line (±X/Y/Z, then 20 diagonals and 30 sphere directions) past the remaining parts; contact within 0.05 mm is not a collision. FAIL names trapped parts; `assembly.json` `{"inserted_before": [{"part","reason"}], "flex": [...]}` skips and names exceptions (a name matching no STL = usage error); no positioned STLs or every part excepted = SKIP. Parts overlapping as built (press fit, snap) block each other unless `"press_fit": [{"pair","direction","reason"}]` lets them separate along ±direction; a removal that needs an undeclared overlap = exit 2 `NOT VERIFIED`. Step = half the 2nd-percentile wall thickness (min 0.1 mm), so thin walls are not jumped; time budget out = exit 2. Straight translation only |
 | `check_collisions.py` | yes, whenever `assembly.scad` exists (declaration optional — was gated on `joints.json`, a chicken-and-egg) |
 | `motion_sweep.py` | yes, when motion declared |
 | `check_limits.py` (`limits`, P25) | yes, always: SKIP without `limits.lock`; FAIL when any gate limit was loosened or removed, or a new `NO_*` opt-out appeared — see § Protected limits |
@@ -416,6 +417,17 @@ ray-cast local thickness for walls):
 ```bash
 python3 scripts/check_printability.py --stl build/part.stl
 ```
+
+P38 rules (2026-11-27; thresholds and their source URLs are code comments in the script; ideas from
+text-to-cad, MIT, re-written, no code copied): build volume along `--build-axis` (with `--bed X Y Z` an
+oversize part FAILs and says when a 90° turn fits; without it the default 256³ is unverified, so only
+`WARN: BUILD VOLUME`); overhang reported per region (area, centre), regions under 1 mm² ignored, 1° facet
+tolerance; a flat ceiling is a bridge only when carried edges on both opposite sides cover ≥ 80 % of its
+length: span ≤ 5 mm passes, longer is `BRIDGE SPAN` FAIL (coarse extent, `shortcut:` comment in
+`_bridge_span`); anything else stays an overhang under the 45° rule (5° "flat" only classifies, it never
+turns a PASS into a FAIL); and one `WARN: BED CONTACT` line for sharp (≤ 100°) plate-face corners on
+footprints with a side ≥ 50 mm — a warning only, exit code unchanged. The 100°, 50 mm, 80 %, 1 mm², 5° and
+1° values are our own/text-to-cad's, marked unverified.
 
 Not wired into `validate_scad.sh --all` — new and not yet battle-tested
 at scale, and its wall-thickness measurement has a confirmed, documented
