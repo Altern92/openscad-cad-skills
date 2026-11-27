@@ -17,10 +17,10 @@ bash ../../scripts/validate_scad.sh --all
 ```
 
 Expected: every part renders as one connected body, both declared 5mm bores
-measure correctly, the declared gear-mesh contact is checked against a real
-measured penetration depth (not a guess — see the comment in `joints.json`),
-and `motion_sweep.py` sweeps the full 360° rotation and confirms no
-unexpected interference anywhere in the cycle. Both parts declare their size and
+measure correctly, each gear turns about its real axis, the centre distance
+equals BOSL2 `gear_dist()` (38.845 mm, printed as `OK: centre distance ...`),
+and `motion_sweep.py` sweeps the full 360° rotation and finds 0.139 mm of
+backlash and no contact anywhere in the cycle. Both parts declare their size and
 through-holes, so `dimensions`, `topology` and `declarations` PASS. Exit code 0, ending in
 `All executed checks passed (...)`.
 
@@ -49,16 +49,18 @@ python3 ../../scripts/check_rules.py --project-dir .
   gear module positioned through a plain (non-BOSL2-aware) `at()` can't
   otherwise see — read the comment at the top of the file for the full
   explanation.
-- **`joints.json`** — a declared `gear_mesh` contact whose
-  `expected_interference_mm` range and `multi_region_ok: true` flag were
-  both set from an *actual measurement* of this exact gear pair (see the
-  comment in the file), not guessed: real involute teeth interpenetrate
-  more deeply than a simple press-fit backlash range, and a standard
-  involute pair's contact ratio means more than one tooth pair is
-  legitimately in contact at once.
-- **The full validation chain** — connectivity, bore measurement,
-  declared-contact penetration depth, multi-region contact detection, and
-  a full motion sweep, all wired into one `validate_scad.sh --all` call.
+- **`joints.json`** — a declared `gear_mesh` contact with `"module": 1.0`,
+  so the centre distance is checked against BOSL2 `gear_dist()`, and an
+  interference window of 0-0.05 mm: correctly spaced and phased teeth do
+  not touch. Until P29 (2026-11-27) this example used the textbook
+  m·(z1+z2)/2 = 38.5 mm and a 0.5-2.0 mm window that hid the resulting jam;
+  the 11T pinion gets an automatic profile shift in BOSL2, so the real
+  distance is 38.845 mm. `params.scad` also sets each gear's `gear_spin` so
+  a tooth faces a gap.
+- **The full validation chain** — connectivity, bore measurement, gear
+  axes and centre distance, declared-contact penetration depth, and a full
+  motion sweep, all wired into one `validate_scad.sh --all` call. The
+  example runs in the regression suite (fixture `example_gear_reduction`).
 
 ## What this deliberately skips
 

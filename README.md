@@ -4,9 +4,28 @@
 design, from a single part to a multi-part mechanical assembly. The model is checked
 automatically before export: dimensions, holes, collisions, screws and full motion sweeps.
 
-![Example: single-stage spur gear reduction](scad-modeler/examples/gear_reduction/preview.png)
+## What it catches
 
-*A working example: [`scad-modeler/examples/gear_reduction/`](scad-modeler/examples/gear_reduction/).*
+![Left: gears at 38.5 mm, a tooth tip cuts into the pinion. Right: gears at 38.845 mm with backlash.](scad-modeler/examples/gear_reduction/jam_vs_gear_dist.png)
+
+An 11-tooth pinion and a 66-tooth gear, module 1. The textbook centre distance is
+m·(z1+z2)/2 = **38.5 mm**, and that is what this repository's own example used, with a
+renders-fine, looks-fine model. But BOSL2 automatically profile-shifts small pinions, so the real
+distance is **38.845 mm**. At 38.5 mm the printed gears jam (left, red). The check finds it before
+anything is printed:
+
+```text
+$ bash validate_scad.sh --all
+FAIL: gear axis / centre distance check (before any sweep runs):
+  - centre distance pinion<->spur: axes are 38.500 mm apart (measured axes), BOSL2
+    gear_dist(module 1.0, 11T/66T, profile shift auto, helical 0.0) = 38.845 mm (-0.345 mm).
+CHECK_RESULT mechanics=FAIL
+```
+
+At 38.845 mm with the teeth phased to interleave, a 202-position motion sweep finds 0.139 mm of
+backlash and no contact (right). This was a real bug in the example (fixed in P29, logged as
+`INC-2026-11-27-01`); the example now runs in the regression suite so it cannot rot again.
+Full example: [`scad-modeler/examples/gear_reduction/`](scad-modeler/examples/gear_reduction/).
 
 A *skill* is a folder of instructions and scripts that Claude Code loads when a request matches
 it. You ask in plain language ("design a wall bracket for a 40 mm pipe", "a 6:1 gearbox for
@@ -17,16 +36,16 @@ checks below before it reports the part as done.
 
 **Beta, used on real projects.** Developed since 2026-08 and used on enclosures, gearboxes,
 racks, figurines and a large CNC machine frame. Every check exists because a real model passed
-review and was still wrong; each such case is logged in [`INCIDENTS.json`](INCIDENTS.json) (~120 entries).
+review and was still wrong; each such case is logged in [`INCIDENTS.json`](INCIDENTS.json) (~145 entries).
 
 | Measure | Value |
 |---|---|
-| Regression suite (`scad-modeler/tests/run_all.sh`) | 95 tests: 94 fixtures + GenKit suite (golden parts, 40 mutants), all green; CI on every push |
+| Regression suite (`scad-modeler/tests/run_all.sh`) | 120 tests: 119 fixtures + GenKit suite (golden parts, 40 mutants), all green; CI on every push |
 | Planted-defect benchmark ([`bench/PIPELINE_BENCH_2026-11-01.md`](bench/PIPELINE_BENCH_2026-11-01.md)) | 35/35 defects caught by the named check, 0/9 false alarms on clean controls |
 | Agent evaluation ([`bench/AGENT_EVAL_2026-11-01.md`](bench/AGENT_EVAL_2026-11-01.md)) | 15/15 tasks passed (n = 3 × 5) |
-| Checkers | 23 `check_*.py` scripts + motion sweep, wired into one command (`validate_scad.sh`) and a 23-rule gate |
+| Checkers | 26 `check_*.py` scripts + motion sweep, wired into one command (`validate_scad.sh`) and a 26-rule gate |
 
-Known gaps (see [Limits](#limits)): no strength calculations, no slicer gates, no measured PETG
+Known gaps (see [Limits](#limits)): strength only for heat-set insert holes and simple beams, no slicer gates, no measured PETG
 tolerances yet, motion checking samples rather than proves. Planned work is tracked in
 `NEXT.md` (in Lithuanian, the maintainer's working notes).
 
@@ -284,7 +303,7 @@ verdict does not block; it blocks at most once per stop. Add to `~/.claude/setti
 ## Development
 
 ```bash
-bash scad-modeler/tests/run_all.sh   # 95 tests, a few minutes
+bash scad-modeler/tests/run_all.sh   # 120 tests, a few minutes
 bash scripts/test_install.sh         # installer guard
 bash scripts/test_plugin.sh          # plugin install from a local marketplace (needs the claude CLI)
 ```
@@ -311,9 +330,10 @@ Not implemented at all:
 - **assembly-sequence verification** — a mechanism can pass every check here
   and still be physically un-buildable (see `SKILL.md` §0.6's belt-drive
   incident);
-- **load/strength calculations** — without material data, that would be
-  arithmetic dressed up as engineering, and printed parts are anisotropic
-  in a way generic values don't capture;
+- **general load/strength analysis** — `check_strength.py` covers heat-set
+  insert holes and simple beam bending from a declared `loads.json`; anything
+  beyond that (FEA, fatigue, layer adhesion) is not modelled, and printed parts
+  are anisotropic in a way generic values don't capture;
 - **slicer printability gates** — no mainstream slicer documents
   thin-wall/non-manifold warnings as reachable through a CLI.
 
