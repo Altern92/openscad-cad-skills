@@ -26,7 +26,20 @@ far as known (not verified against primary sources), none of them automatically 
 collisions, motion, gear meshing or part retention. Strengthen the niche; do not compete on
 pretty surfaces.
 
-Priority order: P30 → P31 → P32. P33 only on user demand. P34 is deliberately not planned.
+**Open-source competitor (found 2026-11-27):** [earthtojake/text-to-cad](https://github.com/earthtojake/text-to-cad)
+(MIT, ~27.6k stars, created 2026-04, build123d/OpenCASCADE, Claude Code plugin + 20 other agents,
+GitHub Sponsors). Verified in its docs/code: exact B-rep interference at named poses with declared
+`--fit` pairs; joint stops swept from geometry (`cad model ranges`); `gear_pair`/`screw_pair` as
+kinematic couplings (ratio only); per-process DFM incl. FDM fits, clearances, trapped volumes;
+CalculiX FEA; STEP, drawings, PCB, slicing. Not found in its docs (code not fully read, so
+unverified): gear centre-distance geometry check, bolt reach / head clearance / covered host
+holes, part-retention graph, mutation tests per checker, a stop gate that blocks the agent,
+user-approved limit locks, sensitivity test. **Position this repo as the OpenSCAD option with
+the strictest proof** (every gate has a mutant that must FAIL, nothing passes silently), not as
+the only assembly checker. Research note: vault
+`Research/Runs/2026/2026-11-27-openscad-skill-konkurentai-ir-tr-kstamos-patikros.md`.
+
+Priority order: P30 → P35 → P31 → P32 → P36 → P37. P33 only on user demand. P34 is deliberately not planned.
 
 - [ ] **P30 Visible demo (highest impact, least code).** A short GIF or video at the top of
   `README.md`: prompt → model → checker FAIL → fix → OK (the gear-jam case from P29 is ready
@@ -51,6 +64,18 @@ Priority order: P30 → P31 → P32. P33 only on user demand. P34 is deliberatel
     each part; (c) a check that, for each `joints.json` pair, hole Ø = peg Ø + declared
     clearance (FAIL otherwise; mutant: hole 0.3 mm too small). Targets the class-B incidents
     (holes that do not match their pegs).
+- [ ] **P35 Assembly sequence (can it be put together?).** Idea from SOMA's explode (each part's
+  removal direction). For each part, search for a collision-free straight removal direction
+  (axis-aligned first, then a sphere of directions) with the parts not yet removed; no order in
+  which every part can leave = FAIL ("part X is trapped"). Declare exceptions (snap fits, flex,
+  parts inserted before closing). Negative case: a pin inside a closed housing with no opening.
+- [ ] **P36 Untoleranced contact faces** (idea from PartCAD `pc qual test`). Two parts whose
+  surfaces touch or nearly touch (< 0.3 mm) but are not declared as a fit / joint contact with a
+  clearance = FAIL or WARN; ties into P32 `mate()`.
+- [ ] **P37 Public benchmark run.** Run the skill on MUSE (arXiv 2605.28579, assembly structure and
+  interface clearances) or Parametric CAD Bench v3 (arXiv 2611.02659, open FreeCAD verifier;
+  Claude Code + Opus 5.5 scored 61.03 % there) and publish the result in README. Needs the
+  maintainer's approval if runs cost money. Gives P30 a number instead of a claim.
 - [ ] **P33 STEP export (later, only if users ask).** Would need a second CAD kernel (CadQuery /
   build123d) beside OpenSCAD: large job and long-term maintenance. Today output is STL/DXF.
 - **P34 Not planned:** organic/freeform surfaces at commercial quality and full FEA. Funded
@@ -76,7 +101,9 @@ Priority order: P30 → P31 → P32. P33 only on user demand. P34 is deliberatel
     attachment, bores, subfeature, `--all` end to end.
   - Mutant-coverage gate per checker; more metamorphic and analytic reference cases.
   - Purchased-parts library (MG996R, Z-S0398, INJORA).
-  - Joint angle from geometry, not from `echo`.
+  - Joint angle from geometry, not from `echo`; also sweep each joint until parts touch to find
+    its real stops and compare with the declared `range_deg` (text-to-cad `cad model ranges`
+    does this).
 - [ ] **P25 rest (protected laws).** `limits.lock` for the RC projects (needs the maintainer's
   quote); property-based tests (Hypothesis / CrossHair), TLA+ model, Sigstore receipts, mutmut
   trial — all optional, try only if a real false PASS shows the need.
