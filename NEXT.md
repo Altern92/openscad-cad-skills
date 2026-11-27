@@ -39,7 +39,7 @@ the strictest proof** (every gate has a mutant that must FAIL, nothing passes si
 the only assembly checker. Research note: vault
 `Research/Runs/2026/2026-11-27-openscad-skill-konkurentai-ir-tr-kstamos-patikros.md`.
 
-Priority order: P30 → P35 → P31 → P32 → P36 → P37. P33 only on user demand. P34 is deliberately not planned.
+Priority order: P30 → P38 → P35 → P31 → P32 → P36 → P37 → P39. P33 only on user demand. P34 is deliberately not planned.
 
 - [ ] **P30 Visible demo (highest impact, least code).** A short GIF or video at the top of
   `README.md`: prompt → model → checker FAIL → fix → OK (the gear-jam case from P29 is ready
@@ -76,6 +76,21 @@ Priority order: P30 → P35 → P31 → P32 → P36 → P37. P33 only on user de
   interface clearances) or Parametric CAD Bench v3 (arXiv 2611.02659, open FreeCAD verifier;
   Claude Code + Opus 5.5 scored 61.03 % there) and publish the result in README. Needs the
   maintainer's approval if runs cost money. Gives P30 a number instead of a claim.
+- [ ] **P38 Port FDM printability rules from text-to-cad** (MIT, same library: trimesh).
+  Source: `earthtojake/text-to-cad` `packages/cad/src/cad/trimesh/_printing.py` (1714 lines) and
+  `packages/cad/src/cad/_internal/dfm/printing.py` (rules with numbers and cited sources, e.g. FDM
+  wall 0.8 mm = two 0.4 mm beads, Hubs; in-place print fits fuse under 0.76 mm, Xometry). Ours
+  (`check_printability.py`) covers only overhangs and thin walls. Candidates: bridges, knife
+  edges, stair stepping, bed contact / warping, support volume, thick sections, unsupported
+  horizontal round holes, trapped volumes, build volume, clearances between parts printed
+  together. Port one rule at a time, each with its own fixture and mutant; keep the MIT notice
+  (copyright + licence text) at the top of every file that contains copied code; recheck every
+  number against its primary source. First check how much of it depends on their `meshops`
+  module (unverified; may enlarge the job).
+- [ ] **P39 "Hint:" in every FAIL message.** Each checker FAIL says what to change, e.g. "move or
+  resize one of the two, or declare the pair in joints.json with an interference window" (pattern
+  from text-to-cad: "a fit is named, never inferred"). Fixture: grep that every FAIL line from the
+  mutant suite carries a Hint.
 - [ ] **P33 STEP export (later, only if users ask).** Would need a second CAD kernel (CadQuery /
   build123d) beside OpenSCAD: large job and long-term maintenance. Today output is STL/DXF.
 - **P34 Not planned:** organic/freeform surfaces at commercial quality and full FEA. Funded
