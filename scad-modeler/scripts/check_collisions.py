@@ -379,7 +379,21 @@ def bounded_depth(depth, mesh_a, mesh_b):
     # around a switch in its cutout), not an overlap; a real 0.03 mm cube still counts.
     depths = [float(q.bounding_box_oriented.primitive.extents.min()) for q in pieces
               if abs(q.volume) > 1e-6 and 2 * abs(q.volume) / max(q.area, 1e-9) >= 0.01]
-    return min(depth, max(depths)) if depths else 0.0
+    capped = min(depth, max(depths)) if depths else 0.0
+    # P28 (2026-11-27): a part wholly inside the other (plate sunk in a block) has an
+    # intersection as thin as the plate, but separating them means moving the part out:
+    # the smallest axis translation to clear the container's bbox. Partial overlaps keep
+    # the capped FCL value, so interference fits (pin in hole) are unchanged.
+    # shortcut: exact for a convex container, an upper bound otherwise; upgrade with a sweep.
+    try:
+        small, big = (mesh_a, mesh_b) if abs(mesh_a.volume) <= abs(mesh_b.volume) else (mesh_b, mesh_a)
+        if abs(inter.volume) >= 0.99 * abs(small.volume) > 0:
+            (s0, s1), (b0, b1) = small.bounds, big.bounds
+            out = min(min(b1 - s0), min(s1 - b0))
+            return max(capped, float(out))
+    except Exception:
+        pass
+    return capped
 
 
 def pair_distance(mesh_a, mesh_b, name_a, name_b):
@@ -510,11 +524,12 @@ def main():
                         f"CANDIDATE INTENTIONAL TOUCH: {label}{extra} -- shallow "
                         f"enough (<= {args.touch_tolerance} mm) to plausibly be an "
                         f"intentional design touch (e.g. a split line) that was "
-                        f"never declared. NOT auto-authorized -- confirm it's "
+                        f"never declared. NOT auto-authorized -- Hint: confirm it's "
                         f"actually intentional, then add this to joints.json's "
                         f"\"contacts\":\n{suggest_touch_stub(a, b)}")
                 else:
-                    failures.append(f"UNINTENDED INTERFERENCE: {label}{extra}")
+                    failures.append(f"UNINTENDED INTERFERENCE: {label}{extra} -- Hint: move or resize one of the two, "
+                                    f"or declare the pair in joints.json with an interference window")
                 continue
 
             lo, hi = (decl.get("expected_interference_mm") or [0.0, 0.0])[:2]
@@ -539,7 +554,8 @@ def main():
                     failures.append(
                         f"DECLARED INTERFERENCE OUT OF RANGE: {label} is "
                         f"declared '{joint}' ({lo}-{hi} mm), but measured "
-                        f"penetration depth is {depth:.3f} mm")
+                        f"penetration depth is {depth:.3f} mm -- Hint: change the fit size/position so the depth lands "
+                        f"in the declared range, or correct expected_interference_mm in joints.json")
                     continue
 
                 # Depth is within the declared range, but that alone doesn't
@@ -606,7 +622,7 @@ def main():
                             f"'{joint}', but touches inside a declared "
                             f"forbidden_regions box: {hit_list}. This zone was "
                             f"explicitly named as NOT part of this joint -- "
-                            f"fix the position/size at the source.")
+                            f"Hint: fix the position/size at the source, or correct forbidden_regions in joints.json.")
                         continue
 
                 expected_bounds = decl.get("expected_bounds")
@@ -630,7 +646,8 @@ def main():
                             f"it: {region_list}. A declaration authorizes "
                             f"contact only where its own derivation says it "
                             f"should occur -- this looks like a real, "
-                            f"unrelated collision, not the declared joint.")
+                            f"unrelated collision, not the declared joint. Hint: move or resize the part that overlaps "
+                            f"outside expected_bounds, or correct expected_bounds in joints.json.")
                         continue
 
                 if regions is not None and len(regions) > 1 and not multi_region_ok:
@@ -645,7 +662,7 @@ def main():
                         f"joint touches in one contiguous region -- this "
                         f"looks like a legitimate contact PLUS an unrelated "
                         f"structural collision hiding behind the same "
-                        f"declared range. If this joint genuinely touches "
+                        f"declared range. Hint: separate the extra overlap at the source. If this joint genuinely touches "
                         f"in several places on purpose, declare "
                         f"\"multi_region_ok\": true on this contact entry.")
                     continue
@@ -682,7 +699,8 @@ def main():
                     failures.append(
                         f"DECLARED CONTACT EXCEEDED: {label} is declared "
                         f"'{joint}' with no permitted interference, but overlaps "
-                        f"by {vol:.2f} mm^3")
+                        f"by {vol:.2f} mm^3 -- Hint: remove the overlap at the source, or give the contact an "
+                        f"expected_interference_mm window in joints.json")
                 elif min_own_vol and vol > plausibility_frac * min_own_vol:
                     failures.append(
                         f"IMPLAUSIBLE DECLARED OVERLAP: {label} is declared "
@@ -690,7 +708,7 @@ def main():
                         f"overlap is {100*vol/min_own_vol:.0f}% of the smaller "
                         f"part's own volume -- far beyond what a surface-level "
                         f"interference fit produces. This is gross overlap, not "
-                        f"a press fit; fix the position/size at the source.")
+                        f"a press fit; Hint: fix the position/size at the source.")
                 else:
                     notes.append(
                         f"OK (intentional {joint}, volume-only fallback): "
@@ -704,7 +722,8 @@ def main():
                 failures.append(
                     f"MISSING INTERFERENCE: {label} is declared "
                     f"'{decl.get('joint_type', 'press_fit')}' needing at least "
-                    f"{lo} mm interference, but the parts do not touch")
+                    f"{lo} mm interference, but the parts do not touch -- Hint: move the parts so they overlap by "
+                    f"the declared amount, or lower expected_interference_mm in joints.json")
             continue
 
         # Always query distance for an undeclared, non-overlapping pair now
@@ -722,12 +741,13 @@ def main():
                 f"CANDIDATE INTENTIONAL TOUCH: {label} gap {dist:.3f} mm -- close "
                 f"enough (<= {args.touch_tolerance} mm) to plausibly be an "
                 f"intentional design touch that was never declared. NOT "
-                f"auto-authorized -- confirm it's actually intentional, then add "
+                f"auto-authorized -- Hint: confirm it's actually intentional, then add "
                 f"this to joints.json's \"contacts\":\n{suggest_touch_stub(a, b)}")
         elif args.min_clearance > 0.0 and dist < args.min_clearance:
             failures.append(
                 f"INSUFFICIENT CLEARANCE: {label} gap {dist:.3f} mm "
-                f"< required {args.min_clearance:.3f} mm")
+                f"< required {args.min_clearance:.3f} mm -- Hint: open the gap at the source (move or resize "
+                f"one part), do not lower --min-clearance")
         elif dist <= args.near_miss_tolerance:
             notes.append(
                 f"NEAR MISS: {label} gap {dist:.3f} mm (<= "

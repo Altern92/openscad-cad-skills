@@ -67,7 +67,7 @@ def main():
     decls = DECL_RE.findall(src)
     if len(decls) != len(ANY_RE.findall(src)):
         bad = [l.strip() for l in ANY_RE.findall(src) if not DECL_RE.search("// PROPORTION:" + l)]
-        print(f"FAIL: proportions, unreadable line(s): {bad} -- form: `// PROPORTION: z/x = 2.6 +- 0.05`")
+        print(f"FAIL: proportions, unreadable line(s): {bad} -- form: `// PROPORTION: z/x = 2.6 +- 0.05` -- Hint: rewrite the line in that form")
         return EXIT_FAIL
     if not decls:
         print(f"SKIP: proportions, {a.scad} declares no // PROPORTION:")
@@ -78,10 +78,13 @@ def main():
         n, d = measure(mesh, num), measure(mesh, den)
         label = f"{num}/{den} = {val} +- {tol}"
         if n is None or d is None or d == 0:
-            fails.append(f"{label}: slice hits no material")
+            fails.append(f"{label}: slice hits no material -- Hint: use axes (x/y/z) that cross the part, or fix the part so material is there")
             continue
         got = n / d
-        (oks if abs(got - float(val)) <= float(tol) else fails).append(f"{label}: measured {got:.3f}")
+        if abs(got - float(val)) <= float(tol):
+            oks.append(f"{label}: measured {got:.3f}")
+        else:
+            fails.append(f"{label}: measured {got:.3f} -- Hint: change the part's dimensions, or correct the declared ratio")
     for f in fails:
         print(f"FAIL: proportions, {a.scad}: {f}")
     if fails:

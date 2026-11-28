@@ -395,18 +395,19 @@ def main():
             continue
         if name.lower() not in covered:
             fails["holds"].append(f"part {name} is in no body -- add it to behavior.json \"bodies\" (render "
-                                  f"{{\"MODE\": \"part\", \"PART\": \"{name}\"}}) so the gate sees it")
+                                  f"{{\"MODE\": \"part\", \"PART\": \"{name}\"}}) so the gate sees it -- Hint: add the body to behavior.json")
 
     # -- HOLDS, static part: membership, cap, graph
     joined = {n for j in joints for n in (j["a"], j["b"])}
     for n in bodies:
         if n not in joined and len(bodies) > 1:
             fails["holds"].append(f"{n} is not held by anything (in no joint) -- declare what holds it, "
-                                  "and model that part if it is purchased")
+                                  "and model that part if it is purchased -- Hint: add a joint for it in behavior.json \"joints\"")
     for j in joints:
         if float(j["max_gap"]) > MAX_GAP_CAP:
             fails["holds"].append(f"{j['a']} <-> {j['b']}: max_gap {j['max_gap']} mm > {MAX_GAP_CAP}: a gap is "
-                                  "not a joint -- model the purchased part that bridges it (rod end, pin, spacer)")
+                                  "not a joint -- model the purchased part that bridges it (rod end, pin, spacer) -- Hint: lower max_gap "
+                                  "in behavior.json after modelling that part, do not raise it")
     adj = {n: set() for n in bodies}
     for j in joints:
         adj[j["a"]].add(j["b"]); adj[j["b"]].add(j["a"])
@@ -426,9 +427,11 @@ def main():
             continue   # already reported as not held
         if roots is not None and not (g & roots):
             fails["holds"].append(f"detached group [{', '.join(sorted(g))}] does not reach a ground body "
-                                  f"({', '.join(sorted(roots))}) -- no load path to the ground")
+                                  f"({', '.join(sorted(roots))}) -- no load path to the ground -- Hint: add a joint in behavior.json "
+                                  "from this group to a ground body")
         elif roots is None and len(groups) > 1:
-            fails["holds"].append(f"detached group [{', '.join(sorted(g))}] (joint graph has {len(groups)} groups)")
+            fails["holds"].append(f"detached group [{', '.join(sorted(g))}] (joint graph has {len(groups)} groups) -- Hint: add the missing joint in behavior.json so all "
+                                  "bodies form one group")
 
     # -- per pose
     jobs = []
@@ -438,7 +441,8 @@ def main():
     try:
         rnd.prerender(jobs)
     except RuntimeError as e:
-        print(f"FAIL render: a body did not render, nothing about it is known:\n{e}")
+        print(f"FAIL render: a body did not render, nothing about it is known -- Hint: fix the OpenSCAD error "
+              f"below in the body's scad / render parameters in behavior.json:\n{e}")
         print("BEHAVIOR: render failure")
         return EXIT_FAIL
     static_cache = {}
@@ -470,7 +474,8 @@ def main():
                 if spec.get("static"):
                     static_cache[n] = meshes[n]
         except RuntimeError as e:
-            print(f"FAIL render: a body did not render, nothing about it is known:\n{e}")
+            print(f"FAIL render: a body did not render, nothing about it is known -- Hint: fix the OpenSCAD error "
+              f"below in the body's scad / render parameters in behavior.json:\n{e}")
             print("BEHAVIOR: render failure")
             return EXIT_FAIL
         if pose == dof_pose or (dof_meshes is None and pose == grid[-1]):
@@ -486,7 +491,8 @@ def main():
                         if n not in vals or abs(v) > abs(vals[n]):
                             vals[n] = v
             except RuntimeError as e:
-                print(f"FAIL render: {e}"); print("BEHAVIOR: render failure"); return EXIT_FAIL
+                print(f"FAIL render: {e} -- Hint: fix the OpenSCAD error in the joint's or the top-level \"scad\" that prints the angle echo")
+                print("BEHAVIOR: render failure"); return EXIT_FAIL
             for j in joints:
                 an = j.get("angle")
                 if not an:
@@ -494,14 +500,16 @@ def main():
                 k = (j["a"], j["b"])
                 if an["echo"] not in vals:
                     fails["kinematics"].append(f"{j['a']} <-> {j['b']}: OpenSCAD printed no `ECHO: {an['echo']} = ..` "
-                                               f"at {ptxt} -- the angle is not checked; add echo({an['echo']}=...)")
+                                               f"at {ptxt} -- the angle is not checked; add echo({an['echo']}=...) -- Hint: print that echo "
+                                               "from the scad named in behavior.json")
                     continue
                 v = vals[an["echo"]]
                 if k not in worst_angle or abs(v) > abs(worst_angle[k][0]):
                     worst_angle[k] = (v, ptxt, float(an["max_deg"]))
                 if abs(v) > float(an["max_deg"]):
                     add("kinematics", (k, "angle"), abs(v), f"{j['a']} <-> {j['b']}: {an['echo']} = {v:.1f} deg > "
-                        f"{an['max_deg']} at {ptxt} ({an['source']}) -- the purchased joint cannot swing that far")
+                        f"{an['max_deg']} at {ptxt} ({an['source']}) -- the purchased joint cannot swing that far -- Hint: "
+                        "reduce the swing in the scad or choose a joint with a larger max_deg")
         cm = CollisionManager()
         for n in names:
             cm.add_object(n, meshes[n])
@@ -521,7 +529,8 @@ def main():
                 worst_joint[k] = (gap, ptxt)
             if gap > float(j["max_gap"]):
                 add("holds", k, gap, f"{j['a']} <-> {j['b']}: gap {gap:.2f} mm > max_gap {j['max_gap']} at {ptxt} "
-                                     "-- they do not touch; the part that joins them is missing or misplaced")
+                                     "-- they do not touch; the part that joins them is missing or misplaced -- Hint: move the parts "
+                                     "together or add the part that bridges them")
         # a body of several separate pieces (four ball studs, a gear train) is held only if EVERY piece
         # reaches a joint partner, directly or through pieces of the same body that touch it; the
         # joint distance above sees only the nearest piece
@@ -530,7 +539,8 @@ def main():
                 lo, hi = sh.bounds
                 add("holds", (x, "piece", i), 1.0, f"{x}: separate piece {i + 1} at "
                     f"[{lo[0]:.0f}..{hi[0]:.0f}, {lo[1]:.0f}..{hi[1]:.0f}, {lo[2]:.0f}..{hi[2]:.0f}] reaches none of its "
-                    f"joint partners ({', '.join(partners)}), not even through the body's other pieces, at {ptxt}")
+                    f"joint partners ({', '.join(partners)}), not even through the body's other pieces, at {ptxt} -- Hint: "
+                    "connect the piece to its joint partner, or split it into its own body in behavior.json")
         for x, y in itertools.combinations(names, 2):
             fk = frozenset((x, y))
             if fk in joint_pairs:
@@ -542,7 +552,8 @@ def main():
                 except Exception:
                     vol = float("nan")
                 if not vol <= VOL_EPS:   # NaN counts as interference: never a silent pass
-                    add("moves", (x, y), vol if vol == vol else 1e9, f"{x} <-> {y}: interfere {vol:.2f} mm3 at {ptxt}")
+                    add("moves", (x, y), vol if vol == vol else 1e9, f"{x} <-> {y}: interfere {vol:.2f} mm3 at {ptxt} -- Hint: change the "
+                                                       "geometry or the motion range so they clear, or declare the pair as a joint")
                     worst_pair[fk] = (0.0, ptxt)
                     continue
                 dd = 0.0
@@ -553,7 +564,8 @@ def main():
             if fk in pair_min and (fk not in worst_pair or dd < worst_pair[fk][0]):
                 worst_pair[fk] = (dd, ptxt)
             if dd < lim:
-                add("moves", (x, y), lim - dd, f"{x} <-> {y}: {dd:.2f} mm < {lim} at {ptxt}")
+                add("moves", (x, y), lim - dd, f"{x} <-> {y}: {dd:.2f} mm < {lim} at {ptxt} -- Hint: open the clearance "
+                                              "in the geometry or the motion range")
 
         if ground and all(pose.get(k) == v for k, v in (ground.get("at") or {}).items()):
             gz, tol = float(ground["z"]), float(ground.get("tol", 0.5))
@@ -563,7 +575,8 @@ def main():
                 lo = float(v[:, 2].min())
                 if abs(lo - gz) > tol:
                     add("stands", n, abs(lo - gz), f"{n}: lowest point z={lo:.2f}, ground z={gz} (tol {tol}) at {ptxt} "
-                                                   "-- it does not rest on the ground")
+                                                   "-- it does not rest on the ground -- Hint: move the body to the declared ground z "
+                                                   "or correct ground.z / tol in behavior.json")
                 pts.extend(v[v[:, 2] <= gz + tol][:, :2].tolist())
             tot, mom = 0.0, np.zeros(3)
             for n in names:
@@ -578,18 +591,19 @@ def main():
                 margin = -float(np.max(hull.equations[:, :2] @ com[:2] + hull.equations[:, 2]))
             except Exception:
                 add("stands", "hull", 0, f"no support polygon at {ptxt}: ground contact points are fewer than 3 "
-                                          "or collinear")
+                                          "or collinear -- Hint: let at least three ground bodies' points reach the ground plane, or fix ground.bodies")
                 margin = None
             if margin is not None:
                 if worst_margin is None or margin < worst_margin[0]:
                     worst_margin = (margin, ptxt, com)
                 if margin < 0:
                     add("stands", "com", -margin, f"mass centre ({com[0]:.1f}, {com[1]:.1f}) lies outside the support "
-                                                  f"polygon by {-margin:.1f} mm at {ptxt} -- it tips over")
+                                                  f"polygon by {-margin:.1f} mm at {ptxt} -- it tips over -- Hint: widen the base or move the mass "
+                                                  "inside the support polygon (or correct mass_g / density in behavior.json)")
 
     if typed and not dofd:
         fails["kinematics"].append("joints have a \"type\" but behavior.json has no \"dof\" -- declare the motions "
-                                   "the mechanism must have (count, why, idle)")
+                                   "the mechanism must have (count, why, idle) -- Hint: add \"dof\" to behavior.json")
     if typed and dofd:
         ptxt = " ".join(f"{k}={v}" for k, v in dof_pose.items()) or "nominal"
         for j in joints:
@@ -598,7 +612,8 @@ def main():
                 pieces = dof_meshes[nb].split(only_watertight=False)
                 if t != "fixed" and len([q for q in pieces if min(q.extents) > PIECE_MIN_MM]) > 1:
                     fails["kinematics"].append(f"{nb}: {len(pieces)} separate pieces in a {t} joint -- one rigid body "
-                                               "per piece (studs that move with different parts are different bodies)")
+                                               "per piece (studs that move with different parts are different bodies) -- Hint: split the "
+                                               "pieces into separate bodies in behavior.json")
             if t != "fixed":
                 pt = np.asarray(j["at"], float)
                 dd = {}
@@ -612,7 +627,8 @@ def main():
                         f"{j['a']} <-> {j['b']}: anchor ({pt[0]:g}, {pt[1]:g}, {pt[2]:g}) is "
                         + ", ".join(f"{dd[n]:.2f} mm from {n}" for n in dd)
                         + f" at {ptxt} (want <= max_gap {j['max_gap']} on one body, <= {ANCHOR_REACH} on the other) "
-                        "-- the joint point is not on the parts")
+                        "-- the joint point is not on the parts -- Hint: correct the joint's \"at\" in behavior.json "
+                        "or move the parts to the anchor")
         moving = [n for n in bodies if not bodies[n].get("static")]
         note = ""
         if not any(bodies[n].get("static") for n in bodies):
@@ -632,10 +648,11 @@ def main():
             idle = {i["body"] for i in dofd.get("idle", [])}
             txt = ", ".join(f"{n} ({k} DOF{' idle' if n in idle else ''})" for k, n in sorted(alone, reverse=True))
             fails["kinematics"].append(f"{ndof} DOF > declared {want}: with every other body held, these still move: "
-                                       f"{txt or 'none alone (a chain is loose)'} -- a joint is missing or too free")
+                                       f"{txt or 'none alone (a chain is loose)'} -- a joint is missing or too free -- Hint: "
+                                       "constrain the listed body with a joint type, or declare the extra motion in dof.idle")
         elif ndof < want:
             fails["kinematics"].append(f"{ndof} DOF < declared {want}: the mechanism locks -- the declared motion "
-                                       "({}) is impossible with these joints".format(", ".join(map(str, dofd.get("why", [])))))
+                                       "({}) is impossible with these joints -- Hint: free a joint (change its type) or lower dof.count".format(", ".join(map(str, dofd.get("why", [])))))
     for (x, y), (v, ptxt, lim) in sorted(worst_angle.items(), key=lambda kv: -abs(kv[1][0])):
         print(f"angle {x:12s} <-> {y:12s} worst {v:6.1f} deg (limit {lim}) at {ptxt}")
     for (x, y), (gap, ptxt) in sorted(worst_joint.items(), key=lambda kv: -kv[1][0]):
@@ -649,7 +666,8 @@ def main():
     if default_density:
         print(f"NOTE: density 1.0 g/cm3 assumed for {', '.join(sorted(default_density))} -- set mass_g or density")
     if ground and not any(all(pz.get(k) == v for k, v in (ground.get("at") or {}).items()) for pz in grid):
-        fails["stands"].append(f"ground.at {ground.get('at')} matches no pose of the grid -- nothing was checked")
+        fails["stands"].append(f"ground.at {ground.get('at')} matches no pose of the grid -- nothing was checked -- Hint: use "
+                               "a pose that is in the grid, or drop ground.at")
     for (gate, _), (_, msg, cnt) in per_pose.items():
         fails[gate].append(msg + (f" (worst of {cnt}/{len(grid)} failing poses)" if len(grid) > 1 else ""))
     total = 0

@@ -272,7 +272,7 @@ def check_gear_mesh_signs(contacts, motions):
                     f"gear_mesh '{name_a}'<->'{name_b}' in motion '{motion.get('id', '?')}': "
                     f"one driver has ratio 0 (not actually driven) -- a gear_mesh pair "
                     f"where one side never moves relative to the other cannot mesh; check "
-                    f"the ratio was set intentionally.")
+                    f"the ratio was set intentionally. Hint: give the driver a non-zero ratio in joints.json.")
             elif (ratio_a > 0) == (ratio_b > 0):
                 failures.append(
                     f"gear_mesh '{name_a}'<->'{name_b}' in motion '{motion.get('id', '?')}': "
@@ -282,7 +282,7 @@ def check_gear_mesh_signs(contacts, motions):
                     f"prove nothing about a real collision between real meshing teeth. If "
                     f"this is a genuine internal/planetary mesh (same-direction by design), "
                     f"declare it with \"joint_type\": \"internal_gear_mesh\" instead of "
-                    f"\"gear_mesh\" to opt out of this check.")
+                    f"\"gear_mesh\" to opt out of this check. Hint: flip the sign of one driver's ratio in joints.json.")
     return failures
 
 
@@ -320,6 +320,86 @@ def _bosl2_gear_dist(mod, z1, z2, pressure_angle, ps1, ps2, helical=0.0):
     return None, "no gear_dist echo (BOSL2 missing?)"
 
 
+def _bosl2_echo(expr):
+    """Evaluate one BOSL2 expression via OpenSCAD echo. Returns (float, error)."""
+    import shutil, subprocess, tempfile
+    exe = os.environ.get("OPENSCAD") or shutil.which("openscad") or "/Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD"
+    with tempfile.TemporaryDirectory() as d:
+        src, out = os.path.join(d, "g.scad"), os.path.join(d, "g.echo")
+        with open(src, "w") as f:
+            f.write(f"include <BOSL2/std.scad>\ninclude <BOSL2/gears.scad>\necho(P32_VAL={expr});\n")
+        try:
+            subprocess.run([exe, "-o", out, src], capture_output=True, timeout=120)
+            txt = open(out).read()
+        except Exception as e:
+            return None, str(e)
+    for line in txt.splitlines():
+        if "P32_VAL" in line:
+            try:
+                return float(line.split("=")[-1]), None
+            except ValueError:
+                return None, line.strip()
+    return None, "no echo (BOSL2 missing?)"
+
+
+def _axis_geometry(e1, e2):
+    """Common-normal distance (mm) and the angle (deg, 0..90) between two axis lines."""
+    n = np.cross(e1["dir"], e2["dir"])
+    sin = float(np.linalg.norm(n))
+    angle = math.degrees(math.asin(min(1.0, sin)))
+    if float(e1["dir"] @ e2["dir"]) < 0:
+        angle = 180.0 - angle
+    dist = abs(float((e2["point"] - e1["point"]) @ n)) / sin if sin > 1e-9 else float("nan")
+    return dist, angle
+
+
+def _check_kind_pair(c, kind, n1, n2, e1, e2, failures, notes, usage):
+    """P32 AC-G1/G2: bevel (axes intersect, shaft angle) and worm (perpendicular, worm_dist()) contacts."""
+    dist, ang = _axis_geometry(e1, e2)
+    src = "measured axes" if e1["measured"] and e2["measured"] else "declared origin(s)"
+    ang = min(ang, 180.0 - ang)   # axis lines, not directed vectors
+    if kind == "bevel":
+        try:
+            sa = float(c.get("shaft_angle", 90))
+        except (TypeError, ValueError):
+            usage.append(f"gear_mesh {n1}<->{n2}: \"shaft_angle\" must be a number")
+            return
+        sa = min(sa, 180.0 - sa)
+        if not dist == dist:   # parallel axes never meet at a shaft angle
+            failures.append(f"bevel axes {n1}<->{n2}: parallel axes ({src}); shaft angle {sa:g} deg declared -- Hint: tilt one gear axis (driver axis + part rotation) to the declared shaft angle")
+        elif dist > AXIS_TOL_MM:
+            failures.append(f"bevel axes {n1}<->{n2}: axes do not intersect, {dist:.3f} mm apart ({src}), limit "
+                            f"{AXIS_TOL_MM} mm -- both pitch-cone apexes must sit at the axes' intersection -- Hint: move one gear so the axes meet")
+        elif abs(ang - sa) > 0.1:
+            failures.append(f"bevel axes {n1}<->{n2}: shaft angle is {ang:.2f} deg ({src}), declared {sa:g} deg "
+                            f"(+-0.1 deg) -- Hint: rotate one gear's axis to the declared shaft angle, or correct shaft_angle in joints.json")
+        else:
+            notes.append(f"OK: bevel axes {n1}<->{n2} intersect ({dist:.3f} mm) at {ang:.2f} deg ({src}), declared {sa:g} deg")
+        return
+    # worm: the worm is the "worm" part named in the contact, default first of the pair; its "teeth" = starts
+    try:
+        mod, pa = float(c["module"]), float(c.get("pressure_angle", 20))
+        d_w, ps = float(c["worm_diam"]), float(c.get("profile_shift", 0))
+    except (KeyError, TypeError, ValueError):
+        usage.append(f"gear_mesh {n1}<->{n2} kind worm: needs numeric \"module\" and \"worm_diam\" (worm pitch diameter, mm); "
+                     f"\"pressure_angle\" and a numeric \"profile_shift\" are optional")
+        return
+    w, g = (e1, e2) if str(c.get("worm", n1)).lower() == n1 else (e2, e1)
+    want, err = _bosl2_echo(f"worm_dist(d={d_w}, starts={w['teeth']}, teeth={g['teeth']}, mod={mod}, "
+                            f"profile_shift={ps}, pressure_angle={pa})")
+    if abs(ang - 90.0) > 0.1:
+        failures.append(f"worm axes {n1}<->{n2}: not perpendicular, {ang:.2f} deg ({src}); worm and worm gear need 90 deg +-0.1 -- Hint: rotate the worm or worm gear so their axes are perpendicular")
+    elif want is None:
+        notes.append(f"NOT CHECKED: worm centre distance {n1}<->{n2} -- worm_dist() unavailable ({err})")
+        return True   # degraded, like the spur gear_dist() path
+    elif abs(dist - want) > AXIS_TOL_MM:
+        failures.append(f"worm centre distance {n1}<->{n2}: common normal is {dist:.3f} mm ({src}), BOSL2 worm_dist("
+                        f"d {d_w:g}, {w['teeth']} start(s), {g['teeth']}T, module {mod:g}, profile shift {ps:g}) = "
+                        f"{want:.3f} mm ({dist - want:+.3f} mm) -- Hint: move the worm to the worm_dist() centre distance in the layout")
+    else:
+        notes.append(f"OK: worm centre distance {n1}<->{n2} {dist:.3f} mm ({src}) = worm_dist() {want:.3f} mm, axes 90 deg")
+
+
 def check_gear_axes(contacts, motions, meshes, paths):
     """P29 (2026-11-27): a toothed driver must turn about the part's real axis, and a gear_mesh with
     "module" must sit at BOSL2 gear_dist(). Real case: examples/gear_reduction sat 0.345 mm too close
@@ -330,6 +410,8 @@ def check_gear_axes(contacts, motions, meshes, paths):
     that is not checked says why. Returns (failures, notes, degraded, usage_errors)."""
     failures, notes, usage, degraded = [], [], [], False
     axes = {}   # (motion id, part) -> dict(point, dir, teeth, measured)
+    worms = {str(c.get("worm", (c.get("pair") or [""])[0])).lower() for c in contacts
+             if str(c.get("kind", "")).lower() == "worm"}   # helical: no symmetry axis to measure from the mesh
     for mi, motion in enumerate(motions):
         mid = motion.get("id", f"#{mi}")
         for d in motion.get("drivers", []):
@@ -341,6 +423,20 @@ def check_gear_axes(contacts, motions, meshes, paths):
             entry = {"point": o, "dir": a, "teeth": int(z), "measured": False}
             axes[(mid, name)] = entry
             path = match_part(paths, d.get("part", ""))
+            if name in worms:
+                # helical: no tooth-pitch symmetry; instead the mesh bbox centre of a (rotationally symmetric) worm
+                # must lie on the declared axis, else the STL moved while joints.json kept the old origin
+                if path is not None and path in meshes:
+                    cen = (meshes[path].bounds[0] + meshes[path].bounds[1]) / 2 - o
+                    off = float(np.linalg.norm(cen - np.dot(cen, a) * a))
+                    if off > AXIS_TOL_MM:
+                        failures.append(f"axis: worm '{d['part']}' in motion '{mid}': its mesh centre is {off:.3f} mm "
+                                        f"off the declared axis (limit {AXIS_TOL_MM} mm). The layout and joints.json "
+                                        f"disagree -- fix the one that is wrong. Hint: move the part onto the declared axis, or correct origin in joints.json.")
+                        continue
+                notes.append(f"NOT CHECKED: tooth-pitch symmetry of '{d['part']}' -- a worm has none; its axis is the "
+                             f"declared one, checked only against its mesh bbox centre")
+                continue
             if path is None or path not in meshes:
                 notes.append(f"NOT CHECKED: axis of '{d['part']}' -- no single STL named like it")
                 continue
@@ -357,7 +453,7 @@ def check_gear_axes(contacts, motions, meshes, paths):
                 if rim > AXIS_TOL_MM:
                     failures.append(f"axis: driver '{d['part']}' in motion '{mid}' declares axis "
                                     f"{list(np.round(a, 4))}, but the part's symmetry axis is tilted {tilt:.2f} deg "
-                                    f"from it ({rim:.3f} mm at its rim). Fix the part's rotation or the axis.")
+                                    f"from it ({rim:.3f} mm at its rim). Hint: fix the part's rotation or the driver axis in joints.json.")
                     continue
             rel = mesh.center_mass - o
             off = rel - np.dot(rel, a) * a
@@ -372,7 +468,8 @@ def check_gear_axes(contacts, motions, meshes, paths):
                 failures.append(f"axis: driver '{d['part']}' in motion '{mid}' turns about "
                                 f"{list(np.round(o, 3))}, but the part's real axis is {dist:.3f} mm away (through "
                                 f"{list(np.round(o + off, 3))}). The layout and joints.json disagree -- fix the one "
-                                f"that is wrong; the sweep would rotate the part about a point it does not turn on.")
+                                f"that is wrong; the sweep would rotate the part about a point it does not turn on. "
+                                f"Hint: correct the driver origin in joints.json to the part's real axis, or move the part.")
             entry.update(point=o + off, measured=True)
     for c in contacts:
         if str(c.get("joint_type", "")).lower() != "gear_mesh" or len(c.get("pair", [])) != 2:
@@ -382,6 +479,14 @@ def check_gear_axes(contacts, motions, meshes, paths):
         if not pairs:
             notes.append(f"NOT CHECKED: centre distance {n1}<->{n2} -- both need a revolute driver with \"teeth\" "
                          f"in the same motion block")
+            continue
+        kind = str(c.get("kind", "")).lower()
+        if kind in ("bevel", "worm"):
+            for e1, e2 in pairs:
+                degraded |= bool(_check_kind_pair(c, kind, n1, n2, e1, e2, failures, notes, usage))
+            continue
+        if kind:
+            usage.append(f"gear_mesh {n1}<->{n2}: \"kind\" must be \"bevel\" or \"worm\", got {c['kind']!r}")
             continue
         if "module" not in c:
             notes.append(f"NOT CHECKED: centre distance {n1}<->{n2} -- the gear_mesh contact has no \"module\"")
@@ -416,7 +521,7 @@ def check_gear_axes(contacts, motions, meshes, paths):
                 failures.append(f"centre distance {n1}<->{n2}: axes are {have:.3f} mm apart ({src}), BOSL2 "
                                 f"gear_dist(module {mod}, {e1['teeth']}T/{e2['teeth']}T, profile shift {ps}, "
                                 f"helical {hel}) = {want:.3f} mm ({have - want:+.3f} mm). Take the distance from "
-                                f"gear_dist(), not m*(z1+z2)/2 (BOSL2 shifts small pinions automatically).")
+                                f"gear_dist(), not m*(z1+z2)/2 (BOSL2 shifts small pinions automatically). Hint: move one gear to the gear_dist() centre distance in the layout.")
             else:
                 notes.append(f"OK: centre distance {n1}<->{n2} {have:.3f} mm ({src}) = gear_dist() {want:.3f} mm")
     return failures, notes, degraded, usage
@@ -595,6 +700,10 @@ def run_motion(motion, meshes, paths, contacts, step_override, verbose=True):
                 print(f"    clearance below {min_clear} mm at t = {v[0]}..{v[-1]}deg "
                       f"({len(v)} positions); tightest {worst[1]:.3f} mm "
                       f"at t={worst[0]:.2f}deg")
+            print("    Hint: change the centre distance, backlash or layout position of the pair named, "
+                  "or correct the driver axis/range in joints.json motion")
+            print("    Hint: change the centre distance, backlash or layout position of the pair named, "
+                  "or correct the driver axis/range in joints.json motion")
     return out
 
 
@@ -629,7 +738,7 @@ def main():
            if not isinstance(m.get("drivers"), list) or not m["drivers"]]
     if bad:
         print(f"FAIL: motion entry {', '.join(map(str, bad))} has no \"drivers\" list, so nothing "
-              f"can be swept. Expected shape (see DECLARING MOTION in this script's --help):")
+              f"can be swept -- Hint: add a \"drivers\" list to that motion in joints.json. Expected shape (see DECLARING MOTION in this script's --help):")
         print('  {"id": "lid_open", "range_deg": [0, 110], "step_deg": 2.0, "drivers": '
               '[{"part": "lid", "type": "revolute", "axis": [1, 0, 0], "origin": [0, 60, 20], "ratio": 1.0}]}')
         return EXIT_FAIL
@@ -639,6 +748,7 @@ def main():
         print("FAIL: gear-ratio sign check (before any sweep runs):")
         for f in sign_failures:
             print(f"  - {f}")
+        print("  Hint: set opposite-sign ratios on the two drivers (or declare internal_gear_mesh).")
         print("Fix the ratio sign at the source -- do not sweep with a sign "
               "known to be wrong; the result would not mean anything.")
         return EXIT_FAIL
@@ -647,9 +757,9 @@ def main():
         loose, dead = unassigned(args.stls, motions, static)
         if loose or dead:
             for p in loose:
-                print(f"FAIL: unassigned part {os.path.basename(p)} -- not in any driver and not in \"static\"")
+                print(f"FAIL: unassigned part {os.path.basename(p)} -- not in any driver and not in \"static\" -- Hint: add it to a driver group or to \"static\" in joints.json")
             for n in dead:
-                print(f"FAIL: static entry {n!r} matches no STL (or several)")
+                print(f"FAIL: static entry {n!r} matches no STL (or several) -- Hint: name exactly one positioned STL in \"static\" in joints.json")
             print("Name every part in a driver group or in \"static\" -- an unassigned part is "
                   "exactly the one a sweep would silently treat as static.")
             return EXIT_FAIL

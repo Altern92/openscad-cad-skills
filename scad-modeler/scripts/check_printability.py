@@ -116,6 +116,16 @@ WARP_MIN_SIDE_MM = 50.0
 # 80 %: carried edges at each end must cover this share of the region's length along the other
 # axis for it to count as a bridge (else it is a cantilever/partial support); our own value, unverified.
 CARRIED_COVER = 0.8
+# P38 rest (2026-11-27), all three informational/warning only, none changes the exit code:
+# 45 deg knife edge: a convex edge whose two faces close at less than this. text-to-cad's own
+# KNIFE_DEG; Hubs' 45 deg is only context (an overhang limit, not an edge rule). unverified.
+KNIFE_DEG = 45.0
+# 20 deg stair-step: an up-facing slope shallower than this (from horizontal) shows layer steps.
+# our own value (text-to-cad uses its own SHALLOW_DEG); unverified. Below 0.5 deg = flat, no step.
+STAIR_DEG = 20.0
+STAIR_FLAT_DEG = 0.5
+# 0.2 mm layer height: common FDM default, our own; unverified (set --layer).
+DEFAULT_LAYER_MM = 0.2
 
 
 def _regions(mesh, mask):
@@ -216,13 +226,78 @@ def check_overhang(mesh, build_axis, overhang_deg, baseplate_eps):
                 flagged[c] = False
                 if areas[c].sum() >= MIN_REGION_MM2:
                     out["bridges"].append((float(areas[c].sum()), span, centre(c)))
+    out["faces"] = np.zeros(len(areas), bool)   # faces of the kept regions (for the support estimate)
     for c in _regions(mesh, flagged):
         a = float(areas[c].sum())
         if a < MIN_REGION_MM2:
             out["small"] += 1
         else:
             out["regions"].append((a, centre(c)))
+            out["faces"][c] = True
     return out
+
+
+def check_knife_edges(mesh):
+    """Convex edges whose interior dihedral angle is under KNIFE_DEG: [(angle_deg, length, midpoint)].
+    Interior angle = 180 - angle between the two face normals; only convex edges count (a concave
+    groove is not a knife). Rewritten from the idea in text-to-cad, no code copied.
+    shortcut: per mesh edge, not merged into chains, so a long knife prints once per edge piece
+    (the caller caps the listing); upgrade to chains if the output is noisy."""
+    import numpy as np
+    adj = mesh.face_adjacency
+    if not len(adj):
+        return []
+    interior = 180.0 - np.degrees(mesh.face_adjacency_angles)
+    hit = mesh.face_adjacency_convex & (interior < KNIFE_DEG)
+    ev = mesh.vertices[mesh.face_adjacency_edges[hit]]
+    return [(float(a), float(np.linalg.norm(e[1] - e[0])), e.mean(axis=0))
+            for a, e in zip(interior[hit], ev)]
+
+
+def check_stair_steps(mesh, build_axis, layer, baseplate_eps):
+    """Up-facing regions shallower than STAIR_DEG (and steeper than STAIR_FLAT_DEG) from horizontal:
+    [(area, mean_angle, cusp_mm, step_width_mm, centre)]. cusp = layer*cos(angle), step = layer/tan(angle)."""
+    import numpy as np
+    up = np.array(build_axis, dtype=float)
+    up /= np.linalg.norm(up)
+    tilt = np.degrees(np.arccos(np.clip(mesh.face_normals.dot(up), -1.0, 1.0)))
+    areas = mesh.area_faces
+    mask = (tilt > STAIR_FLAT_DEG) & (tilt < STAIR_DEG)
+    out = []
+    for c in _regions(mesh, mask):
+        a = float(areas[c].sum())
+        ang = float(np.average(tilt[c], weights=areas[c]))
+        ctr = (mesh.triangles_center[c] * areas[c][:, None]).sum(axis=0) / a
+        out.append((a, ang, layer * np.cos(np.radians(ang)), layer / np.tan(np.radians(ang)), ctr))
+    return sorted(out, key=lambda r: -r[0])
+
+
+def check_support_volume(mesh, faces, build_axis, cap=3000):
+    """Estimate (mm^3) of support under the overhang faces: for each face, projected area times the
+    drop to the first surface below (else down to the plate = mesh minimum). One downward ray per
+    face centroid, sampled to `cap` faces and scaled back by projected area.
+    shortcut: centroid column per face, so a face over a slope is approximated by its centre height;
+    upgrade to text-to-cad's raster columns (meshops_printing `support`) if estimates matter."""
+    import numpy as np
+    up = np.array(build_axis, dtype=float)
+    up /= np.linalg.norm(up)
+    idx = np.flatnonzero(faces)
+    if not len(idx):
+        return 0.0
+    proj = mesh.area_faces[idx] * mesh.face_normals[idx].dot(-up)
+    scale = 1.0
+    if len(idx) > cap:
+        sel = np.random.default_rng(0).choice(len(idx), cap, replace=False)
+        scale = proj.sum() / proj[sel].sum()
+        idx, proj = idx[sel], proj[sel]
+    org = mesh.triangles_center[idx] - up * 1e-3
+    loc, ray, _ = trimesh_ray_intersector(mesh).intersects_location(org, np.tile(-up, (len(idx), 1)),
+                                                                     multiple_hits=False)
+    floor = mesh.vertices.dot(up).min()
+    drop = org.dot(up) - floor
+    for p, r in zip(loc, ray):
+        drop[r] = min(drop[r], org[r].dot(up) - p.dot(up))
+    return float((proj * np.maximum(drop, 0)).sum() * scale)
 
 
 def _build_extents(mesh, build_axis):
@@ -359,6 +434,8 @@ def main():
     ap.add_argument("--bed", type=float, nargs=3, metavar=("X", "Y", "Z"), default=None,
                      help="printer build volume in mm (default 256 256 256, unverified "
                           "Bambu-class size); the part bbox in the STL's own axes must fit")
+    ap.add_argument("--layer", type=float, default=DEFAULT_LAYER_MM,
+                     help="layer height in mm for the stair-stepping INFO (default 0.2, unverified)")
     args = ap.parse_args()
 
     try:
@@ -411,7 +488,7 @@ def main():
         msg = (f"part {ext[0]:.1f} x {ext[1]:.1f} x {ext[2]:.1f} mm exceeds bed "
                f"{bed[0]:g} x {bed[1]:g} x {bed[2]:g} mm.{hint}")
         if args.bed:
-            failures.append("BUILD VOLUME: " + msg)
+            failures.append("BUILD VOLUME: " + msg + " Hint: shrink the part, split it, or pass the real --bed X Y Z.")
         else:  # AC-C2: the default bed is unverified, so it can only warn
             print("WARN: BUILD VOLUME: " + msg + " (default bed 256^3 unverified; pass --bed X Y Z)")
 
@@ -439,13 +516,37 @@ def main():
                 failures.append(
                     f"BRIDGE SPAN: flat ceiling {a:.1f} mm^2 at ({c[0]:.1f}, {c[1]:.1f}, "
                     f"{c[2]:.1f}) spans {span:.1f} mm > {BRIDGE_MAX_MM:g} mm between its supports "
-                    f"-- will sag; add a support, split the span or change orientation.")
+                    f"-- will sag. Hint: add a support under the span, split it, or change the print orientation.")
         if bad_area > 0.0:
             failures.append(
                 f"UNSUPPORTED OVERHANG: {bad_area:.1f} mm^2 in {len(ov['regions'])} region(s) "
                 f"steeper than {args.overhang_deg:.0f} deg from vertical "
                 f"(build axis {build_axis}) "
-                f"-- will need support material or a different print orientation.")
+                f"-- will need support material or a different print orientation. Hint: change the "
+                f"print orientation, or add a chamfer/45 deg slope on the overhanging faces.")
+
+    if ov["total_down_area"] and ov["faces"].any():
+        vol = check_support_volume(mesh, ov["faces"], build_axis)
+        print(f"INFO: SUPPORT VOLUME: about {vol:.0f} mm^3 of support under the flagged overhang "
+              f"region(s), down to the plate or the part below (estimate: centroid columns; "
+              f"informational only).")
+
+    knives = check_knife_edges(mesh)
+    if knives:
+        knives.sort(key=lambda k: k[0])
+        where = "; ".join(f"{a:.0f} deg at ({m[0]:.1f}, {m[1]:.1f}, {m[2]:.1f}) len {ln:.1f}"
+                          for a, ln, m in knives[:4])
+        print(f"WARN: KNIFE EDGE: {len(knives)} convex edge piece(s) sharper than {KNIFE_DEG:g} deg, "
+              f"e.g. {where} -- thin sharp edges print poorly and break; add a chamfer or radius "
+              f"(threshold unverified: text-to-cad's own value).")
+
+    stairs = check_stair_steps(mesh, build_axis, args.layer, args.baseplate_eps)
+    if stairs:
+        a, ang, cusp, step, c = stairs[0]
+        print(f"INFO: STAIR STEPPING: {len(stairs)} up-facing slope region(s) under {STAIR_DEG:g} deg "
+              f"from horizontal at layer {args.layer:g} mm; largest {a:.1f} mm^2 at "
+              f"({c[0]:.1f}, {c[1]:.1f}, {c[2]:.1f}), {ang:.1f} deg, step width {step:.1f} mm, "
+              f"cusp {cusp:.2f} mm (threshold unverified; informational only).")
 
     corners = check_bed_contact(mesh, build_axis, args.baseplate_eps)
     if corners:
@@ -469,7 +570,8 @@ def main():
                 failures.append(
                     f"THIN WALL: minimum measured thickness {min_t:.3f} mm < "
                     f"required {min_wall:.2f} mm ({n_below}/{n_samples} sample(s) "
-                    f"below threshold) -- likely to fail or warp during printing.")
+                    f"below threshold) -- likely to fail or warp during printing. Hint: thicken the wall in the part's "
+                    f".scad to at least {min_wall:.2f} mm, or lower the wall limit only if the printer can hold it.")
             if n_misses > n_samples * 0.1:
                 print(f"DEGRADED: {n_misses}/{n_samples} wall-thickness rays missed "
                       f"entirely -- results may be incomplete.")

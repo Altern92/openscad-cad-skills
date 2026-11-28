@@ -58,7 +58,8 @@ def main():
     if bad_decl:
         for l in bad_decl:
             print(f"FAIL: cannot read declaration `{l}` in {a.scad} -- write it as the documented form "
-                  f"(numbers, not placeholders); an unreadable declaration is not a measured one")
+                  f"(numbers, not placeholders); an unreadable declaration is not a measured one -- Hint: write "
+                  f"`// EXPECTED_THROUGH_HOLES: <integer>`")
         return EXIT_FAIL
     expected = None
     with open(a.scad, encoding="utf-8", errors="replace") as f:
@@ -77,11 +78,11 @@ def main():
         print(f"ERROR: cannot load mesh {a.stl}: {e}", file=sys.stderr)
         return EXIT_USAGE
     if mesh.is_empty:
-        print(f"FAIL: topology, {a.stl} is empty")
+        print(f"FAIL: topology, {a.stl} is empty -- Hint: make the part's .scad produce geometry (check its MODE/PART selection)")
         return EXIT_FAIL
     if not mesh.is_watertight:
         print(f"FAIL: topology, genus undefined: mesh not watertight ({a.stl}); "
-              f"cannot count through-holes on an open surface")
+              f"cannot count through-holes on an open surface -- Hint: close the mesh (fix the non-manifold edges / coincident faces in the .scad)")
         return EXIT_FAIL
 
     chi = int(mesh.euler_number)
@@ -90,7 +91,7 @@ def main():
     detail = f"chi={chi}, components={bodies}"
     if found != expected:
         print(f"FAIL: topology, expected {expected} through-hole(s), found {found} ({detail}). "
-              f"Fewer = a bore is blind or sealed by a skin; more = an unintended opening or crossing bores.")
+              f"Fewer = a bore is blind or sealed by a skin; more = an unintended opening or crossing bores. Hint: fix the bores in the .scad, or correct EXPECTED_THROUGH_HOLES.")
         return EXIT_FAIL
     print(f"PASS: topology, {found} through-hole(s) ({detail})")
     return EXIT_OK

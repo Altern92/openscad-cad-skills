@@ -82,16 +82,27 @@ check always fails."
 | `printability_overhang_fail` | `check_printability.py` flags a genuinely steep (77°) overhang |
 | `printability_wall_fail` | `check_printability.py` flags a genuinely thin (0.3mm) wall |
 | `assembly_sequence` | `check_assembly_sequence.py` (P35): open box + block + lid PASS with an order; a pin sealed in a closed housing FAILs "trapped" (exit 3); the same pin in `assembly.json` `inserted_before` PASSes and is named; no positioned STLs SKIP; two plates sharing a face slide apart (contact is not collision) |
+| `fits` | `check_fits.py` (P32/P36): clearance 0.2 PASS; hole 0.3 mm too small FAIL; ISO H7/g6 in class PASS, hole outside H7 and peg outside g6 FAIL; undeclared 0.2 mm gap over 100 mm2 WARNs (exit 0), `--strict` FAILs, a declared pair and a 2 mm gap do not; no fits SKIP; unknown part name exit 4; `mate()` from patterns.scad renders to the declared clearance |
 | `printability_bed_volume` | P38: part bbox vs `--bed` (default 256³); too big FAILs and says when a 90° turn fits |
 | `printability_overhang_region` | P38: overhang reported per region (area, centre); a true-45° cone, a 45.5° wedge (inside the 1° facet tolerance) and a sub-1 mm² nub pass |
 | `printability_bridge` | P38: flat ceiling carried both sides FAILs above 5 mm, passes at 4 mm; a one-sided shelf stays an UNSUPPORTED OVERHANG |
 | `printability_bed_warp` | P38: sharp corners on the plate face print `WARN: BED CONTACT` (exit stays 0); a rounded footprint prints none |
+| `strength_formulas` | `check_strength.py` wave 2 (AC-E1..E4): screw thread strip-out, Lamé press-fit hoop stress (X-Y vs Z by axis) and beam transverse shear each agree with the hand number in the fixture header, FAIL over the limit, and a derived (0.6 x tensile) shear limit only WARNs |
+| `printability_knife_edge` | P38 (AC-I1): a 30° convex wedge edge prints `WARN: KNIFE EDGE` (exit stays 0); a cube with a sharp concave V groove prints none |
+| `printability_stair_step` | P38 (AC-I2): a 10° up-facing ramp prints `INFO: STAIR STEPPING` with step width layer/tan(angle) (`--layer`); flat top + 45° chamfer prints none |
+| `printability_support_volume` | P38 (AC-I3): `INFO: SUPPORT VOLUME` matches hand-computed mushroom columns (6283 mm³ to the plate, 5027 mm³ down to a pad below); a cube prints none |
 | `collisions_candidate_touch` | `check_collisions.py` classifies an undeclared, exactly-touching pair as CANDIDATE INTENTIONAL TOUCH (Phase-2 Pattern 2), with a stub printed |
 | `collisions_near_miss` | `check_collisions.py` surfaces a 0.15mm gap as a non-fatal NEAR MISS note, not a failure |
 | `motion_sign_fail` | `motion_sweep.py` refuses to sweep a `gear_mesh` pair whose drivers share the same sign |
 | `motion_sign_pass` | a correctly opposite-signed `gear_mesh` pair is not false-flagged |
 | `motion_sign_internal_optout` | `"internal_gear_mesh"` opts a genuinely same-direction pair out of the sign check |
+| `p32_gear_kinds` | P32 AC-G1/G2/G3: `gear_mesh` `"kind":"bevel"` (axes 0.3 mm apart, 88 vs 90 deg FAIL) and `"worm"` (+0.2 mm off `worm_dist()`, 88 deg FAIL); correct pairs OK; no `kind` stays NOT CHECKED |
 | `margin_wrong_variable_fail` / `_pass` | `check_margin_provenance.py`'s wrong-variable-family mode catches the real `nas_deck_v3` incident shape (INCIDENTS.json, 2026-09-02) and passes once fixed |
+| `fasteners_engage_pass` / `fasteners_engage_short_warn` / `fasteners_engage_short_alu_fail` | AC-H1: 16 mm M4 in plastic passes; 4.5 mm WARNs (◇ 1.5 d, exit 0); 4.5 mm in `"into_material": "aluminium"` FAILs (2 d). Builder: `fasteners_engage/make.py` |
+| `fasteners_insert_short_fail` / `fasteners_insert_pass` | AC-H1: a screw reaching less than the heat-set insert's `L` (inserts.json) FAILs; a long one passes |
+| `fasteners_bottom_out_fail` | AC-H1: blind pilot shallower than the screw: "screw bottoms out" |
+| `fasteners_mount_two_plane_fail` | AC-H2: part on two planes covers a host hole under the smaller one; `covered_ok` clears it |
+| `fail_hints` | P39: every FAIL block of a `check_*.py` / `motion_sweep.py` contains `Hint:` (what to change). Runs the FAIL-producing fixtures (the list in its `run_test.sh` plus every `*_fail*`) with the checkers behind `tools/hint_audit.py` shims, requires > 50 blocks seen and none hint-less; a new fixture that prints FAIL goes into that list. ~5 min; under the semantic-mutant runner only `fits` runs |
 
 Not yet covered here (older checks, predating this suite — add a fixture
 when touching one of these next): `check_connectivity.py`,

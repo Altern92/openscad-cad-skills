@@ -339,7 +339,7 @@ def main():
     if any_auto_fail:
         print("FAIL: at least one automated rule did not pass (INCONC = the check "
               "ran and could not determine an answer -- fix the checker or its "
-              "inputs; FAIL = fix the model). Fix at the "
+              "inputs; FAIL = fix the model). Hint: fix at the "
               "source and re-run validate_scad.sh --all from the top, then "
               "re-run check_rules.py -- do not hand-edit around a failing gate.")
         return EXIT_FAIL

@@ -362,7 +362,7 @@ if [ -f params.scad ]; then
         else
             # P14: an unknown function (BOSL2 2.0.782 dropped worm_gear_thickness) is only a
             # WARNING; --hardwarnings stops on it, and blaming an assert() sent the reader astray.
-            echo "FAIL: params.scad stopped on a warning under --hardwarnings (not an assert):" >&2
+            echo "FAIL: params.scad stopped on a warning under --hardwarnings (not an assert) -- Hint: fix the OpenSCAD warning below (an unknown function or module in params.scad):" >&2
             grep -E "^(WARNING|ERROR|TRACE):" "$preflight_log" >&2 || cat "$preflight_log" >&2
         fi
         OVERALL_FAIL=1
@@ -948,6 +948,20 @@ print(n if n >= 2 else 0)  # P26 / AC-4: one enclosure may span the assembly; co
                     OVERALL_FAIL=1
                     log_check "assembly_sequence" 1 "check_assembly_sequence.py" "FAIL (exit $_as_rc)"
                 fi
+                # P32 / P36: declared fits hold (hole = peg + clearance, ISO 286) and no undeclared near-contact
+                _ft_out=$(python3 "$SCRIPT_DIR/check_fits.py" --project-dir . --positioned "$BUILD_DIR/positioned" 2>&1); _ft_rc=$?
+                echo "$_ft_out"
+                if [ $_ft_rc -eq 0 ] && grep -q '^SKIP' <<< "$_ft_out"; then
+                    echo "CHECK_RESULT fits=SKIP"
+                    log_check "fits" 0 "check_fits.py" "SKIP: no fit declared, no near-contact"
+                elif [ $_ft_rc -eq 0 ]; then
+                    echo "CHECK_RESULT fits=PASS"
+                    log_check "fits" 0 "check_fits.py" "PASS"
+                else
+                    echo "CHECK_RESULT fits=FAIL"
+                    OVERALL_FAIL=1
+                    log_check "fits" 1 "check_fits.py" "FAIL (exit $_ft_rc)"
+                fi
                 if [ "$has_motion" = "yes" ]; then
                     if python3 "$SCRIPT_DIR/motion_sweep.py" --joints joints.json \
                         ${positioned_stls[@]+"${positioned_stls[@]}"} ; then
@@ -1409,6 +1423,6 @@ elif [ "$VERDICT" = INCONCLUSIVE ]; then
     log_check "validate_scad_all" 2 "validate_scad.sh $MODE" "inconclusive"
     exit 2
 fi
-echo "FAIL: at least one check above failed -- see CHECK_RESULT lines for which." >&2
+echo "FAIL: at least one check above failed -- see CHECK_RESULT lines for which -- Hint: fix the checks listed as FAIL, then re-run." >&2
 log_check "validate_scad_all" 1 "validate_scad.sh $MODE" "at least one CHECK_RESULT above is FAIL"
 exit 1

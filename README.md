@@ -341,6 +341,11 @@ Tier 3 and above need a calibration profile: your printer and material's
 actual measured deviation. Without one, geometry can be promised, but fit
 cannot.
 
+## Support
+
+The skills are free and MIT-licensed. If they saved you a failed print or a jammed gearbox,
+you can support further work on [Ko-fi](https://ko-fi.com/altern92).
+
 ## License
 
 MIT — see [`LICENSE`](LICENSE).

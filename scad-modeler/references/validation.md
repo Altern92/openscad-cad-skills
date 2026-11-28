@@ -35,6 +35,7 @@ manual.
 | `declarations` (in validate_scad.sh) | yes, every printable part: FAIL when it declares neither the size nor the through-holes (or their NO_ form with a reason) |
 | `check_scad_lint.py` (computed defaults, rounded standards) | yes, always |
 | `check_assembly_sequence.py` (`assembly_sequence`, P35) | yes, after the positioned render (2+ parts): greedy disassembly, each part must slide out along some straight line (±X/Y/Z, then 20 diagonals and 30 sphere directions) past the remaining parts; contact within 0.05 mm is not a collision. FAIL names trapped parts; `assembly.json` `{"inserted_before": [{"part","reason"}], "flex": [...]}` skips and names exceptions (a name matching no STL = usage error); no positioned STLs or every part excepted = SKIP. Parts overlapping as built (press fit, snap) block each other unless `"press_fit": [{"pair","direction","reason"}]` lets them separate along ±direction; a removal that needs an undeclared overlap = exit 2 `NOT VERIFIED`. Step = half the 2nd-percentile wall thickness (min 0.1 mm), so thin walls are not jumped; time budget out = exit 2. Straight translation only |
+| `check_fits.py` (`fits`, P32/P36) | yes, after the positioned render: `joints.json` contacts with a `"fit"` are measured (see "Fits" below); no fit declared and no undeclared near-contact, or no positioned STLs = SKIP. Undeclared near-contact only WARNs (exit 0), `--strict` FAILs |
 | `check_collisions.py` | yes, whenever `assembly.scad` exists (declaration optional — was gated on `joints.json`, a chicken-and-egg) |
 | `motion_sweep.py` | yes, when motion declared |
 | `check_limits.py` (`limits`, P25) | yes, always: SKIP without `limits.lock`; FAIL when any gate limit was loosened or removed, or a new `NO_*` opt-out appeared — see § Protected limits |
@@ -86,7 +87,7 @@ label, which is a false statement about the tool.
 `check_dimensions.py` report surfaced **3 previously invisible bbox failures**
 (`nas_post`, `post`, `side_panel` in `server_rack_modular_v4`) that had been
 firing silently on every run.
-| load / strength | `check_strength.py` (`strength`, P24): declared heat-set insert holes and `loads.json` beam cases only; no FEA, torsion, fatigue |
+| load / strength | `check_strength.py` (`strength`, P24): declared heat-set insert holes, `loads.json` beam cases (bending + shear), `screw_pullout`, `press_fit`; no FEA, torsion, fatigue |
 
 ---
 
@@ -270,7 +271,10 @@ overlap?" is the wrong question for a printed assembly:
   overlap. Declare them in `templates/joints.json` and they are range-checked
   by penetration depth (mm, matching the units `expected_interference_mm` is
   written in) instead of flagged; an undeclared overlap still fails, and a
-  declared press fit whose parts don't touch fails too. A pair within range
+  declared press fit whose parts don't touch fails too.
+  (A part wholly inside the other, e.g. a 0.5 mm plate sunk in a block, reports the
+  smallest axis translation that moves it out of the container's bounding box, not its
+  own thickness; partial overlaps are unchanged. P28, 2026-11-27.) A pair within range
   is ALSO required to touch in exactly one contiguous region by default — a
   max-over-all-contact-points depth can't tell a legitimate contact zone from
   that same zone plus a separate, unrelated structural collision hiding
@@ -322,6 +326,14 @@ whose both parts are also drivers in the same motion block, `motion_sweep.py`
 refuses to sweep at all unless the ratios have opposite, nonzero signs —
 opt out a genuine same-direction (internal/planetary) mesh with
 `"joint_type": "internal_gear_mesh"`.
+
+Gear axes (P29/P32): a `gear_mesh` contact with `"module"` (plus optional `"pressure_angle"`,
+`"profile_shift"`, `"helical"`) has its parallel-axis distance checked against BOSL2 `gear_dist()`.
+For non-parallel axes declare `"kind"`: `"bevel"` (optional `"shaft_angle"`, default 90) FAILs unless the
+two axes intersect (<= 0.05 mm) at that angle (+-0.1 deg); `"worm"` (`"module"`, `"worm_diam"` = worm pitch
+diameter, optional `"worm"` = worm part name, default first of `pair`; the worm driver's `teeth` = its starts)
+FAILs unless the axes are 90 deg +-0.1 and their common normal equals BOSL2 `worm_dist()` +-0.05 mm.
+Without `"kind"`, non-parallel axes stay `NOT CHECKED`. Bevel pitch-cone apex position along the axes is not checked.
 
 Give `teeth` on every revolute driver and the sweep collapses to one tooth
 pitch — 18° instead of 360° for a 20-tooth gear, a 20× saving — applied only
@@ -428,6 +440,13 @@ length: span ≤ 5 mm passes, longer is `BRIDGE SPAN` FAIL (coarse extent, `shor
 turns a PASS into a FAIL); and one `WARN: BED CONTACT` line for sharp (≤ 100°) plate-face corners on
 footprints with a side ≥ 50 mm — a warning only, exit code unchanged. The 100°, 50 mm, 80 %, 1 mm², 5° and
 1° values are our own/text-to-cad's, marked unverified.
+
+P38 rest (2026-11-27, three lines that never change the exit code): `WARN: KNIFE EDGE` for convex edges whose
+interior dihedral is under 45° (per mesh edge, location and length listed; a concave groove is not a knife);
+`INFO: STAIR STEPPING` for up-facing slopes between 0.5° and 20° from horizontal, with step width
+layer/tan(angle) and cusp layer·cos(angle) at `--layer` (default 0.2 mm); `INFO: SUPPORT VOLUME` = projected
+area × drop under the flagged overhang regions, to the plate or the first surface below (centroid columns, a
+coarse estimate). The 45°, 20°, 0.5° and 0.2 mm values are our own/text-to-cad's, unverified.
 
 Not wired into `validate_scad.sh --all` — new and not yet battle-tested
 at scale, and its wall-thickness measurement has a confirmed, documented
@@ -544,8 +563,52 @@ insert's top face. Measured on `build/positioned`: hole Ø within [D3 − 0.05, 
 TDS), Z strength when the stress runs within 30° of `print_up`; safety default 2. A station with
 no section = load path broken. Exit 0 / 2 (nothing declared: SKIP) / 3 / 4. `validate_scad.sh`
 turns exit 2 into FAIL when a part mentions inserts and `fasteners.json` declares none (R-25).
+**Wave 2 formulas (AC-E1..E3).** Beam cases also check transverse shear τ = 1.5·V/A at every station
+(Zhuravskii τ = VQ/(Ib); rectangle only, other sections approximate). `loads.json` cases with
+`"type"` need no mesh: `screw_pullout` (`thread_d_mm`, `pitch_mm`, `engagement_mm`, `force_N` number):
+internal-thread stripping area A = π·n·Le·D·[1/(2n) + 0.57735·(D − En)] with En = D − 0.649519·p, n = 1/p (≈ 0.875·π·D·Le), τ = F/A; Fed-STD-H28 form, verified on Engineers Edge [thread_bolt_stress](https://www.engineersedge.com/thread_strength/thread_bolt_stress.htm); basic dimensions overestimate the area against tolerance limits; `press_fit`
+(`shaft_d_mm` solid, `hub_od_mm`, `interference_mm` diametral, `hub_E_mpa`, `hub_nu`, `shaft_E_mpa`,
+`shaft_nu`, `axis`): Lamé hoop at the bore p(D²+d²)/(D²−d²) (Wikipedia *Cylinder stress*), against X-Y
+strength when `axis` is within 30° of `print_up`, else Z. Shear allowance = `shear_mpa`/safety from a
+datasheet (FAIL); without it 0.6·min(X-Y, Z)/safety ◇ (WARN only). `shear_mpa`, `interference_mm` and a
+scalar `force_N` are protected limits. Not modelled: hollow shafts, creep / stress relaxation.
+
+**Screw engagement and contact planes (`check_fasteners.py`, wave 2 H):** per screw, engagement = `length - bite_from`.
+`"into_material": "aluminium"` FAILs below 2 d (Tameson thread-engagement chart, 2.0-2.5 d); default `plastic` only WARNs
+below 1.5 d (◇ unverified: the chart says plastic needs more than metals, gives no figure). A screw with `"insert": "M3"`
+FAILs when it reaches less than the insert's `L` (inserts.json) into it. A blind pilot shallower than the screw FAILs
+"screw bottoms out". P20b `covers host hole` now tests every flat contact plane (>= 1 mm2), not only the largest.
+
+**Positional tolerance and 2P (`check_fasteners.py`, wave 3 P40/P41, Bethune *Engineering Design and Graphics with
+SolidWorks 2016*):** optional `"position_tol": T` FAILs a clearance hole under F + T for a through-bolt (H - T = F, §8-43)
+or F + 2T for a screw `into` a part or an insert (H - 2T = F, §8-46); the latter needs `thread_from`. A through-bolt
+checks 0..`thread_from` (the stack thickness, when a nut or washer is a part) or the whole length. A blind hole in `into`
+ending less than 2 pitches past the tip WARNs (§6-13: tapped depth >= engaged length + 2P). Bolt protrusion past a nut
+(§6-11) is not checked: fasteners.json has no nut position.
 
 ---
+
+## Fits and untoleranced contacts (`check_fits.py`, gate `fits`, P32/P36, added 2026-11-27)
+
+Declare a fit on a `joints.json` contact (`peg` and `hole` are positioned part names):
+
+    {"pair": ["pin", "plate"], "fit": {"peg": "pin", "hole": "plate", "clearance_mm": 0.2}}
+    {"pair": ["shaft", "hub"], "fit": {"peg": "shaft", "hole": "hub", "iso286": "H7/g6", "nominal_mm": 10}}
+
+- The peg and hole diameters are measured on `build/positioned/*.stl` on the plane through the contact (the peg
+  surface point closest to the hole part; override with `"at": [x,y,z]` and `"axis": [x,y,z]`, default axis = the
+  peg's longest bounding-box axis): 24 rays from the section centre, median first hit. Round pegs and holes only.
+- `clearance_mm`: FAIL when hole minus peg is outside clearance +- 0.05 mm (`--tol`, provisional).
+- `iso286`: classes H7 H8 (hole) and g6 h6 k6 p6 (peg), nominal over 3 up to 50 mm (ISO 286-2 limits, table in the
+  script with its source: RoyMech ISO 286-2 hole/shaft tolerance tables, checked 2026-11-27). FAIL when the hole or
+  the peg is outside its limits by more than 0.01 mm (`--meas-tol`, mesh noise). Other classes or sizes = usage error (exit 4).
+- Reusable geometry: `mate(d, h, clearance, removing)` in `openscad-cad/references/patterns.scad` (Pattern 6) builds
+  the peg and its cutter from one module and one `params.scad` clearance variable.
+- P36: two parts whose surfaces are within 0.3 mm (`--near`) over at least 1 mm2 (`--min-area`) that no `joints.json`
+  contact or fit names print `WARN: untoleranced contact ...` with the pair and location; `--strict` makes it FAIL.
+  Both numbers are unverified defaults, which is why the default is a warning. Declare the pair (a `touch` contact,
+  a fit, an `expected_interference_mm`) or open the gap.
+- Exit codes: 0 ok / SKIP / WARN, 3 fail, 4 usage (unknown part name, unsupported class, malformed fit).
 
 ## Protected limits (`check_limits.py`, gate `limits`, P25, added 2026-11-18)
 
@@ -576,6 +639,11 @@ assertion; CRASH, BASELINE_RED, NOT_APPLICABLE and SURVIVED do not count
 (`tests/tools/semantic_mutants.py`). `metamorphic_checks`: moving and turning a whole assembly
 (meshes and declared coordinates) must not change any verdict or measurement; it found the hole
 diameter flipping 4.60 / 4.65 with orientation (INC-2026-11-18-10).
+
+**Every FAIL says what to change (P39).** A FAIL block (a stdout line starting with `FAIL` plus the indented
+lines under it) of any `check_*.py` or `motion_sweep.py` carries `Hint: <what to change>`: which parameter, file or
+JSON declaration to edit. The fixture `fail_hints` runs the FAIL-producing fixtures behind shims
+(`tests/tools/hint_audit.py`) and fails on a hint-less block, so a new FAIL message without a hint breaks the suite.
 
 ---
 

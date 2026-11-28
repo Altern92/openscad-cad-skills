@@ -98,6 +98,18 @@ def inventory(d):
         for fld in ("material", "print_up", "support", "at", "part"):
             put_eq(f"{k}.{fld}", c.get(fld, defaults.get(fld)))
         f = c.get("force_N")
+        if isinstance(f, (int, float)) and not isinstance(f, bool):   # wave2 AC-E1: screw_pullout carries a scalar force
+            put(k + ".force_N", f, "min", c.get("source", ""))
+        # wave2 review: analytic inputs of check_strength. A larger engagement / thread Ø = more shear area = looser;
+        # the rest (pitch, hub OD, E, nu, axis) move the result either way, so any change is a change of the check
+        put(k + ".engagement_mm", c.get("engagement_mm"), "max", c.get("source", ""))
+        put(k + ".thread_d_mm", c.get("thread_d_mm"), "max", c.get("source", ""))
+        for fld in ("pitch_mm", "shaft_d_mm", "hub_od_mm", "hub_E_mpa", "hub_nu", "shaft_E_mpa", "shaft_nu"):
+            put_eq(f"{k}.{fld}", c.get(fld))
+        if c.get("type") == "press_fit" or "interference_mm" in c:
+            put_eq(k + ".axis", c.get("axis", [0, 0, 1]))   # check_strength.py's default
+        put(k + ".shear_mpa", c.get("shear_mpa"), "max", c.get("source", ""))             # bigger = looser
+        put(k + ".interference_mm", c.get("interference_mm"), "min", c.get("source", ""))  # press_fit: smaller = looser
         if isinstance(f, list) and len(f) == 3:
             mag = sum(float(x) ** 2 for x in f) ** 0.5
             put(k + ".force_N", mag, "min", c.get("source", ""))
@@ -173,7 +185,8 @@ def check(d, brief=False):
             was = False
         if was:  # P26 / AC-13: deleting the lock must not turn the gate into a SKIP
             print(f"FAIL limits: {LOCK} existed at the last validate --all and is gone -- restore it or "
-                  f"re-approve with the user's words (check_limits.py approve --quote)")
+                  f"re-approve with the user's words (check_limits.py approve --quote) -- Hint: restore {LOCK} "
+                  f"from version control, or re-approve the limits with approve --quote")
             return EXIT_FAIL
         print(f"SKIP: {len(inv)} limit(s) not locked: no {LOCK}. Show the user the limits "
               f"(check_limits.py check lists them) and run approve --quote with their words.")
@@ -194,27 +207,27 @@ def check(d, brief=False):
     for k, (v0, dr) in sorted(((k, tuple(v)) for k, v in locked.items())):
         if k not in inv:
             if dr == "eq":
-                bad.append(f"{k}: removed (approved by \"{quote}\")")
+                bad.append(f"{k}: removed (approved by \"{quote}\") -- Hint: put the declaration back in the source")
             elif dr != "flag":
-                bad.append(f"{k}: removed (approved {v0:g} by \"{quote}\")")
+                bad.append(f"{k}: removed (approved {v0:g} by \"{quote}\") -- Hint: put the limit back at {v0:g} or tighter")
             continue
         v = inv[k][0]
         if dr == "eq":
             if v != v0:
-                bad.append(f"{k}: changed (approved by \"{quote}\") -- a different check, not the approved one")
+                bad.append(f"{k}: changed (approved by \"{quote}\") -- a different check, not the approved one -- Hint: restore the approved value in the source")
             continue
         if (dr == "max" and v > v0 + 1e-9) or (dr == "min" and v < v0 - 1e-9):
-            bad.append(f"{k}: {v0:g} -> {v:g} (loosened; approved {v0:g} by \"{quote}\")")
+            bad.append(f"{k}: {v0:g} -> {v:g} (loosened; approved {v0:g} by \"{quote}\") -- Hint: restore {v0:g} or tighter, fix the geometry instead")
         elif v != v0 and dr != "flag":
             tight.append(f"{k}: {v0:g} -> {v:g}")
     for k, (v, dr) in sorted(inv.items()):
         if k not in locked and dr == "flag":
-            bad.append(f"{k}: new opt-out (loosened; not in the approved limits)")
+            bad.append(f"{k}: new opt-out (loosened; not in the approved limits) -- Hint: remove the opt-out, or show the user and approve --quote")
         elif k not in locked:
             base = default_for(k, locked)
             if base is not None and ((dr == "max" and v > base + 1e-9) or (dr == "min" and v < base - 1e-9)):
                 bad.append(f"{k}: new limit {v:g} looser than the approved default {base:g} it overrides "
-                           f"(approved by \"{quote}\")")
+                           f"(approved by \"{quote}\") -- Hint: use the approved default or tighter, or re-approve with approve --quote")
     for t in tight:
         print(f"NOTE: tightened {t}")
     for x in bad:

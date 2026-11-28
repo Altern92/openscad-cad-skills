@@ -97,7 +97,8 @@ def check_architecture_options(plan_text, sections):
     if len(opts) < 2:
         return ("fewer than 2 architecture options listed (found "
                 f"{len(opts)}), and no <!-- PLAN_EXEMPT: ... --> declared -- "
-                "comparing one option against itself isn't a comparison."), None
+                "comparing one option against itself isn't a comparison. Hint: list at least two options in "
+                "## Architecture options, or add <!-- PLAN_EXEMPT: reason -->."), None
     return None, f"{len(opts)} options listed"
 
 
@@ -109,7 +110,8 @@ def check_decision(sections):
                 "confirmed", "verified", "resolved"):
             return None
     return ("no 'Decision' row with Status: Confirmed found in the ## Decision "
-            "table -- options were compared but nothing was actually chosen.")
+            "table -- options were compared but nothing was actually chosen. Hint: add a Decision row with "
+            "Status Confirmed to the ## Decision table.")
 
 
 def check_parts_coverage(sections, layout_path):
@@ -127,7 +129,8 @@ def check_parts_coverage(sections, layout_path):
     if missing:
         return (f"layout.scad names part(s) not in the plan's parts table: "
                 f"{', '.join(missing)} -- invented during detailing, skipped "
-                "planning entirely."), None
+                "planning entirely. Hint: add the part(s) to the plan's parts table, or remove them from "
+                "layout.scad."), None
     return None, f"{len(layout_parts)} layout part(s), all planned"
 
 

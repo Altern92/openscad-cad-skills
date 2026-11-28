@@ -175,7 +175,8 @@ def main():
     if bad_decl:
         for l in bad_decl:
             print(f"FAIL: cannot read declaration `{l}` in {args.scad} -- write it as the documented form "
-                  f"(numbers, not placeholders); an unreadable declaration is not a measured one")
+                  f"(numbers, not placeholders); an unreadable declaration is not a measured one -- Hint: write the "
+                  f"declaration with literal numbers, e.g. // EXPECTED_BBOX: [40, 20, 10]")
         return EXIT_MISMATCH
     expected = parse_expected_from_scad(args.scad)
     if expected is None:
@@ -264,7 +265,7 @@ def main():
         print(f"FAIL: {os.path.basename(args.stl)} bbox mismatch [{basis}]:")
         for err in errors:
             print(f"  - {err}")
-        print("  Fix the model or the EXPECTED_BBOX declaration -- do not widen the")
+        print("  Hint: fix the model or the EXPECTED_BBOX declaration -- do not widen the")
         print("  tolerance to make this pass. Use --abs-tol only for a part whose")
         print("  declared bbox is deliberately a rounded nominal.")
         return EXIT_MISMATCH

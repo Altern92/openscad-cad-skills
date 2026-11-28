@@ -1,0 +1,55 @@
+{
+ "schema": 2,
+ "limits": {
+  "behavior.json clearance.default": [
+   0.0,
+   "min"
+  ],
+  "behavior.json joints[pinion|spur].max_gap": [
+   0.3,
+   "max"
+  ],
+  "joints.json contact[pinion|spur]": [
+   1.0,
+   "flag"
+  ],
+  "joints.json contacts[pinion|spur].expected_interference_mm[hi]": [
+   0.05,
+   "max"
+  ],
+  "joints.json contacts[pinion|spur].expected_interference_mm[lo]": [
+   0.0,
+   "min"
+  ],
+  "joints.json motion[reduction_stage].drivers": [
+   161426707115693.0,
+   "eq"
+  ],
+  "joints.json motion[reduction_stage].min_clearance_mm": [
+   0.0,
+   "min"
+  ],
+  "joints.json motion[reduction_stage].range_deg[hi]": [
+   360.0,
+   "min"
+  ],
+  "joints.json motion[reduction_stage].range_deg[lo]": [
+   0.0,
+   "max"
+  ],
+  "joints.json motion[reduction_stage].step_deg": [
+   2.0,
+   "max"
+  ],
+  "parts/pinion.scad NO_RETENTION": [
+   1.0,
+   "flag"
+  ],
+  "parts/spur.scad NO_RETENTION": [
+   1.0,
+   "flag"
+  ]
+ },
+ "quote": "Tvirtinu gear_reduction ribas: persidengimas 0–0,05 mm, sukimas 0–360° kas 2°, tarpas iki 0,3 mm, NO_RETENTION abiem.",
+ "when": "2026-11-27T18:57:22Z"
+}

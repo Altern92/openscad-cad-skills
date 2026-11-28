@@ -166,7 +166,7 @@ def main():
                 findings.append(
                     f"{drel}:{dline}: module {mod}({arg} = {lit}): {crel}:{cline} computes {arg} "
                     f"({arg} = {expr}) but {orel}:{oline} omits it and silently gets {lit}. "
-                    f"Make it `{arg} = undef` with assert(!is_undef({arg})) and pass it everywhere.")
+                    f"Hint: make it `{arg} = undef` with assert(!is_undef({arg})) and pass it everywhere.")
     # shortcut: a call with any positional argument is not counted as omitting (positions are
     # not mapped to names); upgrade if an incident shows one.
 
@@ -179,7 +179,7 @@ def main():
                     findings.append(
                         f"{rel}:{line_of(src, m.start(1))}: {name} = {m.group(2)} looks like a rounded "
                         f"{std}; the exact value is {exact:g}. Rounding a standard spreads its error "
-                        f"into every part that uses it.")
+                        f"into every part that uses it. Hint: use the exact value {exact:g} (or name it from a library constant).")
 
     if findings:
         for f in findings:

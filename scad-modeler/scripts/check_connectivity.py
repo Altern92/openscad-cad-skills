@@ -172,7 +172,7 @@ def main():
                   "(zero or undefined volume) -- usually an unbounded pattern or a "
                   "failed boolean, not separate printable pieces; prefer fixing the "
                   "geometry over declaring EXPECTED_BODIES)")
-        print("  -> if this is intentional, declare it: // EXPECTED_BODIES: "
+        print("  -> Hint: if this is intentional, declare it: // EXPECTED_BODIES: "
               f"{actual}. If not, something doesn't physically touch what it "
               "should -- check the geometry that changed most recently.")
         return EXIT_MISMATCH
@@ -212,7 +212,7 @@ def main():
         if len(voids) != want_voids:
             print(f"FAIL: {os.path.basename(args.stl)} has {len(voids)} enclosed internal "
                   f"cavity/cavities (size(s) {sizes}), declared {want_voids}. Intended (magnet or "
-                  f"nut pocket, air gap)? declare // EXPECTED_CAVITIES: {len(voids)}. If not, a "
+                  f"nut pocket, air gap)? Hint: declare // EXPECTED_CAVITIES: {len(voids)}. If not, a "
                   "hole does not reach the surface or two shells were left apart.")
             return EXIT_MISMATCH
         print(f"     note: {len(voids)} declared enclosed cavity/cavities (size(s) {sizes}).")

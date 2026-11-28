@@ -1,5 +1,5 @@
 {
-  "_comment": "P24 load cases for check_strength.py (gate strength). Assembly coords; force in N on the part at `at`, reacted at `support`. material: a key of references/materials.json. Delete this key.",
+  "_comment": "P24 load cases for check_strength.py (gate strength). Assembly coords; force in N on the part at `at`, reacted at `support`. material: a key of references/materials.json. Beam cases also check shear (optional \"shear_mpa\" from a datasheet). Cases with \"type\": \"screw_pullout\" / \"press_fit\" need no part: see scripts/check_strength.py docstring. Delete this key.",
   "cases": [
     {
       "name": "arm_landing_3g",

@@ -75,7 +75,8 @@ def main():
     if bad_decl:
         for l in bad_decl:
             print(f"FAIL: cannot read declaration `{l}` in {a.scad} -- write it as the documented form "
-                  f"(numbers, not placeholders); an unreadable declaration is not a measured one")
+                  f"(numbers, not placeholders); an unreadable declaration is not a measured one -- Hint: write the "
+                  f"declaration as `// SENSITIVE_TO: <param>` naming a numeric parameter")
         return EXIT_FAIL
     names = list(dict.fromkeys(DECL_RE.findall(open(a.scad, encoding="utf-8", errors="replace").read())))
     if not names:
@@ -88,7 +89,7 @@ def main():
         for n in names:
             v = value_of(n, a.scad)
             if v is None:
-                fails.append(f"{n}: no numeric `{n} = <number>;` in {a.scad} or its includes")
+                fails.append(f"{n}: no numeric `{n} = <number>;` in {a.scad} or its includes -- Hint: define `{n} = <number>;` in the scad (or its include), or fix the name in SENSITIVE_TO")
                 continue
             new = v * FACTOR if v != 0 else 1.0
             out = os.path.join(td, f"{n}.stl")
@@ -100,7 +101,7 @@ def main():
             got = signature(out)
             if all(abs(x - y) <= 1e-6 * max(1.0, abs(y)) for x, y in zip(got, base)):
                 fails.append(f"{n}: {v:g} -> {new:g} left bbox and volume unchanged -- the part does not use "
-                             f"{n} (a hard-coded number where {n} was meant?)")
+                             f"{n} (a hard-coded number where {n} was meant?) -- Hint: use {n} in the geometry in place of the literal")
     if fails:
         for f in fails:
             print(f"FAIL: sensitivity, {a.scad}: {f}")

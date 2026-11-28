@@ -1,4 +1,4 @@
-// RAG-passport: file=references/patterns.scad | skill=openscad-cad | applies_to=[true_hole, pocket, sleeve, duct, coupon] | units=mm | printer=FDM | version=2026-09-11 | source=06_RAG_taisykles (T1/T2). 1 pattern = 1 retrievable chunk (PATTERN 0..5 + session lessons).
+// RAG-passport: file=references/patterns.scad | skill=openscad-cad | applies_to=[true_hole, pocket, sleeve, duct, coupon] | units=mm | printer=FDM | version=2026-09-11 | source=06_RAG_taisykles (T1/T2). 1 pattern = 1 retrievable chunk (PATTERN 0..6 + session lessons).
 // ============================================================
 // patterns.scad -- reusable OpenSCAD snippets pulled from real, tested
 // parts in this project set (not written from scratch here). Each pattern
@@ -257,6 +257,37 @@ module bent_duct(start, radius, bend_angle, d, segments) {
 //   // prints a plate with holes at 4.8, 4.9, 5.0, 5.1, 5.2, 5.3mm,
 //   // each labelled with its own diameter.
 // ------------------------------------------------------------
+// ------------------------------------------------------------
+// CHUNK: pattern=mate | applies_to=[peg, pin, shaft, hole, fit, clearance] | depends_on=PATTERN 0
+// PATTERN 6: mate() -- the peg and its hole from ONE module
+// Source: P32 (2026-11-27). A pin and its hole modelled in two files drift apart
+// (one gets the new diameter, the other keeps the old one). Both parts `include`
+// this file and call mate() with the same d; hole = peg + clearance by construction.
+// removing = false -> the peg/shaft (nominal d, length h, optional head);
+// removing = true  -> the cutter for the hole part (true_hole of d + clearance,
+//                     optional head relief head_d + clearance, head_h deep at the top).
+// `clearance` is ONE named variable in params.scad (e.g. PIN_CLEARANCE = 0.2) that
+// both calls read; joints.json then declares the same number so check_fits.py
+// measures it on the positioned meshes:
+//   {"pair": ["pin", "plate"], "fit": {"peg": "pin", "hole": "plate", "clearance_mm": 0.2}}
+// Usage:
+//   include <params.scad>          // PIN_D = 10; PIN_CLEARANCE = 0.2;
+//   include <patterns.scad>
+//   // parts/pin.scad:    mate(PIN_D, 20, PIN_CLEARANCE, removing = false);
+//   // parts/plate.scad:  difference() { cube([30, 30, 10]); mate(PIN_D, 12, PIN_CLEARANCE, removing = true); }
+//   // with a head: mate(PIN_D, 20, PIN_CLEARANCE, removing = false, head_d = 14, head_h = 3);
+// ------------------------------------------------------------
+module mate(d, h, clearance, removing = true, head_d = 0, head_h = 0) {
+    if (removing) {
+        translate([0, 0, -0.01]) true_hole(d + clearance, h + 0.02);
+        if (head_d > 0)
+            translate([0, 0, h - head_h]) true_hole(head_d + clearance, head_h + 0.01);
+    } else {
+        cylinder(d = d, h = h, $fn = 96);
+        if (head_d > 0) translate([0, 0, h - head_h]) cylinder(d = head_d, h = head_h, $fn = 96);
+    }
+}
+
 // ------------------------------------------------------------
 // PATTERNS 1-4: session lessons 2026-09-07 (cnc_control_enclosure v2).
 //

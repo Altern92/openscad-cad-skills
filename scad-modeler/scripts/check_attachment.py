@@ -209,7 +209,11 @@ def main():
 
         feature = entry.get("feature", "attachment")
         status = "FAIL" if failed else "PASS"
-        print(f"{status}: {name} [{feature}] on {bn} at {point.tolist()} -- {detail}")
+        hint = ("" if not failed else " -- Hint: model the missing feature in the part, or correct the declared "
+                "point in attachments.json (wrong coordinate system?)" if not has_material else
+                " -- Hint: thicken the boss around the point, or lower min_material in attachments.json if the "
+                "smaller ring is really enough")
+        print(f"{status}: {name} [{feature}] on {bn} at {point.tolist()} -- {detail}{hint}")
         if failed:
             failures.append((name, bn, point.tolist(), has_material, ring_ok))
 

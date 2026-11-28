@@ -1,0 +1,11 @@
+{"cases": [
+ {"name": "pull_ok", "type": "screw_pullout", "thread_d_mm": 3, "pitch_mm": 0.5, "engagement_mm": 6, "force_N": 100, "shear_mpa": 10, "material": "PETG Basic"},
+ {"name": "pull_fail", "type": "screw_pullout", "thread_d_mm": 3, "pitch_mm": 0.5, "engagement_mm": 6, "force_N": 300, "shear_mpa": 10, "material": "PETG Basic"},
+ {"name": "pull_warn", "type": "screw_pullout", "thread_d_mm": 3, "pitch_mm": 0.5, "engagement_mm": 6, "force_N": 600, "material": "PETG Basic"},
+ {"name": "pf_ok", "type": "press_fit", "shaft_d_mm": 10, "hub_od_mm": 20, "interference_mm": 0.1, "hub_E_mpa": 2000, "hub_nu": 0.35, "shaft_E_mpa": 200000, "shaft_nu": 0.3, "axis": [0, 0, 1], "material": "PETG Basic"},
+ {"name": "pf_fail", "type": "press_fit", "shaft_d_mm": 10, "hub_od_mm": 20, "interference_mm": 0.2, "hub_E_mpa": 2000, "hub_nu": 0.35, "shaft_E_mpa": 200000, "shaft_nu": 0.3, "axis": [0, 0, 1], "material": "PETG Basic"},
+ {"name": "pf_layers_ok", "type": "press_fit", "shaft_d_mm": 10, "hub_od_mm": 20, "interference_mm": 0.12, "hub_E_mpa": 2000, "hub_nu": 0.35, "shaft_E_mpa": 200000, "shaft_nu": 0.3, "axis": [0, 0, 1], "material": "PETG Basic"},
+ {"name": "pf_layers_fail", "type": "press_fit", "shaft_d_mm": 10, "hub_od_mm": 20, "interference_mm": 0.12, "hub_E_mpa": 2000, "hub_nu": 0.35, "shaft_E_mpa": 200000, "shaft_nu": 0.3, "axis": [1, 0, 0], "material": "PETG Basic"},
+ {"name": "shear_ok", "part": "blk_shear", "support": [0, 0, 0], "at": [4, 0, 0], "force_N": [0, 0, -2000], "shear_mpa": 20, "material": "PETG Basic"},
+ {"name": "shear_fail", "part": "blk_shear", "support": [0, 0, 0], "at": [4, 0, 0], "force_N": [0, 0, -3000], "shear_mpa": 20, "material": "PETG Basic"}
+]}

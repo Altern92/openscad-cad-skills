@@ -224,9 +224,11 @@ def main():
                     break
             else:
                 print(f"FAIL: assembly_sequence, trapped: no straight removal direction for "
-                      f"{', '.join(remaining)}")
+                      f"{', '.join(remaining)} -- Hint: open a path for the first part to leave (move or split the part "
+                      f"that blocks it), or declare it in assembly.json")
                 for n in remaining:
-                    print(f"FAIL: part {n} is trapped: no straight removal direction")
+                    print(f"FAIL: part {n} is trapped: no straight removal direction -- Hint: open a path for it, "
+                          f"or declare it in assembly.json (\"inserted_before\" / \"flex\" / \"press_fit\") with a reason")
                 print("Fix: open a path, or declare the part in assembly.json "
                       "(\"inserted_before\" / \"flex\" / \"press_fit\") with a reason.")
                 return EXIT_FAIL

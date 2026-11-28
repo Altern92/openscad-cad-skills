@@ -99,10 +99,12 @@ def main():
             return EXIT_USAGE
         r, m = ref_grid(rp), mesh_grid(a.stl, view)
         if r is None:
-            fails.append(f"{view} {ref}: reference has no dark/opaque shape")
+            fails.append(f"{view} {ref}: reference has no dark/opaque shape -- Hint: use a reference image with a dark shape on a light background (or a transparent PNG)")
             continue
         iou = float(np.logical_and(r, m).sum()) / max(1, int(np.logical_or(r, m).sum()))
-        (oks if iou >= float(thr) else fails).append(f"{view} vs {ref}: IoU {iou:.3f} (need >= {thr})")
+        (oks if iou >= float(thr) else fails).append(f"{view} vs {ref}: IoU {iou:.3f} (need >= {thr})" if iou >= float(thr) else
+                                                            f"{view} vs {ref}: IoU {iou:.3f} (need >= {thr}) -- Hint: change the part's outline in that view "
+                                                            f"to match the reference, or correct the view/threshold in the SILHOUETTE declaration")
     for f in fails:
         print(f"FAIL: silhouette, {a.scad}: {f}")
     if fails:

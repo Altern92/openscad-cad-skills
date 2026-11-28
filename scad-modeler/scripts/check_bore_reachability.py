@@ -185,7 +185,8 @@ def main():
     if failures:
         print("FAIL:")
         for f in failures:
-            print(f"  - {f}")
+            print(f"  - {f} -- Hint: extend the bore/pocket geometry in the part's .scad so material is removed "
+                  f"along the whole declared path (or correct the bore's start/end in bores.json)")
         print("Fix at the source -- extend the bore/pocket geometry so material "
               "is actually removed along the whole declared path. Do not shorten "
               "the declared 'end' just to make this pass; 'end' is the real seat "

@@ -4,7 +4,7 @@ strength_depth_L	check_strength	bottom - t0 < L + 1.0 - 0.05	bottom - t0 < L - 0
 strength_no_z	check_strength	z_dir = abs(float(n @ up)) >= np.cos(np.radians(LAYER_DEG))	z_dir = False	strength_gates
 behavior_angle_slack	check_behavior	if abs(v) > float(an["max_deg"]):	if abs(v) > float(an["max_deg"]) + 90:	kinematics_gates
 behavior_dof_slack	check_behavior	if ndof > want:	if ndof > want + 3:	kinematics_gates
-fasteners_no_head	check_fasteners	empty(t, hd / 2, "head blocked")	None	fasteners_head_cross_fail
+fasteners_no_head	check_fasteners	empty(t, hd / 2, "head blocked", "move or cut away the part over the head (counterbore), or lower head_d/head_h")	None	fasteners_head_cross_fail
 limits_no_min	check_limits	or (dr == "min" and v < v0 - 1e-9)	 	limits_lock
 geometry_no_cap	check_joint_graph	        elif gap > MAX_GAP_MM:	        elif gap > 1e9:	contact_geometry
 fasteners_no_seat	check_fasteners	            not any(m.contains(ring(s + 0.3 * ax, ax, seat_r)).any() for m in meshes.values()):	            False:	fasteners_empty_space
@@ -20,8 +20,8 @@ strength_mx_only	check_strength	a, b = np.linalg.solve(np.array([[Sxy, Syy], [Sx
 strength_my_only	check_strength	a, b = np.linalg.solve(np.array([[Sxy, Syy], [Sxx, Sxy]]), np.array([mb2[0], -mb2[1]]))	a, b = np.linalg.solve(np.array([[Sxy, Syy], [Sxx, Sxy]]), np.array([0.0, -mb2[1]]))	p27_strength
 motion_sym_samples_only	motion_sweep	pts = np.vstack([mesh.vertices, smp])	pts = smp	p27_motion
 motion_contact_exempt	motion_sweep	return self.req.get(pair, self.default_req)	return 0.0 if pair in self.allow else self.default_req	p27_motion
-fasteners_bite_half_d	check_fasteners	return min((d - p) / 2 + 0.04 * d, d / 2 - 0.01)	return d / 2	p27_fasteners
-fasteners_bite_044	check_fasteners	return min((d - p) / 2 + 0.04 * d, d / 2 - 0.01)	return 0.44 * d	p27_fasteners
+fasteners_bite_half_d	check_fasteners	return min((d - pitch_of(f)) / 2 + 0.04 * d, d / 2 - 0.01)	return d / 2	p27_fasteners
+fasteners_bite_044	check_fasteners	return min((d - pitch_of(f)) / 2 + 0.04 * d, d / 2 - 0.01)	return 0.44 * d	p27_fasteners
 fasteners_watertight_strict	check_fasteners	return bool((counts % 2).any())	return not m.is_watertight	p27_fasteners
 fasteners_no_leak_check	check_fasteners	return bool((counts % 2).any())	return False	p27_fasteners
 limits_no_default_for	check_limits	base = default_for(k, locked)	base = None	p27_limits
@@ -36,3 +36,49 @@ printability_bridge_no_carrier	check_printability	if span is not None:	if False:
 printability_no_area_floor	check_printability	if a < MIN_REGION_MM2:	if False:	printability_overhang_region
 printability_no_facet_tol	check_printability	FACET_TOL_DEG = 1.0	FACET_TOL_DEG = 0.0	printability_overhang_region
 printability_no_bed_warn	check_printability	if corners:	if False:	printability_bed_warp
+strength_pullout_half	check_strength	A = np.pi * n * Le * D * (1 / (2 * n) + 0.57735 * (D - (D - 0.649519 * p)))   # Fed-STD-H28, see module docstring	A = 2 * np.pi * n * Le * D * (1 / (2 * n) + 0.57735 * (D - (D - 0.649519 * p)))   # Fed-STD-H28, see module docstring	strength_formulas
+strength_pullout_warn_fails	check_strength	out = out if given else []	out = out	strength_formulas
+strength_press_no_k	check_strength	hoop = p * k	hoop = p	strength_formulas
+strength_press_no_layers	check_strength	along = abs(float(ax @ up)) >= np.cos(np.radians(LAYER_DEG))	along = True	strength_formulas
+strength_shear_factor	check_strength	tau_w = max(tau_w, 1.5 * V / A)	tau_w = max(tau_w, 1.0 * V / A)	strength_formulas
+strength_shear_all_warn	check_strength	(fails if shear_given else warns)	(warns)	strength_formulas
+fits_clearance_unchecked	check_fits	if abs(c - want) > a.tol:	if False:	fits
+fits_iso_hole_unchecked	check_fits	if not hl[0] - m <= hd <= hl[1] + m:	if False:	fits
+fits_iso_peg_unchecked	check_fits	if not pl[0] - m <= pd <= pl[1] + m:	if False:	fits
+fits_strict_ignored	check_fits	if fails or (warns and a.strict):	if fails:	fits
+fits_declared_pair_warns	check_fits	if frozenset((x, y)) in declared:	if False:	fits
+fits_near_never	check_fits	if area >= a.min_area:	if area >= 1e9:	fits
+gear_bevel_no_intersect	motion_sweep	elif dist > AXIS_TOL_MM:	elif False:	p32_gear_kinds
+gear_bevel_no_angle	motion_sweep	elif abs(ang - sa) > 0.1:	elif False:	p32_gear_kinds
+gear_worm_no_dist	motion_sweep	elif abs(dist - want) > AXIS_TOL_MM:	elif False:	p32_gear_kinds
+gear_worm_no_perp	motion_sweep	if abs(ang - 90.0) > 0.1:	if False:	p32_gear_kinds
+fasteners_no_bottom_out	check_fasteners	if bottom is not None and bottom < L - 0.3:	if False:	fasteners_bottom_out_fail
+fasteners_no_insert_engage	check_fasteners	            if eng < spec["L"] - 0.05:	            if False:	fasteners_insert_short_fail
+fasteners_alu_no_floor	check_fasteners	eng < 2.0 * d - 0.05	eng < 0.0	fasteners_engage_short_alu_fail
+fasteners_plastic_no_warn	check_fasteners	elif mat == "plastic" and eng < 1.5 * d - 0.05:	elif False:	fasteners_engage_short_warn
+fasteners_one_plane_only	check_fasteners	        if len(idx) < 3:	        if len(idx) < 3 or (nv, off) != max(keys, key=lambda k: len(keys[k])):	fasteners_mount_two_plane_fail
+printability_knife_any_angle	check_printability	(interior < KNIFE_DEG)	(interior < KNIFE_DEG + 90)	printability_knife_edge
+printability_knife_concave	check_printability	hit = mesh.face_adjacency_convex & (interior	hit = (interior	printability_knife_edge
+printability_stair_flat	check_printability	STAIR_FLAT_DEG = 0.5	STAIR_FLAT_DEG = -1.0	printability_stair_step
+printability_stair_steep	check_printability	STAIR_DEG = 20.0	STAIR_DEG = 60.0	printability_stair_step
+printability_stair_width	check_printability	layer / np.tan(np.radians(ang))	layer * np.tan(np.radians(ang))	printability_stair_step
+printability_support_scale	check_printability	.sum() * scale)	.sum() * scale * 2)	printability_support_volume
+printability_support_part_below	check_printability	drop[r] = min(drop[r], org[r].dot(up) - p.dot(up))	drop[r] = drop[r]	printability_support_volume
+collisions_no_contained	check_collisions	            return max(capped, float(out))	            return capped	collisions_sunk_plate
+fits_iso_interference_unchecked	check_fits	if hl[0] - pl[1] >= 0 and hd - pd < 0:	if False:	fits
+gear_worm_mesh_off_axis	motion_sweep	if off > AXIS_TOL_MM:	if False:	p32_gear_kinds
+gear_worm_degraded_silent	motion_sweep	return True   # degraded, like the spur gear_dist() path	return False   # degraded, like the spur gear_dist() path	p32_gear_kinds
+limits_engagement_unlocked	check_limits	put(k + ".engagement_mm", c.get("engagement_mm"), "max"	put(k + ".engagement_mm", c.get("engagement_mm"), "min"	limits_lock
+limits_analytic_eq_unlocked	check_limits	for fld in ("pitch_mm", "shaft_d_mm", "hub_od_mm", "hub_E_mpa", "hub_nu", "shaft_E_mpa", "shaft_nu"):	for fld in ():	limits_lock
+limits_press_axis_unlocked	check_limits	put_eq(k + ".axis", c.get("axis", [0, 0, 1]))	pass	limits_lock
+fasteners_unknown_insert_skipped	check_fasteners	if f.get("insert") and f["insert"] not in ok_ins:	if False:	fasteners_unknown_insert_usage
+fasteners_unknown_material_skipped	check_fasteners	if mat not in ("plastic", "aluminium"):	if False:	fasteners_unknown_material_usage
+fasteners_aluminum_alias_dropped	check_fasteners	mat = "aluminium" if mat == "aluminum" else mat	mat = mat	fasteners_aluminum_alias_fail
+fasteners_no_2p	check_fasteners	    if deep is not None:	    if False:	fasteners_2p
+fasteners_2p_one_pitch	check_fasteners	p2, deep = 2 * pitch_of(f), None	p2, deep = pitch_of(f), None	fasteners_2p
+fasteners_tol_ignored	check_fasteners	    if T:	    if False:	fasteners_position_tol
+fasteners_tol_fixed_half	check_fasteners	empty(t, d / 2 + (T if fixed else T / 2),	empty(t, d / 2 + T / 2,	fasteners_position_tol
+fasteners_tol_negative_ok	check_fasteners	            if not math.isfinite(T) or T < 0:	            if T < 0:	fasteners_position_tol
+hint_fits_peg	check_fits	 -- Hint: resize the peg to the class limits		fail_hints
+fasteners_tol_floating_full	check_fasteners	end = tf if fixed else (tf or L)	end = tf if fixed else L	fasteners_position_tol
+fasteners_tol_fixed_no_tf_ok	check_fasteners	            if T and (f.get("into") or f.get("insert")) and float(f.get("thread_from", 0)) <= 0:	            if False:	fasteners_position_tol

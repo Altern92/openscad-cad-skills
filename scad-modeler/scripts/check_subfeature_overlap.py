@@ -184,7 +184,8 @@ def main():
 
         failures.append(
             f"UNINTENDED SUB-FEATURE OVERLAP: {label}, {vol:.2f} mm^3 "
-            f"(threshold {args.max_overlap_mm3:.2f} mm^3)")
+            f"(threshold {args.max_overlap_mm3:.2f} mm^3) -- Hint: reposition or resize one sub-feature, "
+            f"or declare an intentional fusion with --exempt")
 
     for n in notes:
         print(f"  {n}")

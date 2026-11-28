@@ -218,7 +218,8 @@ def main():
     if bad_decl:
         for l in bad_decl:
             print(f"FAIL: cannot read declaration `{l}` in {args.scad} -- write it as the documented form "
-                  f"(numbers, not placeholders); an unreadable declaration is not a measured one")
+                  f"(numbers, not placeholders); an unreadable declaration is not a measured one -- Hint: write "
+                  f"the EXPECTED_HOLE declaration with literal numbers")
         return EXIT_MISMATCH
     holes = parse_holes(args.scad)
     if not holes:
@@ -248,11 +249,12 @@ def main():
 
         diff = flats - h["d"]
         if abs(diff) > args.tol or center_offset > args.tol:
-            hint = ""
+            hint = (" -- Hint: fix the hole diameter/position in the part's .scad, or correct the "
+                    "EXPECTED_HOLE declaration")
             if abs(diff) > args.tol and diff < 0 and corners and corners > h["d"] - args.tol:
                 # Across corners is on target but across flats is short: the
                 # signature of an uncompensated inscribed polygon.
-                hint = ("  -> across corners is {:.3f} mm, so this is inscribed-"
+                hint = ("  -> Hint: across corners is {:.3f} mm, so this is inscribed-"
                         "polygon undersizing, not a wrong parameter. Use "
                         "true_hole_d() or set $fa/$fs finer.").format(corners)
             off_note = (f"; axis offset {center_offset:.3f} mm > tol {args.tol:.3f} mm"

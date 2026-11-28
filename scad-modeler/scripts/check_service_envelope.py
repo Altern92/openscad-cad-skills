@@ -82,7 +82,7 @@ def main():
               f"blank field(s):")
         for field in blank:
             print(f"  - {field}")
-        print("  -> fill in a real value, or 'TBD' if genuinely unknown -- "
+        print("  -> Hint: fill in a real value, or 'TBD' if genuinely unknown -- "
               "never leave it blank.")
         return EXIT_MISMATCH
 

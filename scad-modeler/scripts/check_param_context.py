@@ -136,7 +136,7 @@ def main():
                     f"'{name}' context '{context}' ({constraint}) declared in "
                     f"{f}, but no assert() in {f} references '{name}' -- this "
                     f"context's constraint was named but never actually "
-                    f"verified where it was declared.")
+                    f"verified where it was declared. Hint: add an assert() on '{name}' for context '{context}' in {f}.")
 
     if failures:
         print(f"FAIL: {len(failures)} parameter-context gap(s) found "

@@ -155,7 +155,7 @@ def main():
         path_str = "/".join(str(p) for p in e.absolute_path) or "(root)"
         print(f"FAIL: {path} does not match the OpenSCADDesignSpec schema.")
         print(f"  at {path_str}: {e.message}")
-        print("Fix the manifest -- do not weaken the schema to make an "
+        print("  Hint: fix the manifest -- do not weaken the schema to make an "
               "incomplete spec pass.")
         return EXIT_FAIL
 
@@ -166,7 +166,7 @@ def main():
 
     if unknowns:
         print(f"FAIL: {len(unknowns)} parameter(s) still 'unknown': {unknowns}")
-        print("Ask the user or measure -- intake_and_analysis.md is explicit: "
+        print("  Hint: ask the user or measure, then update the parameter's status in the manifest -- intake_and_analysis.md is explicit: "
               "'unknown' must be asked back or measured, never invented. This "
               "is not the same as 'estimated', which is a resolved decision "
               "to proceed without a measurement and is allowed to pass.")

@@ -120,7 +120,8 @@ def main():
             statement = r.get("statement", "")
             status = r.get("status", "")
             print(f"  - {rid}: \"{statement}\" -- status: {status}")
-        print("  -> these feed load-bearing/fit-critical calculations and "
+        print("  -> Hint: confirm each in the assumptions table and set its Status to "
+              "confirmed/verified/resolved/closed. These feed load-bearing/fit-critical calculations and "
               "must be confirmed (datasheet/measurement/test/literature), "
               "not just left as a guess, before this design is finalized.")
         return EXIT_MISMATCH

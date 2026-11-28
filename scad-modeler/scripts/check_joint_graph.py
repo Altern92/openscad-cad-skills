@@ -109,7 +109,7 @@ def geometry(edges, pos_dir, behavior=None):
         gone = [v for v in (x, y) if v not in stls]
         if gone:
             bad.append(f"FAIL: contact_geometry, {x} <-> {y}: no part named {', '.join(gone)} in {pos_dir} "
-                       f"-- a declaration must name a real part exactly")
+                       f"-- a declaration must name a real part exactly. Hint: correct the name in joints.json to a part in {pos_dir}")
             continue
         for v in (x, y):
             meshes.setdefault(v, trimesh.load(stls[v], force="mesh"))
@@ -120,7 +120,7 @@ def geometry(edges, pos_dir, behavior=None):
                   f"{' -> '.join(via)} (behavior.json; the behavior gate measures those joints)")
         elif gap > MAX_GAP_MM:
             bad.append(f"FAIL: contact_geometry, {x} and {y} are declared joined but are {gap:.1f} mm apart "
-                       f"(cap {MAX_GAP_MM} mm) -- move the part onto its support or add the part that bridges the gap")
+                       f"(cap {MAX_GAP_MM} mm) -- Hint: move the part onto its support or add the part that bridges the gap")
     return bad, n
 
 
@@ -213,11 +213,11 @@ def main():
         print(f"INFO: joint graph has {len(comps)} separate groups: " + " | ".join(", ".join(c) for c in comps))
     for p in missing:
         print(f"FAIL: joints, parts/{p}.scad is joined to nothing -- add a joints.json contact or an "
-              f"attachments.json entry (\"part\"/\"to\"), or `// NO_JOINT: <reason>`")
+              f"attachments.json entry (\"part\"/\"to\"), or `// NO_JOINT: <reason>` -- Hint: declare it in joints.json")
     for p in unretained:
         print(f"FAIL: retention, parts/{p}.scad: nothing declares what holds it -- a joints.json contact only says it "
               f"touches. Add an attachments.json entry with \"part\": \"{p}\" (a material point check_attachment.py "
-              f"verifies) or `// NO_RETENTION: <reason>`")
+              f"verifies) or `// NO_RETENTION: <reason>` -- Hint: declare it in attachments.json")
     if missing or unretained:
         return EXIT_FAIL
     print(f"PASS: joints, {len(parts)} part(s) each have a joint ({len(excused)} excused by NO_JOINT) "

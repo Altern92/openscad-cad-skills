@@ -281,7 +281,8 @@ def check_wrong_variable_family(path, assignments, opted_out):
                 f"constrain '{v}' too, not just {asserted_siblings} -- this is "
                 f"exactly the shape of a refactor that introduced a new, more-"
                 f"specific local variable without updating the assert meant to "
-                f"guard it (INCIDENTS.md, 2026-09-02, nas_deck_v3)."
+                f"guard it (INCIDENTS.md, 2026-09-02, nas_deck_v3). Hint: add an assert() on '{v}' itself, or "
+                f"'// MARGIN_EXCLUDES_OK: {v}' if the sibling's assert really covers it."
             )
     return failures
 
@@ -323,7 +324,8 @@ def main():
                             f"{', '.join(hits)} applies '{cvar}' directly to '{dep_var}' in "
                             f"geometry -- the assert's own formula never references '{cvar}'. "
                             f"Verify the assert's margin still holds once '{cvar}' is included, "
-                            f"or add '// MARGIN_EXCLUDES_OK: {cvar}' if it genuinely doesn't apply here."
+                            f"or add '// MARGIN_EXCLUDES_OK: {cvar}' if it genuinely doesn't apply here. "
+                            f"Hint: add '{cvar}' to the assert's formula."
                         )
 
     # --- Detection mode 2: wrong-variable-family (intra-file, every file) ---

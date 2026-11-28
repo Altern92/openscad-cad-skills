@@ -11,6 +11,7 @@ produced them.
 | `ab_analyze.py` | Where exactly do the two versions differ? |
 | `check_req.py` | Does a built part satisfy the stated requirements? |
 | `mutation_test.py` | Does the golden-set grader actually reject wrong answers? |
+| `hint_audit.py` | Does every checker FAIL block say `Hint:` what to change? (shim builder used by the `fail_hints` fixture) |
 
 ## The one that matters most
 

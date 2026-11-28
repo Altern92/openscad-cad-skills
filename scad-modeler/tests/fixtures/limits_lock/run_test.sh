@@ -17,7 +17,9 @@ mk() {  # fresh project in $tmp/p
  "clearance": {"default": 0.0, "pairs": [{"a": "arm", "b": "base", "min": 0.5}]},
  "ground": {"z": 0, "bodies": ["base"], "tol": 0.5}}
 J
-    echo '{"cases": [{"name": "drop", "part": "arm", "support": [0,0,0], "at": [1,0,0], "force_N": [0,0,-40], "material": "PETG Basic", "safety": 2.0}]}' > loads.json
+    echo '{"cases": [{"name": "drop", "part": "arm", "support": [0,0,0], "at": [1,0,0], "force_N": [0,0,-40], "material": "PETG Basic", "safety": 2.0},
+ {"name": "pull", "type": "screw_pullout", "part": "arm", "thread_d_mm": 3, "pitch_mm": 0.5, "engagement_mm": 6, "force_N": 50, "material": "PETG Basic", "safety": 2.0},
+ {"name": "press", "type": "press_fit", "part": "arm", "shaft_d_mm": 8, "hub_od_mm": 20, "interference_mm": 0.1, "hub_E_mpa": 1500, "hub_nu": 0.35, "shaft_E_mpa": 200000, "shaft_nu": 0.3, "axis": [0,0,1], "material": "PETG Basic", "safety": 2.0}]}' > loads.json
     echo '{"contacts": [{"pair": ["arm", "base"], "expected_interference_mm": [0, 0.05]}], "motion": [{"id": "swing", "min_clearance_mm": 0.2, "drivers": []}]}' > joints.json
     printf '// EXPECTED_BBOX: [10, 10, 10]\n// EXPECTED_BBOX_TOL: 0.01\ncube(10);\n' > parts/a.scad
     echo '[{"name": "arm_boss", "part": "arm", "to": "base", "min_material_mm": 1.5}]' > attachments.json   # bare-list form (RC projects)
@@ -50,6 +52,8 @@ for c in 'd["joints"][0]["angle"]["max_deg"] = 25|behavior.json|max_deg' \
          'd["contacts"][0]["expected_interference_mm"] = [0, 0.5]|joints.json|expected_interference_mm' \
          'd["motion"][0]["min_clearance_mm"] = 0|joints.json|min_clearance_mm' \
          'd["cases"][0]["reach"] = 80|loads.json|reach' \
+         'd["cases"][1]["engagement_mm"] = 12|loads.json|engagement_mm' \
+         'd["cases"][1]["thread_d_mm"] = 6|loads.json|thread_d_mm' \
          'd[0]["min_material_mm"] = 0.5|attachments.json|min_material_mm'; do
     IFS='|' read -r expr file word <<< "$c"; CASE="loosen $file $word"
     cp limits.lock "$tmp/l"; mk; cp "$tmp/l" limits.lock; edit "$file" "$expr"
@@ -62,7 +66,7 @@ CASE="bare PREVIEW_FILE"; mk; cp "$tmp/l" limits.lock; printf '// PREVIEW_FILE\n
 CASE="LIBRARY_FILE"; mk; cp "$tmp/l" limits.lock; printf '// LIBRARY_FILE: helpers\n' >> parts/a.scad; expect 3 "loosened" "LIBRARY_FILE"
 CASE="EXPECTED_BODIES up"; mk; printf '// EXPECTED_BODIES: 1\n' >> parts/a.scad; python3 "$C" approve --quote "taip, tinka" --project-dir "$tmp/p" >/dev/null
 sed -i '' 's/EXPECTED_BODIES: 1/EXPECTED_BODIES: 2/' parts/a.scad; expect 3 "loosened" "EXPECTED_BODIES"
-for c in 'd["cases"][0]["material"] = "PLA"|material' 'd["cases"][0]["support"] = [5,0,0]|support' 'd["cases"][0]["print_up"] = [1,0,0]|print_up'; do
+for c in 'd["cases"][1]["pitch_mm"] = 0.25|pitch_mm' 'd["cases"][2]["hub_od_mm"] = 30|hub_od_mm' 'd["cases"][2]["axis"] = [1,0,0]|axis' 'd["cases"][2]["hub_nu"] = 0.45|hub_nu' 'd["cases"][0]["material"] = "PLA"|material' 'd["cases"][0]["support"] = [5,0,0]|support' 'd["cases"][0]["print_up"] = [1,0,0]|print_up'; do
     IFS='|' read -r expr word <<< "$c"; CASE="change loads $word"
     mk; cp "$tmp/l" limits.lock; edit loads.json "$expr"; expect 3 "changed" "$word"
 done
