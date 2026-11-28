@@ -77,7 +77,9 @@ Priority order: P30 → P38 → P35 → P31 → P32 → P36 → P37 → P39 → 
 - [x] **P36 Untoleranced contact faces** ✅ 2026-11-27 wave 2 (`check_fits.py`, WARN; FAIL with `--strict`) (idea from PartCAD `pc qual test`). Two parts whose
   surfaces touch or nearly touch (< 0.3 mm) but are not declared as a fit / joint contact with a
   clearance = FAIL or WARN; ties into P32 `mate()`.
-- [ ] **P37 Public benchmark run.** Run the skill on MUSE (arXiv 2605.28579, assembly structure and
+- [ ] **P37 Public benchmark run.** Own small bench done 2026-11-28: `bench/` (7 Bethune tasks, 21/22 values,
+  6/7 tasks, 23 min, $10.50 API-equivalent on the subscription; t6 missed the 2P bolt margin). Public run still open.
+  **Was:** Run the skill on MUSE (arXiv 2605.28579, assembly structure and
   interface clearances) or Parametric CAD Bench v3 (arXiv 2611.02659, open FreeCAD verifier;
   Claude Code + Opus 5.5 scored 61.03 % there) and publish the result in README. Needs the
   maintainer's approval if runs cost money. Gives P30 a number instead of a claim.

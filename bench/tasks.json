@@ -1,0 +1,28 @@
+{
+  "_source": "Expected values: Bethune, Engineering Design and Graphics with SolidWorks 2016 (Pearson); only dimensions and worked-answer numbers are reused (sections/pages in each task). Each range is [min, max] accepted.",
+  "tasks": [
+    {"id": "t1_m10_tapped", "skill": "scad-modeler", "ref": "Bethune sec 6-13, p.393-396",
+     "prompt": "Model a bolted joint: a 40x40x10 mm steel cover block with a clearance hole, on a 40x40x30 mm base block with a blind tapped hole, joined by one M10x1.25x25 socket head cap screw (the 25 mm shank goes through the 10 mm cover into the base). Size the clearance hole and the tapped hole depth by standard practice for machined parts.",
+     "answer_keys": {"clearance_hole_d_mm": [10.5, 12.5], "tapped_hole_depth_mm": [17.5, 20.0]}},
+    {"id": "t2_position_tol", "skill": "openscad-cad", "ref": "Bethune sec 8-48, p.571-574",
+     "prompt": "Two 60x60x10 mm plates are held together by 4 fasteners in O20.00 mm holes (MMC) on a 50 mm square pattern, positional tolerance 0.03 mm at MMC. Model one plate. Give the largest fastener diameter at MMC if the fasteners pass through both plates (floating), and if they are fixed in one plate.",
+     "answer_keys": {"max_fastener_d_floating_mm": [19.969, 19.971], "max_fastener_d_fixed_mm": [19.939, 19.941]}},
+    {"id": "t3_gear_m1", "skill": "scad-modeler", "ref": "Bethune project 10-7, p.679-683",
+     "prompt": "Model a spur gear pair, module 1, 16 and 48 teeth, 14.5 deg pressure angle, no profile shift, face width 8 mm, each gear on its own O12 shaft, laid out at the correct centre distance.",
+     "answer_keys": {"centre_distance_mm": [31.99, 32.01], "pitch_d_small_mm": [15.99, 16.01], "pitch_d_large_mm": [47.99, 48.01]}},
+    {"id": "t4_four_gear", "skill": "scad-modeler", "ref": "Bethune design problem 10-14/10-17, p.686-691",
+     "prompt": "Model a 20 mm thick plate carrying a gear pair: module 2.5, a 20-tooth pinion and a 50-tooth gear, 14.5 deg pressure angle, no profile shift, face width 16 mm, both on O20 shafts pressed into the plate. Keep every shaft centre at least 25 mm from the plate edge. Report the centre distance.",
+     "answer_keys": {"centre_distance_mm": [87.49, 87.51]}},
+    {"id": "t5_iso_fits", "skill": "openscad-cad", "ref": "Bethune p.530-531, 621",
+     "prompt": "Model a 10 mm shaft-and-hole test pair for an ISO H11/c11 fit and a 16 mm pair for H8/f7. Give the hole and shaft limits (mm) for both.",
+     "answer_keys": {"h11_hole_max_mm": [10.089, 10.091], "c11_shaft_max_mm": [9.919, 9.921], "c11_shaft_min_mm": [9.829, 9.831],
+                     "h8_hole_max_mm": [16.026, 16.028], "f7_shaft_max_mm": [15.983, 15.985], "f7_shaft_min_mm": [15.965, 15.967]}},
+    {"id": "t6_bolt_length", "skill": "openscad-cad", "ref": "Bethune sec 6-11, p.385-389",
+     "prompt": "Three 1.5 x 1.5 x 0.50 in blocks are stacked and bolted through O0.44 in holes with a 3/8-16 UNC hex bolt, a 0.065 in thick washer under the head and under the nut, and a 0.227 in thick hex nut. Model the stack and choose the shortest standard bolt length (in 0.25 in steps) that gives full thread engagement in the nut. Report the minimum required length and the chosen length in inches.",
+     "answer_keys": {"min_bolt_length_in": [1.98, 1.99], "chosen_bolt_length_in": [2.0, 2.0]}},
+    {"id": "t7_bearing_fits", "skill": "scad-modeler", "ref": "Bethune chapter 9 project 9-12, p.624-625",
+     "prompt": "Model a U-bracket holding two sleeve bearings: each bearing is pressed into the bracket with an ISO H7/p6 fit at O16, and an O10 shaft runs in each bearing with an H9/d9 fit. Give the limits (mm) of the bracket bore, the bearing outer diameter, the bearing bore and the shaft.",
+     "answer_keys": {"bracket_bore_max_mm": [16.017, 16.019], "bearing_od_min_mm": [16.017, 16.019], "bearing_od_max_mm": [16.028, 16.030],
+                     "bearing_bore_max_mm": [10.035, 10.037], "shaft_max_mm": [9.959, 9.961], "shaft_min_mm": [9.923, 9.925]}}
+  ]
+}
