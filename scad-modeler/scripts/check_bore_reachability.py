@@ -58,6 +58,7 @@ Exit codes:
 """
 import argparse
 import json
+import math
 import os
 import sys
 
@@ -123,6 +124,19 @@ def sample_axis(start, end, step_mm):
     return np.linspace(start, end, n)
 
 
+def ray_hits(m, origins, d, length):
+    """Does any ray from origins along unit d hit the surface before length? (audit A6: sampling every step_mm
+    stepped over a 0.2 mm skin; a ray has no gap)."""
+    locs, idx, _ = m.ray.intersects_location(origins, np.tile(d, (len(origins), 1)), multiple_hits=False)
+    return bool(len(idx)) and bool((np.linalg.norm(locs - origins[idx], axis=1) < length).any())
+
+
+def ring(start, d, radius, n=16):
+    a = np.cross(d, [1.0, 0, 0] if abs(d[0]) < 0.9 else [0, 1.0, 0]); a /= np.linalg.norm(a)
+    b = np.cross(d, a)
+    return np.array([start + radius * (math.cos(t) * a + math.sin(t) * b) for t in np.linspace(0, 2 * math.pi, n, endpoint=False)])
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                       formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -168,6 +182,19 @@ def main():
             inside = m.contains(axis_pts)
             blocked = axis_pts[inside]
             checked += 1
+            s0, e0 = np.array(entry["start"], float), np.array(entry["end"], float)
+            length = float(np.linalg.norm(e0 - s0))
+            dvec = (e0 - s0) / length if length else np.array([0, 0, 1.0])
+            if not len(blocked) and length and ray_hits(m, s0[None, :], dvec, length):
+                hit = m.ray.intersects_location(s0[None, :], dvec[None, :], multiple_hits=False)[0][0]
+                blocked = hit[None, :]
+            dia = entry.get("diameter")
+            if dia is None:
+                print(f"NOTE: '{entry['name']}' has no \"diameter\" -- only its centreline is checked; a pinhole would pass")
+            elif not len(blocked) and length and ray_hits(m, ring(s0, dvec, float(dia) / 2 - 0.01), dvec, length):
+                failures.append(f"BLOCKED: '{entry['name']}' in {os.path.basename(stl_path)} -- narrower than the declared "
+                                f"diameter {dia:g}: a ray at radius {float(dia) / 2:g} mm from the axis hits material before the seat")
+                continue
             if len(blocked) > 0:
                 first = blocked[0]
                 failures.append(

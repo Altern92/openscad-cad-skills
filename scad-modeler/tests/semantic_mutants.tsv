@@ -1,5 +1,5 @@
 # id	checker	find (exactly once)	replace	fixture -- P25 / AC-8: plausible logic errors the fixture must catch by assertion
-strength_no_wall	check_strength	if not m.contains(ring(mid, ax, D3 / 2 + W)).all():	if False:	strength_gates
+strength_no_wall	check_strength	elif gap:	elif False:	strength_gates
 strength_depth_L	check_strength	bottom - t0 < L + 1.0 - 0.05	bottom - t0 < L - 0.05	strength_gates
 strength_no_z	check_strength	z_dir = abs(float(n @ up)) >= np.cos(np.radians(LAYER_DEG))	z_dir = False	strength_gates
 behavior_angle_slack	check_behavior	if abs(v) > float(an["max_deg"]):	if abs(v) > float(an["max_deg"]) + 90:	kinematics_gates
@@ -86,3 +86,41 @@ collisions_obb_depth_only	check_collisions	            best = min(best, float(np
 limits_fn_direction	check_limits	"min" if m.group(1) == "fn" else "max"	"max"	limits_lock
 limits_res_no_default	check_limits	        return RES_DEFAULT[m.group(1)]	        return None	limits_lock
 fits_seat_unchecked	check_fits	                if seat < want_seat - 0.15:	                if False:	fits_seat_depth
+assumptions_ordinary_flagged	check_assumptions	        if r.get("criticality", "").lower() == "critical"	        if True	assumptions_critical_open_fail
+attachment_no_material_ok	check_attachment	failed = (not has_material) or too_thin	failed = too_thin	attachment_missing_fail
+connectivity_extra_bodies_ok	check_connectivity	if actual != expected:	if actual < expected:	connectivity_disconnected_fail
+dependencies_part_not_c2	check_dependencies	if affected_basenames:	if False:	dependencies_reaches_part
+intake_unknown_is_estimated	check_intake	if p.get("status") == "unknown"]	if p.get("status") == "estimated"]	intake_manifest_runs
+margin_cvar_in_deps_flagged	check_margin_provenance	if cvar in deps or cvar in opted_out:	if cvar in opted_out:	margin_provenance_pass
+margin_family_needs_3_segments	check_margin_provenance	if len(parts) >= 3:	if len(parts) >= 4:	margin_wrong_variable_fail
+param_context_three_contexts	check_param_context	if len(distinct_contexts) < 2:	if len(distinct_contexts) < 3:	param_context_fail
+plan_unconfirmed_decision_ok	check_plan	r[4].lower() in (	r[4].lower() not in (	plan_no_decision_fail
+proportions_slice_from_top	check_proportions	z = lo[2] + frac * ext[2]	z = hi[2] - frac * ext[2]	organic_checks
+rules_verdict_anywhere_in_line	check_rules	if l.startswith("CHECK_RESULT "))	if "CHECK_RESULT " in l)	rules_ignore_echoed_verdict
+scad_lint_tolerance_tight	check_scad_lint	TOLERANCE = 0.02	TOLERANCE = 0.0001	scad_lint_rounded_standard_fail
+scad_lint_exact_flagged	check_scad_lint	and val != exact and abs(	and abs(	scad_lint_clean_pass
+sensitivity_any_unchanged	check_sensitivity	if all(abs(x - y) <= 1e-6 * max(1.0, abs(y)) for x, y in zip(got, base)):	if any(abs(x - y) <= 1e-6 * max(1.0, abs(y)) for x, y in zip(got, base)):	sensitivity
+service_envelope_blank_ok	check_service_envelope	or not r[1].strip()]	or False]	service_envelope_blank_fail
+silhouette_iou_numerator_or	check_silhouette	float(np.logical_and(r, m).sum())	float(np.logical_or(r, m).sum())	organic_checks
+subfeature_overlap_loose_threshold	check_subfeature_overlap	if vol <= args.max_overlap_mm3:	if vol <= args.max_overlap_mm3 + 1e9:	subfeature_overlap_fail
+topology_only_extra_holes	check_topology	if found != expected:	if found > expected:	topology_sealed_hole_fail
+assembly_shrink_dilates	check_assembly_sequence	m.vertices = m.vertices - m.vertex_normals * c	m.vertices = m.vertices + m.vertex_normals * c	assembly_sequence
+behavior_echo_trusted	check_behavior	if abs(v) < lb - 1.0:	if False:	kinematics_gates
+behavior_angle_axis_ignored	check_behavior	if ax is not None:	if False:	kinematics_gates
+behavior_geo_shape_ok	check_behavior	return T[:3, :3] if cost ** 0.5 < 0.01 else None	return T[:3, :3]	kinematics_gates
+behavior_geo_limit_slack	check_behavior	if g > float(an["max_deg"]):	if g > float(an["max_deg"]) + 90:	kinematics_gates
+doctor_profile_never_stale	doctor	if p.get("measured") != today:	if False:	doctor_calibration_fresh
+motion_stops_never_fail	motion_sweep	ok = not clashes and not violations and not stop_fail	ok = not clashes and not violations	motion_stops
+motion_stops_any_pose	motion_sweep	if coll or w <= 0.05:	if True:	motion_stops
+gear_face_overlap_ignored	motion_sweep	if ov < need - AXIS_TOL_MM:	if False:	example_gear_reduction
+behavior_sunk_body_ok	check_behavior	if n not in ground["bodies"] and lo < gz - tol:	if False:	behavior_gates
+behavior_idle_count_only	check_behavior	elif cnt > free.get(n, 0):	elif False:	kinematics_gates
+behavior_idle_static_ok	check_behavior	if n not in free:	if False:	kinematics_gates
+features_slot_as_hole	check_features	if corners > flats / math.cos(math.radians(30)) + args.tol:	if False:	features_slot_fail
+bore_sampling_only	check_bore_reachability	if not len(blocked) and length and ray_hits(m, s0[None, :], dvec, length):	if False:	bore_reachability_skin_fail
+bore_diameter_ignored	check_bore_reachability	elif not len(blocked) and length and ray_hits(m, ring(	elif False and ray_hits(m, ring(	bore_reachability_skin_fail
+strength_insert_median	check_strength	d = ds[k] if not all(D3 - 0.05 <= x <= D3 + 0.35 for x in ds) else float(np.median(ds))	d = float(np.median(ds))	strength_gates
+strength_slit_unseen	check_strength	if gap and gap[2] < 0.1:	if False:	strength_gates
+attachment_bare_ok	check_attachment	failed = (not has_material) or too_thin or bare	failed = (not has_material) or too_thin	attachment_bare_fail
+subfeature_exempt_substring	check_subfeature_overlap	if (n1 == a and n2 == b) or (n1 == b and n2 == a):	if (n1 in path_a and n2 in path_b) or (n1 in path_b and n2 in path_a):	subfeature_names_exact
+printability_layer_support_off	check_printability	if free.area >= MIN_REGION_MM2 and (worst is None or free.area > worst[0]):	if False:	printability_layer_support

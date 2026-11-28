@@ -119,8 +119,9 @@ bash .../scad-modeler/scripts/validate_scad.sh part.scad
 - Measuring an STL yourself: `.../scad-modeler/scripts/stl_extent.py`, never an inline parser.
 - Printability (advisory, judge each finding):
   `$(bash .../scad-modeler/scripts/resolve_python.sh --print) .../scad-modeler/scripts/check_printability.py --stl build/part.stl`
-- Fit-critical hole (press fit, bearing, insert, snap) and no calibration profile:
-  **propose a calibration coupon first** (`calibration_coupon()`, `references/patterns.scad`
+- Fit-critical hole (press fit, bearing, insert, snap) and no calibration profile **measured today**
+  (`doctor.py` says `stale`/`none`; filament changes with spool and moisture, so the coupon is printed and
+  measured before each print, in that material): **propose a calibration coupon first** (`calibration_coupon()`, `references/patterns.scad`
   Pattern 5). Use `true_hole()` (Pattern 0) for round fit-critical holes.
 - Name the confidence tier in the final response (`references/confidence-tiers.md`).
 

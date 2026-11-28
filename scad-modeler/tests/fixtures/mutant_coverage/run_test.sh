@@ -13,6 +13,13 @@ for c in "$SCAD_MODELER_SCRIPTS"/check_*.py; do
     n=$(basename "$c" .py)
     grep -q "^$n	" "$TSV" || { echo "AC-10: $n has no mutant fixture in mutants.tsv" >&2; fail=1; }
 done
+# P28 (2026-11-28): and at least one semantic row (a plausible logic error, tests/semantic_mutants.tsv) per checker;
+# the semantic_mutants fixture proves each row is KILLED
+for c in "$SCAD_MODELER_SCRIPTS"/check_*.py "$SCAD_MODELER_SCRIPTS"/motion_sweep.py; do
+    n=$(basename "$c" .py)
+    awk -F'\t' -v n="$n" '!/^#/ && $2 == n {f=1} END {exit !f}' "$T/semantic_mutants.tsv" \
+        || { echo "P28: $n has no semantic mutant in semantic_mutants.tsv -- Hint: add a row that breaks one real check" >&2; fail=1; }
+done
 [ "$fail" -eq 0 ] || exit 1
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 grep -v '^#' "$TSV" | while IFS=$'\t' read -r checker fixture pass_fx; do

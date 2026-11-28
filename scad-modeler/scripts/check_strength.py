@@ -112,15 +112,22 @@ def check_insert(f, spec, m):
     L, D1, D3, W = spec["L"], spec["D1"], spec["D3"], spec["W"]
     out = []
     depths = np.linspace(t0 + 0.6, t0 + L - 0.6, 5)
-    d = 2 * float(np.median([hole_radius(m, s + t * ax, ax, D1 / 2 + W + 1.0) for t in depths]))
+    # audit A7 (2026-11-28): the median of the 5 depths let 2 bad ones through (a Ø6 top over 42 % of the insert);
+    # every depth must be in the window, the worst one is reported
+    ds = [2 * hole_radius(m, s + t * ax, ax, D1 / 2 + W + 1.0) for t in depths]
+    k = int(np.argmax([max(D3 - 0.05 - x, x - D3 - 0.35) for x in ds]))
+    d = ds[k] if not all(D3 - 0.05 <= x <= D3 + 0.35 for x in ds) else float(np.median(ds))
     if not (D3 - 0.05 <= d <= D3 + 0.35):
-        out.append(f"hole Ø{d:.2f} outside [{D3 - 0.05:.2f}, {D3 + 0.35:.2f}] (datasheet {D3}, knurl OD {D1})"
+        out.append(f"hole Ø{d:.2f} at depth {depths[k] - t0:.1f} mm of the insert outside [{D3 - 0.05:.2f}, {D3 + 0.35:.2f}] (datasheet {D3}, knurl OD {D1})"
                    + (" -- a hole at the knurl OD leaves the knurls nothing to grip" if d >= D1 - 0.15 else "")
                    + f" -- Hint: set the hole diameter to the datasheet {D3} mm in the part's .scad")
     # bottom = where the hole narrows below the insert's hole (solid, or a screw clearance hole
     # continuing past it -- the axis alone saw that as "through", rear_axle_v4 2026-11-18)
+    u = np.cross(ax, [0, 0, 1] if abs(ax[2]) < .9 else [1, 0, 0]); u /= np.linalg.norm(u); v = np.cross(ax, u)
+    tt = np.linspace(0, 2 * np.pi, 360, endpoint=False)   # audit A7: 12 directions (1.9 mm apart) missed a 0.8 mm slit
+    dense = lambda c, r: c + r * (np.outer(np.cos(tt), u) + np.outer(np.sin(tt), v))   # same answer at any rotation
     bottom = None
-    solid = lambda t: m.contains(ring(s + t * ax, ax, D3 / 2 - 0.15)).all()
+    solid = lambda t: m.contains(dense(s + t * ax, D3 / 2 - 0.15)).all()
     for t in np.arange(t0 + 0.25, t0 + L + 3.0, 0.25):
         if solid(t):
             lo, bottom = t - 0.25, t      # P27 / AC-2: bisect, a 0.25 mm grid rounded a 6.55 hole up to 6.75
@@ -130,10 +137,21 @@ def check_insert(f, spec, m):
             break
     if bottom is not None and bottom - t0 < L + 1.0 - 0.05:
         out.append(f"blind depth {bottom - t0:.2f} mm < L + 1 = {L + 1.0:.1f} (insert bottoms out, melt has nowhere to go) -- Hint: drill the blind hole deeper, to at least L + 1")
-    mid = s + (t0 + L / 2) * ax
-    if not m.contains(ring(mid, ax, D3 / 2 + W)).all():
+    gap = None
+    for r in np.arange(max(ds) / 2 + 0.15, D3 / 2 + W + 1e-9, 0.25):   # from just outside the measured hole out to the wall
+        for z in np.linspace(t0 + 0.3, t0 + L - 0.3, 5):
+            ins = m.contains(dense(s + z * ax, r))
+            if not ins.all():
+                gap = (r, z, 1.0 - float(m.contains(dense(s + z * ax, D3 / 2 + W)).mean()))   # open share at the wall's outer radius
+                break
+        if gap:
+            break
+    if gap and gap[2] < 0.1:   # a narrow gap with material on both sides: a slit, not a thin side
+        out.append(f"the wall is cut around the hole (a gap at r {gap[0]:.2f} mm, depth {gap[1] - t0:.1f} mm, within the {W} mm wall) "
+                   "-- a split boss does not hold an insert -- Hint: close the slit or move the insert away from it")
+    elif gap:
         out.append(f"wall under {W} mm around the hole (ring at r {D3 / 2 + W:.2f} leaves the part) -- Hint: thicken the wall around the insert hole to at least {W} mm")
-    elif not m.contains(ring(s + (t0 + L - 0.3) * ax, ax, D1 / 2 + 0.3)).all():
+    elif not m.contains(dense(s + (t0 + L - 0.3) * ax, D1 / 2 + 0.3)).all():
         out.append(f"material ends before the insert does (no wall at {L - 0.3:.1f} mm of its {L} mm length): it sticks out -- Hint: extend the material over the whole insert length or shorten the insert")
     return d, bottom, out
 

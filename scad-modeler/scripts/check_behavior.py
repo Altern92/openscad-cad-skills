@@ -38,6 +38,11 @@ KINEMATICS (P24, only when a joint has "type"):
   must be ONE piece (several separate studs that move with different parts are several bodies).
   joint "angle": {"echo": "UB_TILT", "max_deg": 15, "source": ".."} -- OpenSCAD is run per pose with
   the body defines and must print `ECHO: UB_TILT = <deg>`; |value| > max_deg at any pose -> FAIL.
+  P28: the angle is also measured from the parts, as the rotation between the dof pose and each pose
+  (Kabsch on the rendered vertices). Revolute joint: the relative turn; "axis": [x,y,z] in the angle:
+  how far that direction (fixed in a and in b at the dof pose) parts. That change is a lower bound on
+  the true angle (|echo at the dof pose| subtracted), so it FAILs an echo that understates the turn
+  and never fails a true one. Without "echo" the dof pose counts as 0 deg; a ball joint needs "axis".
 
 Not a physics simulation: no forces, friction or strength (check_strength.py does static strength).
 
@@ -108,8 +113,13 @@ def load(path):
         if t in ("revolute", "slider") and len(j.get("axis") or []) != 3:
             usage(f"{path}: {t} joint {j['a']}-{j['b']} needs \"axis\"")
         an = j.get("angle")
-        if an is not None and not (an.get("echo") and "max_deg" in an and str(an.get("source", "")).strip()):
-            usage(f"{path}: joint {j['a']}-{j['b']}: angle needs echo, max_deg and a non-empty source")
+        if an is not None and not ("max_deg" in an and str(an.get("source", "")).strip()):
+            usage(f"{path}: joint {j['a']}-{j['b']}: angle needs max_deg and a non-empty source")
+        if an is not None and "axis" in an and len(an["axis"] or []) != 3:
+            usage(f"{path}: joint {j['a']}-{j['b']}: angle.axis needs [x, y, z]")
+        if an is not None and not an.get("echo") and t != "revolute" and "axis" not in an:
+            usage(f"{path}: joint {j['a']}-{j['b']}: angle without echo needs a revolute joint or angle.axis "
+                  "(a ball joint's total turn includes its free spin, so only an axis direction is a tilt)")
     for p in (d.get("clearance") or {}).get("pairs", []):
         for k in ("a", "b"):
             if p.get(k) not in names:
@@ -316,6 +326,20 @@ def dof_rank(joints, moving, L):
     return 6 * len(moving) - rank, J
 
 
+def body_rotation(ref, cur):
+    """Rotation matrix taking a rigid body from its dof-pose render to this pose, or None if its vertices
+    do not match one to one (it changed shape). OpenSCAD keeps the vertex order of a moved body."""
+    from trimesh.registration import procrustes
+    if len(ref.vertices) != len(cur.vertices):
+        return None
+    T, _, cost = procrustes(ref.vertices, cur.vertices, reflection=False, scale=False)
+    return T[:3, :3] if cost ** 0.5 < 0.01 else None   # cost = mean squared residual, mm2
+
+
+def rot_deg(R):
+    return float(np.degrees(np.arccos(np.clip((np.trace(R) - 1) / 2, -1.0, 1.0))))
+
+
 def echo_values(rnd, scad, defines, names):
     """Run OpenSCAD for its echo output only; {name: float} for `ECHO: NAME = v` lines."""
     scad = os.path.normpath(os.path.join(rnd.project, scad or rnd.scad))
@@ -455,7 +479,9 @@ def main():
     if dof_pose is None:
         usage(f"dof.at {dof_at} matches no pose of the grid {poses_decl}")
     dof_meshes = None
-    angle_names = sorted({j["angle"]["echo"] for j in joints if j.get("angle")})
+    angle_names = sorted({j["angle"]["echo"] for j in joints if (j.get("angle") or {}).get("echo")})
+    angle_geo = [j for j in joints if j.get("angle") and (j.get("type") == "revolute" or "axis" in j["angle"])]
+    ref_meshes, ref_echo = None, {}
     worst_angle = {}
     worst_joint, worst_pair, worst_margin = {}, {}, None
     default_density = set()
@@ -480,6 +506,34 @@ def main():
             return EXIT_FAIL
         if pose == dof_pose or (dof_meshes is None and pose == grid[-1]):
             dof_meshes = dict(meshes)
+        if angle_geo and ref_meshes is None:
+            try:
+                ref_meshes = {n: trimesh.util.concatenate([rnd.one((bodies[n].get("scad"), {**r, **({} if bodies[n].get("static") else dof_pose)}))
+                                                           for r in bodies[n]["render"]])
+                              for j in angle_geo for n in (j["a"], j["b"])}
+                if angle_names:
+                    for s in dict.fromkeys([d.get("scad")] + [bodies[n].get("scad") for j in angle_geo for n in (j["a"], j["b"])]):
+                        for n, v in echo_values(rnd, s, dof_pose, angle_names).items():
+                            ref_echo[n] = max(ref_echo.get(n, 0.0), abs(v))
+            except RuntimeError as e:
+                print(f"FAIL render: {e} -- Hint: fix the OpenSCAD error at the dof pose")
+                print("BEHAVIOR: render failure"); return EXIT_FAIL
+        geo = {}
+        for j in angle_geo:
+            k = (j["a"], j["b"])
+            Ra, Rb = (body_rotation(ref_meshes[n], meshes[n]) for n in k)
+            if Ra is None or Rb is None:
+                bad = j["a"] if Ra is None else j["b"]
+                if not j["angle"].get("echo"):
+                    fails["kinematics"].append(f"{bad} changes shape between poses ({ptxt}): the angle of {j['a']} <-> {j['b']} "
+                                               "cannot be measured from the parts -- Hint: render a body as one rigid part, or add an angle echo")
+                continue
+            ax = j["angle"].get("axis")
+            if ax is not None:
+                v = np.asarray(ax, float) / np.linalg.norm(ax)
+                geo[k] = float(np.degrees(np.arccos(np.clip((Ra @ v) @ (Rb @ v), -1.0, 1.0))))
+            else:
+                geo[k] = rot_deg(Rb @ Ra.T)
         if angle_names:
             try:
                 # P28 / AC-A3: the echo may live in the top-level scad or in a joint body's own "scad"
@@ -493,23 +547,44 @@ def main():
             except RuntimeError as e:
                 print(f"FAIL render: {e} -- Hint: fix the OpenSCAD error in the joint's or the top-level \"scad\" that prints the angle echo")
                 print("BEHAVIOR: render failure"); return EXIT_FAIL
-            for j in joints:
-                an = j.get("angle")
-                if not an:
+        else:
+            vals = {}
+        for j in joints:
+            an = j.get("angle")
+            if not an:
+                continue
+            k = (j["a"], j["b"])
+            g = geo.get(k)
+            if not an.get("echo"):
+                if g is None:
                     continue
-                k = (j["a"], j["b"])
-                if an["echo"] not in vals:
-                    fails["kinematics"].append(f"{j['a']} <-> {j['b']}: OpenSCAD printed no `ECHO: {an['echo']} = ..` "
-                                               f"at {ptxt} -- the angle is not checked; add echo({an['echo']}=...) -- Hint: print that echo "
-                                               "from the scad named in behavior.json")
-                    continue
-                v = vals[an["echo"]]
-                if k not in worst_angle or abs(v) > abs(worst_angle[k][0]):
-                    worst_angle[k] = (v, ptxt, float(an["max_deg"]))
-                if abs(v) > float(an["max_deg"]):
-                    add("kinematics", (k, "angle"), abs(v), f"{j['a']} <-> {j['b']}: {an['echo']} = {v:.1f} deg > "
-                        f"{an['max_deg']} at {ptxt} ({an['source']}) -- the purchased joint cannot swing that far -- Hint: "
+                if k not in worst_angle or g > abs(worst_angle[k][0]):
+                    worst_angle[k] = (g, ptxt, float(an["max_deg"]))
+                if g > float(an["max_deg"]):
+                    add("kinematics", (k, "angle"), g, f"{j['a']} <-> {j['b']}: angle measured from the parts: {g:.1f} deg > "
+                        f"{an['max_deg']} at {ptxt} ({an['source']}) -- the joint cannot swing that far -- Hint: "
                         "reduce the swing in the scad or choose a joint with a larger max_deg")
+                continue
+            if an["echo"] not in vals:
+                fails["kinematics"].append(f"{j['a']} <-> {j['b']}: OpenSCAD printed no `ECHO: {an['echo']} = ..` "
+                                           f"at {ptxt} -- the angle is not checked; add echo({an['echo']}=...) -- Hint: print that echo "
+                                           "from the scad named in behavior.json")
+                continue
+            v = vals[an["echo"]]
+            if g is not None:
+                lb = g - ref_echo.get(an["echo"], 0.0)   # triangle inequality: true angle >= turn - angle at the dof pose
+                if abs(v) < lb - 1.0:
+                    add("kinematics", (k, "echo"), lb, f"{j['a']} <-> {j['b']}: {an['echo']} = {v:.1f} deg, but the parts turn "
+                        f"{g:.1f} deg from the dof pose at {ptxt} -- the echo understates the angle -- Hint: echo the angle "
+                        "the geometry actually uses (the same variable as the rotate())")
+                if lb > abs(v):
+                    v = lb
+            if k not in worst_angle or abs(v) > abs(worst_angle[k][0]):
+                worst_angle[k] = (v, ptxt, float(an["max_deg"]))
+            if abs(v) > float(an["max_deg"]):
+                add("kinematics", (k, "angle"), abs(v), f"{j['a']} <-> {j['b']}: {an['echo']} = {v:.1f} deg > "
+                    f"{an['max_deg']} at {ptxt} ({an['source']}) -- the purchased joint cannot swing that far -- Hint: "
+                    "reduce the swing in the scad or choose a joint with a larger max_deg")
         cm = CollisionManager()
         for n in names:
             cm.add_object(n, meshes[n])
@@ -578,6 +653,12 @@ def main():
                                                    "-- it does not rest on the ground -- Hint: move the body to the declared ground z "
                                                    "or correct ground.z / tol in behavior.json")
                 pts.extend(v[v[:, 2] <= gz + tol][:, :2].tolist())
+            for n in names:   # audit A4: a body that is not a ground body may not reach below the ground either
+                lo = float(meshes[n].vertices[:, 2].min())
+                if n not in ground["bodies"] and lo < gz - tol:
+                    add("stands", n, gz - lo, f"{n}: lowest point z={lo:.2f} is {gz - lo:.2f} mm below the ground z={gz} at {ptxt} "
+                                              "-- the assembly would rest on it, not on the ground bodies -- Hint: raise the body, "
+                                              "or add it to ground.bodies if it really is a foot")
             tot, mom = 0.0, np.zeros(3)
             for n in names:
                 m, dflt = body_mass(bodies[n], meshes[n])
@@ -638,14 +719,25 @@ def main():
         want = int(dofd.get("count", 0)) + len(dofd.get("idle", []))
         print(f"DOF: computed {ndof}, declared {dofd.get('count', 0)} + {len(dofd.get('idle', []))} idle "
               f"({', '.join(map(str, dofd.get('why', [])))}) at {ptxt}{note}")
+        free = {}
+        for i, n in enumerate(moving):
+            Jb = J[:, 6 * i:6 * i + 6]
+            free[n] = 6 - int((np.linalg.svd(Jb, compute_uv=False) > 1e-9 * max(1.0, np.abs(J).max())).sum())
+        # audit A3: an idle DOF is a body's own free motion; counting entries alone let any idle list absorb a loose body
+        idle_n = {}
+        for i in dofd.get("idle", []):
+            idle_n[i["body"]] = idle_n.get(i["body"], 0) + 1
+        for n, cnt in sorted(idle_n.items()):
+            if n not in free:
+                fails["kinematics"].append(f"dof.idle names {n}, but {n} is static (or the fixed world) -- it cannot move "
+                                           "-- Hint: name the body that really spins idle, or drop the entry")
+            elif cnt > free.get(n, 0):
+                fails["kinematics"].append(f"dof.idle: {n} declared {cnt} idle DOF, but with every other body held it has "
+                                           f"{free.get(n, 0)} -- the idle list hides a loose body elsewhere -- Hint: name the body that "
+                                           "really moves, or constrain the loose one")
         if ndof > want:
-            alone = []
-            for i, n in enumerate(moving):
-                Jb = J[:, 6 * i:6 * i + 6]
-                k = 6 - int((np.linalg.svd(Jb, compute_uv=False) > 1e-9 * max(1.0, np.abs(J).max())).sum())
-                if k:
-                    alone.append((k, n))
-            idle = {i["body"] for i in dofd.get("idle", [])}
+            alone = [(k, n) for n, k in free.items() if k]
+            idle = set(idle_n)
             txt = ", ".join(f"{n} ({k} DOF{' idle' if n in idle else ''})" for k, n in sorted(alone, reverse=True))
             fails["kinematics"].append(f"{ndof} DOF > declared {want}: with every other body held, these still move: "
                                        f"{txt or 'none alone (a chain is loose)'} -- a joint is missing or too free -- Hint: "
@@ -676,7 +768,7 @@ def main():
             print(f"FAIL {gate}: {f}")
         total += len(fails[gate])
         state = ("SKIP (no ground declared)" if gate == "stands" and not ground else
-                 "SKIP (no joint \"type\", no \"angle\")" if gate == "kinematics" and not typed and not angle_names else
+                 "SKIP (no joint \"type\", no \"angle\")" if gate == "kinematics" and not typed and not angle_names and not angle_geo else
                  ("FAIL" if fails[gate] else "PASS"))
         print(f"{gate.upper()}: {state}")
     print(f"BEHAVIOR: {len(grid)} pose(s), {len(bodies)} bodies, {len(joints)} joints, "

@@ -53,6 +53,12 @@ Declare a genuinely same-direction mesh (internal/planetary) with
 `"joint_type": "internal_gear_mesh"` instead of `"gear_mesh"` to opt out.
 For a `prismatic` driver, `ratio` is millimetres per degree of sweep parameter.
 
+END STOPS (P28, 2026-11-28)
+---------------------------
+"stops": {"ends": ["high"], "within_deg": 5} in a motion block: past that end of range_deg the parts
+must touch (<= 0.05 mm) or interfere within within_deg, else FAIL -- the declared range is otherwise a
+promise nothing physical enforces. The first touching angle is printed.
+
 GROUPS AND ASSIGNMENT (P21, 2026-11-14)
 ---------------------------------------
 A machine axis moves many parts as one body (gantry: side plates, beam, drive, carriage).
@@ -441,6 +447,7 @@ def check_gear_axes(contacts, motions, meshes, paths):
                 notes.append(f"NOT CHECKED: axis of '{d['part']}' -- no single STL named like it")
                 continue
             mesh = meshes[path]
+            entry["mesh"] = mesh
             radius = float(np.max(np.linalg.norm(np.cross(mesh.vertices - mesh.center_mass, a), axis=1)))
             # direction: the inertia axis nearest the declared one (a gear's symmetry axis is a principal axis)
             vals, vecs = mesh.principal_inertia_components, mesh.principal_inertia_vectors
@@ -524,6 +531,26 @@ def check_gear_axes(contacts, motions, meshes, paths):
                                 f"gear_dist(), not m*(z1+z2)/2 (BOSL2 shifts small pinions automatically). Hint: move one gear to the gear_dist() centre distance in the layout.")
             else:
                 notes.append(f"OK: centre distance {n1}<->{n2} {have:.3f} mm ({src}) = gear_dist() {want:.3f} mm")
+            # Audit A1 (2026-11-28): centre distance is radial only; a gear lifted past its partner's face still
+            # "meshes" by distance. Compare the axial extents of the tooth-tip zones (radius within one module of the tip).
+            if "mesh" not in e1 or "mesh" not in e2:
+                notes.append(f"NOT CHECKED: face overlap {n1}<->{n2} -- a gear has no single STL")
+                continue
+            spans = []
+            for e in (e1, e2):
+                v = e["mesh"].vertices - e["point"]
+                r = np.linalg.norm(v - np.outer(v @ e1["dir"], e1["dir"]), axis=1)
+                z = (e["mesh"].vertices @ e1["dir"])[r >= r.max() - mod]
+                spans.append((float(z.min()), float(z.max())))
+            ov = min(spans[0][1], spans[1][1]) - max(spans[0][0], spans[1][0])
+            need = float(c.get("min_face_overlap_mm", min(b - a for a, b in spans)))
+            if ov < need - AXIS_TOL_MM:
+                failures.append(f"face overlap {n1}<->{n2}: the teeth share {max(ov, 0.0):.3f} mm of face width along the axis "
+                                f"(tooth zones {spans[0][0]:.2f}..{spans[0][1]:.2f} and {spans[1][0]:.2f}..{spans[1][1]:.2f} mm), "
+                                f"need {need:.3f} mm (the narrower face; set \"min_face_overlap_mm\" for a deliberate partial mesh). "
+                                "Hint: align the gears along their axis in the layout.")
+            else:
+                notes.append(f"OK: face overlap {n1}<->{n2} {ov:.3f} mm (need {need:.3f})")
     return failures, notes, degraded, usage
 
 
@@ -629,6 +656,15 @@ def run_motion(motion, meshes, paths, contacts, step_override, verbose=True):
         print(f"ERROR: motion '{motion.get('id')}': step_deg must be > 0 (got {step:g})", file=sys.stderr)
         return None
     min_clear = float(motion.get("min_clearance_mm", 0.0))
+    stops = motion.get("stops")
+    if stops is not None:
+        ends, within = stops.get("ends"), stops.get("within_deg")
+        if not (isinstance(ends, list) and ends and set(ends) <= {"low", "high"}
+                and isinstance(within, (int, float)) and within > 0):
+            print(f"ERROR: motion '{motion.get('id')}': stops needs \"ends\" from [\"low\", \"high\"] and "
+                  f"\"within_deg\" > 0 (got {stops})", file=sys.stderr)
+            return None
+    lo0, hi0 = lo, hi
 
     period = sweep_period(motion)
     if period and period < (hi - lo) and not all(symmetric_under(meshes[d["_path"]], d, period) for d in drivers):
@@ -669,7 +705,27 @@ def run_motion(motion, meshes, paths, contacts, step_override, verbose=True):
     clashes = [r for r in results if r[3]]
     violations = [r for r in results if not r[3] and r[2] and r[1] < engine.need(r[2]) - 1e-12]
 
-    ok = not clashes and not violations
+    # P28 stops: a motion that claims mechanical end stops must be stopped BY THE PARTS just past each end;
+    # otherwise the declared range is a promise nothing enforces (servo limits are software, not stops)
+    stop_fail, stop_info = [], []
+    for end in (stops or {}).get("ends", []):
+        sign, edge = (1, hi0) if end == "high" else (-1, lo0)
+        n = max(2, int(math.ceil(stops["within_deg"] / step)))
+        hit = None
+        for i in range(1, n + 1):
+            t = edge + sign * stops["within_deg"] * i / n
+            w, _, coll = sample(t)
+            if coll or w <= 0.05:   # touching (within 0.05 mm) or interfering counts as the stop
+                hit = t
+                break
+        if hit is None:
+            stop_fail.append(f"nothing stops '{motion.get('id', 'motion')}' within {float(stops['within_deg']):.1f} deg past its "
+                             f"{end} end ({edge:.1f}) -- the range is not enforced by the parts -- Hint: add an end stop "
+                             "that the moving part meets there, or drop that end from \"stops\"")
+        else:
+            stop_info.append(f"stop at the {end} end: parts meet at t={hit:.1f}deg ({abs(hit - edge):.1f} deg past {edge:.1f})")
+
+    ok = not clashes and not violations and not stop_fail
     out = {
         "id": motion.get("id"), "pass": ok, "samples": len(results),
         "swept_deg": [lo, hi], "step_deg": step,
@@ -680,16 +736,22 @@ def run_motion(motion, meshes, paths, contacts, step_override, verbose=True):
                   "interfering": worst[1] < 0},
         "clash_t_deg": [round(r[0], 3) for r in clashes],
         "violation_t_deg": [round(r[0], 3) for r in violations],
+        "stop_failures": stop_fail,
     }
 
     if verbose:
         label = motion.get("id", "motion")
+        for m in stop_info:
+            print(f"  {m}")
+        for m in stop_fail:
+            print(f"  FAIL  {m}")
         if ok:
             print(f"  PASS  '{label}': {len(results)} positions, worst clearance "
                   f"{worst[1]:.3f} mm at t={worst[0]:.2f}deg "
                   f"({' <-> '.join(out['worst']['pair'] or [])})")
         else:
-            print(f"  FAIL  '{label}': {len(results)} positions")
+            if clashes or violations:
+                print(f"  FAIL  '{label}': {len(results)} positions")
             if clashes:
                 a = out["clash_t_deg"]
                 print(f"    interference at t = {a[0]}..{a[-1]}deg "
@@ -700,10 +762,9 @@ def run_motion(motion, meshes, paths, contacts, step_override, verbose=True):
                 print(f"    clearance below {min_clear} mm at t = {v[0]}..{v[-1]}deg "
                       f"({len(v)} positions); tightest {worst[1]:.3f} mm "
                       f"at t={worst[0]:.2f}deg")
-            print("    Hint: change the centre distance, backlash or layout position of the pair named, "
-                  "or correct the driver axis/range in joints.json motion")
-            print("    Hint: change the centre distance, backlash or layout position of the pair named, "
-                  "or correct the driver axis/range in joints.json motion")
+            if clashes or violations:
+                print("    Hint: change the centre distance, backlash or layout position of the pair named, "
+                      "or correct the driver axis/range in joints.json motion")
     return out
 
 

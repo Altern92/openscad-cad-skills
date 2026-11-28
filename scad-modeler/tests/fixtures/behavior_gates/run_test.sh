@@ -20,6 +20,9 @@ grep -q <<< "$out" 'MOVES: PASS' || die "good: no MOVES PASS"
 grep -q <<< "$out" 'STANDS: PASS' || die "good: no STANDS PASS"
 grep -q <<< "$out" '2 pose' || die "good: pose count not printed"
 
+# Audit A4 (2026-11-28): a body that is not a ground body but reaches below the ground passed STANDS
+run "$G" -D SINK=30; [ "$rc" -eq 3 ] || die "A4: exit $rc"
+grep -q <<< "$out" "column: lowest point z=-25.00 is 20.00 mm below the ground" || die "A4: sunk column not named"
 # AC-1 body in no joint
 edit 'd["joints"] = [j for j in d["joints"] if j["b"] != "arm"]'; run v.json; [ "$rc" -eq 3 ] || die "AC-1: exit $rc"
 grep -q <<< "$out" "arm.*not held" || die "AC-1: arm not named"

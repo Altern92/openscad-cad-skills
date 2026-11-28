@@ -277,6 +277,13 @@ value for your machine. Treat them as "more than PLA", not as an offset to add.
 
 ### What to do instead of guessing
 
+**Before each print** (maintainer's rule, 2026-11-28: filament differs by spool and moisture): print
+`calibration_coupon()` in the spool you will use, measure it, and write `printer_profile.json`
+(project root, `calibration/`, or `~/.config/openscad-skills/`):
+`{"material": "PETG", "printer": "..", "measured": "YYYY-MM-DD", "holes": [{"nominal": 8.0, "measured": 7.82}, ...]}`.
+`doctor.py` counts it only on the day in `measured` (`calibration_status`: ok / stale / invalid / none);
+anything else caps the tier at 2.
+
 1. **Print a calibration coupon in the actual material before committing a
    fit-critical dimension** — `calibration_coupon()` (`patterns.scad`, Pattern 5)
    is exactly this, and `Tier 3` in `confidence-tiers.md` makes it a hard gate

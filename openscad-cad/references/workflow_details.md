@@ -378,7 +378,8 @@ distinct from a genuine flat panel reading).
 **Before finalizing any fit-critical hole (press fit, bearing bore, threaded
 insert, snap fit — anything where the actual printed size, not the CAD
 number, decides whether it works) when no calibration profile exists
-(`doctor.py`'s `find_calibration()` returns none), proactively PROPOSE
+(`doctor.py` reports `calibration_status` other than `ok`: none, invalid, or `stale` = not measured
+today -- the maintainer prints and measures the coupon before each print, 2026-11-28), proactively PROPOSE
 printing a calibration coupon first — do not wait to be asked.** Confirmed
 gap (INCIDENTS.json, 2026-08-21): across a real multi-part project, the model
 only offered to print a fit-test piece each time the user explicitly asked

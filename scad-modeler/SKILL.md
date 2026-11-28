@@ -64,8 +64,8 @@ Before writing that feature's geometry, answer in a few sentences (in
 the seat, not just the seat), **shared-part neighbours** (real envelopes of every
 sub-feature in the same `union()`), **retention** (what stops motion in the
 directions it must not move), **purchased-part fit** (the install step the real
-object needs). For a load-bearing fit with no calibration profile, propose a
-`calibration_coupon()` (R-14) yourself.
+object needs). For a load-bearing fit with no calibration profile measured today, propose a
+`calibration_coupon()` (R-14) yourself: it is printed and measured before each print.
 
 Every answer becomes a declaration; prose is checked by nothing:
 

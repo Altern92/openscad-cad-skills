@@ -127,7 +127,7 @@ rules:
     gate: "python3 {skill_dir}/scripts/check_service_envelope.py --envelope {project_dir}/service_envelope.md"
 
   - id: R-14
-    rule: "Calibration coupon (openscad-cad SKILL.md §4.5): for a load-bearing or precision-sensitive fit (bearing press fit, structural pin -- not a generous loose-clearance hole) declared in bores.json/joints.json with no calibration profile found (doctor.py), a calibration_coupon() print (openscad-cad/references/patterns.scad Pattern 5) was PROPOSED before committing to the final dimension, not just defaulted to Tier 2/uncalibrated silently"
+    rule: "Calibration coupon (openscad-cad SKILL.md §4.5): for a load-bearing or precision-sensitive fit (bearing press fit, structural pin -- not a generous loose-clearance hole) declared in bores.json/joints.json with no calibration profile measured today (doctor.py calibration_status != ok; the coupon is printed before each print), a calibration_coupon() print (openscad-cad/references/patterns.scad Pattern 5) was PROPOSED before committing to the final dimension, not just defaulted to Tier 2/uncalibrated silently"
     applies: "file_exists:bores.json,joints.json"
     kind: manual
     gate: null

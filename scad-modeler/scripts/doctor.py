@@ -30,6 +30,7 @@ Exit codes:
     3  missing something critical (no OpenSCAD at all)
 """
 import argparse
+import datetime
 import json
 import os
 import platform
@@ -173,6 +174,30 @@ def find_calibration():
     return None
 
 
+def calibration_status(path):
+    """(status, why): ok | stale | invalid | none. Filament changes with spool and moisture, so a coupon
+    counts only on the day it was measured (maintainer, 2026-11-28): print and measure it before each print.
+    Profile: {"material": "PETG", "printer": "..", "measured": "YYYY-MM-DD",
+              "holes": [{"nominal": 8.0, "measured": 7.82}, ...]}"""
+    if not path:
+        return "none", "no calibration profile"
+    try:
+        p = json.load(open(path, encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        return "invalid", f"{path} unreadable ({e})"
+    if not str(p.get("material", "")).strip():
+        return "invalid", f"{path} names no material"
+    holes = p.get("holes")
+    if not holes or not all(isinstance(h, dict) and all(isinstance(h.get(k), (int, float)) and not isinstance(h.get(k), bool)
+                                                         for k in ("nominal", "measured")) for h in holes):
+        return "invalid", f"{path}: holes must be [{{\"nominal\": mm, \"measured\": mm}}, ...]"
+    today = datetime.date.today().isoformat()
+    if p.get("measured") != today:
+        return "stale", (f"{path} measured {p.get('measured')}, not today ({today}) -- print and measure "
+                         f"the coupon in this {p['material']} before this print")
+    return "ok", f"{p['material']} coupon measured today"
+
+
 def highest_tier(scad, deps, calib):
     """See openscad-cad/references/confidence-tiers.md."""
     if not scad:
@@ -182,8 +207,8 @@ def highest_tier(scad, deps, calib):
     feature_ok = deps.get("shapely", {}).get("status") == "ok"
     if not feature_ok:
         return 2, "shapely missing -- bores cannot be measured, envelope only"
-    if not calib:
-        return 2, ("no calibration profile -- fits cannot be promised, only "
+    if calib[0] != "ok":
+        return 2, (f"calibration {calib[0]}: {calib[1]} -- fits cannot be promised, only "
                    "geometry")
     if deps.get("python-fcl", {}).get("status") != "ok":
         return 3, "python-fcl missing -- assemblies cannot be checked"
@@ -224,12 +249,13 @@ def main():
     roots, libs = check_libraries()
     deps = check_python_deps()
     calib = find_calibration()
+    cstat = calibration_status(calib)
     headless = (platform.system() == "Linux" and not os.environ.get("DISPLAY"))
     xvfb = shutil.which("xvfb-run")
-    tier, tier_why = highest_tier(scad, deps, calib)
+    tier, tier_why = highest_tier(scad, deps, cstat)
 
     report = {"openscad": scad, "library_roots": roots, "libraries": libs,
-              "python": deps, "calibration_profile": calib,
+              "python": deps, "calibration_profile": calib, "calibration_status": cstat[0],
               "headless_linux": headless, "xvfb_run": xvfb,
               "max_tier": tier, "max_tier_reason": tier_why}
 
@@ -266,7 +292,7 @@ def main():
             print(f"  {'ok      ' if e['status'] == 'ok' else 'MISSING '} "
                   f"{mod:<14}{e['why']}")
 
-        print(f"\nCalibration profile: {calib or 'none -- fits are uncalibrated'}")
+        print(f"\nCalibration profile: {cstat[0]} -- {cstat[1]}")
         print(f"\nHighest supportable tier: {tier} -- {tier_why}")
 
     if not scad:

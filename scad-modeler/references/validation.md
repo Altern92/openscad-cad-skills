@@ -327,6 +327,16 @@ refuses to sweep at all unless the ratios have opposite, nonzero signs —
 opt out a genuine same-direction (internal/planetary) mesh with
 `"joint_type": "internal_gear_mesh"`.
 
+Gear face overlap (audit A1, 2026-11-28): for a parallel `gear_mesh` with `module`, the tooth-tip zones
+(radius within one module of the tip) must overlap along the axis by the narrower face width, or by
+`"min_face_overlap_mm"` for a deliberate partial mesh. Centre distance alone passed gears stacked axially.
+
+End stops (P28, 2026-11-28): `"stops": {"ends": ["low", "high"], "within_deg": 5}` in a motion block says
+the parts themselves stop the motion. Past each named end of `range_deg` the sweep continues (same step)
+up to `within_deg`; the parts must touch (<= 0.05 mm) or interfere there, else FAIL "nothing stops ...".
+The real stop angle is printed. Without `stops` nothing beyond the range is checked (a servo-limited
+range is software, not a stop). Limit: stops are sampled at the motion's step.
+
 Gear axes (P29/P32): a `gear_mesh` contact with `"module"` (plus optional `"pressure_angle"`,
 `"profile_shift"`, `"helical"`) has its parallel-axis distance checked against BOSL2 `gear_dist()`.
 For non-parallel axes declare `"kind"`: `"bevel"` (optional `"shaft_angle"`, default 90) FAILs unless the
@@ -549,6 +559,13 @@ others held; fewer = FAIL "mechanism locked". `at` must lie within `max_gap` of 
 of the other (a ball centre sits inside the ball). A typed joint on a multi-piece body is FAIL
 (split it). `angle` {`echo`: VAR, `max_deg`, `source`} reads `ECHO: VAR = v` from an OpenSCAD run
 at every pose; |v| over the limit = FAIL with the pose; no `source` or VAR not printed = exit 4.
+The angle is also measured from the parts (P28, 2026-11-28): Kabsch rotation of each body between
+the `dof` pose and the pose, from the rendered vertices. Revolute joint: the relative turn; `angle.axis`
+[x,y,z]: how far that direction, fixed in both bodies at the dof pose, parts (a tilt, free spin
+excluded). That is a lower bound on the true angle (minus |echo| at the dof pose), so an echo that
+understates it by > 1 deg FAILs and a true echo never does. `echo` is optional for a revolute joint
+or with `axis` (the dof pose then counts as 0 deg); a body that changes shape between poses cannot
+be measured (FAIL without an echo). Limit: the reference is the dof pose, not a declared neutral.
 No `type` anywhere = `KINEMATICS SKIP` (old files keep passing).
 
 ## Static strength (`check_strength.py`, gate `strength`, P24, added 2026-11-18)

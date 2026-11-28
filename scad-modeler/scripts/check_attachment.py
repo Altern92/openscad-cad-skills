@@ -42,9 +42,9 @@ samples a small ring of points at that radius around "at" and requires most of
 them to be solid too, which distinguishes a real boss from a sliver that
 happens to cross one point. Omit it and only the centre point is tested.
 
-"part" is matched case-insensitively as a substring against each input STL's
-basename, the same convention check_collisions.py and check_bore_reachability.py
-use for their declaration files.
+"part" is matched case-insensitively against each input STL's basename without
+the extension (exact, audit A8 2026-11-28: a substring let "lid" check lid_hinge).
+A part that fills its own bounding box (a bare slab) FAILs: it has no feature to attach with.
 
 A declared point with no material fails closed: the declaration says a fastener
 goes here, and a fastener cannot go through air. Getting the point wrong
@@ -172,7 +172,7 @@ def main():
     for entry in attachments:
         name = entry["name"]
         want = entry["part"].lower()
-        matches = [(bn, m) for bn, m in meshes.items() if want in bn.lower()]
+        matches = [(bn, m) for bn, m in meshes.items() if os.path.splitext(bn)[0].lower() == want]   # audit A8: exact, like the other checkers
         if not matches:
             print(f"ERROR: no input STL matches part {entry['part']!r} "
                   f"(declared by attachment {name!r})", file=sys.stderr)
@@ -188,6 +188,9 @@ def main():
 
         has_material = bool(mesh.contains([point])[0])
         detail = "material present" if has_material else "EMPTY SPACE"
+        # audit A8 (2026-11-28): a point inside a plain slab is "material" -- the INC-2026-09-11 bare side panel
+        # passed. A part that fills its own bounding box has no boss, hole or flange to attach with.
+        bare = has_material and mesh.is_volume and mesh.volume >= 0.995 * float(np.prod(mesh.extents))
 
         ring_ok = None
         ring_total = None
@@ -205,7 +208,10 @@ def main():
         # a real boss, which is worth failing on but is not certain -- the
         # message says "likely", not "definitely".
         too_thin = ring_ok is not None and ring_ok < ring_total / 2
-        failed = (not has_material) or too_thin
+        failed = (not has_material) or too_thin or bare
+        if bare:
+            detail += (f"; but {bn} is a bare block ({mesh.volume:.0f} of {float(np.prod(mesh.extents)):.0f} mm3 bounding box): "
+                       "no boss, hole or flange anywhere -- Hint: model the attachment feature the fastener goes through")
 
         feature = entry.get("feature", "attachment")
         status = "FAIL" if failed else "PASS"

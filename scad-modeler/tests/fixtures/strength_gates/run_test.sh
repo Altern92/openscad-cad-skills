@@ -15,7 +15,8 @@ want=("OK   insert M3 good" "FAIL insert M3 knurl" "knurls nothing to grip" "FAI
       "blind depth 5.9" "FAIL insert M3 wall" "wall under 1.6 mm"
       "OK   load x6_xy on bar_x6: 20.8 MPa (allow 21.5, X-Y)" "FAIL load x3_thin on bar_x3: 166.0 MPa"
       "FAIL load z6_layers on bar_z6: 20.8 MPa (allow 18.0, Z)" "FAIL load gap" "does not connect the support"
-      "STRENGTH: 4 insert(s), 4 load case(s), 6 failure(s)")
+      "FAIL insert M3 step" "at depth" "FAIL insert M3 slit" "wall is cut"
+      "STRENGTH: 6 insert(s), 4 load case(s), 8 failure(s)")
 for w in "${want[@]}"; do grep -qF <<< "$o" "$w" || { echo "missing: $w"; echo "$o"; exit 1; }; done
 # unknown material -> usage error, never a pass
 sed 's/PETG Basic/Unobtainium/' "$here/loads.json" > "$t/loads.json"

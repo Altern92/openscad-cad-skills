@@ -150,22 +150,48 @@ Priority order: P30 → P38 → P35 → P31 → P32 → P36 → P37 → P39 → 
     tighter depth (e.g. along the contact normal) and an exact-value fixture.
   - ~~`$fn/$fa/$fs` into `limits.lock`~~ ✅ 2026-11-28: top-level values locked (smaller $fn / larger $fa, $fs =
     loosened; a new one is compared with OpenSCAD's defaults 0/12/2). Left: HMAC receipts; hook installation from `install.sh`.
-  - Second external audit: DOF/ground, joint_graph `bridge`, `hole_radius`, printability,
-    attachment, bores, subfeature, `--all` end to end.
-  - Mutant-coverage gate per checker; more metamorphic and analytic reference cases.
-  - Purchased-parts library (MG996R, Z-S0398, INJORA).
-  - Joint angle from geometry, not from `echo`; also sweep each joint until parts touch to find
-    its real stops and compare with the declared `range_deg` (text-to-cad `cad model ranges`
-    does this).
+  - ~~Second external audit~~ ✅ 2026-11-28 (fresh agent, every case reproduced): 10 false PASS, 0 false FAIL.
+    All 10 fixed 2026-11-28, each with a red fixture first and a semantic mutant (KILLED):
+    A1 `motion_sweep` tooth-zone face overlap (`example_gear_reduction`); A2 layer support propagation
+    (`printability_layer_support`); A3 idle per body (`kinematics_gates`); A4 any body below ground
+    (`behavior_gates`); A5 roundness <= hexagon (`features_slot_fail`); A6 ray-cast path + optional `diameter`
+    ring (`bore_reachability_skin_fail`); A7 every depth + 360-ray wall (`strength_gates`); A8 bare block +
+    exact part name (`attachment_bare_fail`); A9 exact sub-feature names, A10 empty solo render = FAIL
+    (`subfeature_names_exact`). Limits: A2 accepts cantilevers <= 2.5 mm as bridges; A6 without `diameter`
+    is centreline only (NOTE printed); A8 a part with a feature elsewhere but not at the point still passes.
+    Original findings:
+    - A1 gear pair stacked axially (0 face overlap) passes `--all`: centre distance ignores axial position.
+    - A2 printability: egg-crate underside hides a 40x40 cantilever; "carried" accepts a wall hanging in air.
+    - A3 `dof.idle` only adds to the count (absorbs any loose DOF, even on a static body).
+    - A4 STANDS: a non-ground body through the floor passes.
+    - A5 check_features: 8x30 slot passes as a Ø8 hole (only min radius compared).
+    - A6 bore reachability: centreline only (Ø1 pinhole and 0.2 mm skin pass).
+    - A7 check_strength insert: median of 5 depths hides a bad top; 12-ray ring misses a slit.
+    - A8 check_attachment: bare plate passes (no feature check); part matched as substring.
+    - A9 subfeature exemptions match substrings incl. the part prefix.
+    - A10 validate_scad.sh: a SUBFEATURE that renders nothing is only a warning.
+    Low: joint_graph `--geometry` bridges via an undeclared body (full pipeline still fails).
+  - ~~Mutant-coverage gate per checker~~ ✅ 2026-11-28: `mutant_coverage` also requires a semantic row per checker
+    (29/29, 20 new rows, all KILLED). Left: more metamorphic and analytic reference cases.
+  - ~~Purchased-parts library~~ ✅ 2026-11-28: `references/purchased_parts.scad` (MG996R 40.7×19.7×42.9,
+    INJORA 80 mm shock 80/62/18, RC4WD Z-S0398); unpublished dims (◇) have no default and assert; envelopes
+    circumscribed (the fixture caught inscribed cylinders 5 % small). Fixture `purchased_parts_lib`.
+    Left: measure servo tabs, shock OD, Z-S0398 and its swing angle (maintainer, real parts).
+  - ~~Joint angle from geometry, not from `echo`~~ ✅ 2026-11-28: Kabsch rotation per body from the dof pose
+    (revolute turn, or `angle.axis` tilt); lower bound FAILs an echo that understates the turn; echo optional
+    for revolute / axis. Fixture `kinematics_gates` (6 new cases), 4 mutants.
+  - ~~Joint real stops~~ ✅ 2026-11-28: `motion_sweep.py` `"stops"` sweeps past each named end of `range_deg`
+    and FAILs when the parts do not meet within `within_deg`; prints the real stop. Fixture `motion_stops`,
+    2 mutants. Also removed a doubled Hint line. Left: stops for `check_behavior.py` poses (pose grid, not sweep).
 - [ ] **P25 rest (protected laws).** `limits.lock` for the RC projects (needs the maintainer's
   quote); property-based tests (Hypothesis / CrossHair), TLA+ model, Sigstore receipts, mutmut
   trial — all optional, try only if a real false PASS shows the need.
 - [x] **P20b limit.** ✅ 2026-11-27 wave 2: every contact plane is checked (`fasteners_mount_two_plane_fail`). **Was:** The host-hole inventory checks only one (the largest) contact plane of a
   mounted part; a part touching the host on two planes can still hide a covered hole.
-- [ ] **PETG tolerances** — only after measuring: print `calibration_coupon()`
-  (`openscad-cad/references/patterns.scad`, Pattern 5) in PETG, measure, record in
-  `openscad-cad/references/tolerances.md` § PETG (printer, material, layer, sample, measured vs
-  reported). Maintainer's job; never invent numbers.
+- [x] **PETG tolerances** ✅ 2026-11-28: not a one-off table — the maintainer prints and measures the coupon
+  before EACH print. `printer_profile.json` (material, measured date, holes) counts only on that day
+  (`doctor.py` `calibration_status` ok/stale/invalid/none; fixture `doctor_calibration_fresh`, mutant
+  `doctor_profile_never_stale`). R-14, both SKILL.md and tolerances.md say so. Never invent numbers.
 - [x] **Plugin icon** ✅ 2026-11-27: `.claude-plugin/icon.png` (1024 px, regenerate with
   `.claude-plugin/make_icon.py`). Only needed when submitting to the official plugin catalogue.
 - [x] **Donation button** ✅ 2026-11-27: Ko-fi (`.github/FUNDING.yml` `ko_fi: altern92`, README § Support).

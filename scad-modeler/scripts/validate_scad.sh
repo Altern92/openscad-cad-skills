@@ -723,7 +723,9 @@ if [[ "$MODE" == "--all" ]]; then
                 && [ -s "$sf_out" ]; then
                 sf_stls+=("$sf_out")
             else
-                echo "WARNING: $sf_base declares // SUBFEATURES but sub-feature '$x' did not render solo -- check the SUBFEATURE dispatch in the part file." >&2
+                # audit A10 (2026-11-28): a warning let the other sub-features PASS while this one was never compared
+                echo "FAIL: $sf_base declares // SUBFEATURES but sub-feature '$x' rendered nothing solo -- it was never compared. Hint: fix the SUBFEATURE dispatch (name spelled the same as in the // SUBFEATURES line)."
+                SUBFEAT_FAIL=1
             fi
         done
         if [ ${#sf_stls[@]} -ge 2 ]; then
@@ -749,7 +751,7 @@ if [[ "$MODE" == "--all" ]]; then
         echo "CHECK_RESULT subfeature_overlap=SKIP"
         echo "  -> no part declares '// SUBFEATURES: a, b, c' (2+ names), so no sub-feature was compared. Add the line and give each name its own module; see templates/part_template.scad. Until then an overlap inside one part's own union() is invisible to every other check."
         log_check "subfeature_overlap" 0 "n/a" "SKIP: no part declares // SUBFEATURES with 2+ names -- see templates/part_template.scad"
-    elif [ "$SUBFEAT_STLS" -lt 2 ]; then
+    elif [ "$SUBFEAT_STLS" -lt 2 ] && [ "$SUBFEAT_FAIL" -eq 0 ]; then
         echo "CHECK_RESULT subfeature_overlap=SKIP"
         echo "  -> SUBFEATURES declared but fewer than 2 sub-features rendered solo -- check the guarded SUBFEATURE dispatch in the part file (templates/part_template.scad)."
         log_check "subfeature_overlap" 0 "n/a" "SKIP: SUBFEATURES declared but fewer than 2 sub-features rendered solo"

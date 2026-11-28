@@ -59,6 +59,7 @@ Exit codes:
     4  usage/runtime error, or a declared hole could not be measured
 """
 import argparse
+import math
 import os
 import re
 import sys
@@ -248,6 +249,13 @@ def main():
             continue
 
         diff = flats - h["d"]
+        # audit A5 (2026-11-28): the inradius alone passed an 8 x 30 slot as a Ø8 hole. Any regular polygon from
+        # a hexagon up has corners/flats <= 1/cos(30 deg) = 1.1547; more than that is a slot or an oval.
+        if corners > flats / math.cos(math.radians(30)) + args.tol:
+            failures.append(f"{label}: not round: across corners {corners:.3f} mm vs across flats {flats:.3f} mm "
+                            f"(ratio {corners / flats:.2f} > 1.155, a hexagon) -- a slot or oval, a pin or bearing is free "
+                            "along it -- Hint: make the hole round in the part's .scad, or declare the slot some other way")
+            continue
         if abs(diff) > args.tol or center_offset > args.tol:
             hint = (" -- Hint: fix the hole diameter/position in the part's .scad, or correct the "
                     "EXPECTED_HOLE declaration")

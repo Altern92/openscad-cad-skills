@@ -61,6 +61,14 @@ fall back to a simple bounding-envelope placeholder (a cylinder/box at the
 component's real OD/length) rather than skipping collision-checking for it
 entirely -- an approximate envelope check beats no check.
 
+### Parts NopSCADlib lacks: `references/purchased_parts.scad`
+
+Sourced envelopes for parts used in this project set: `mg996r()` (40.7 x 19.7 x 42.9 mm),
+`injora_shock80(travel_used, body_d)` (80 -> 62 mm, 18 mm travel), `rc4wd_z_s0398(length, head_d,
+head_t)`. A dimension no source publishes (◇: servo tabs, shock body OD, every rod-end size) has no
+default; leave it out and the module asserts, so a guess never becomes geometry. Round parts are
+circumscribed (an outer bound). `use <.../references/purchased_parts.scad>`; fixture `purchased_parts_lib`.
+
 ## Using vitamins in the workflow
 
 Position purchased hardware in `layout.scad`'s `LAYOUT` array exactly like a

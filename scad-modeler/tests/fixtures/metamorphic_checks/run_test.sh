@@ -11,7 +11,7 @@ fail=0
 mkdir -p "$t/s0"; python3 "$here/../strength_gates/make_stls.py" "$t/s0/build/positioned" || exit 1
 cp "$here/../strength_gates/fasteners.json" "$here/../strength_gates/loads.json" "$t/s0/"
 python3 "$S/check_strength.py" --project-dir "$t/s0" > "$t/s0.txt" 2>&1
-grep -q "STRENGTH: 4 insert" "$t/s0.txt" || { echo "baseline strength run broken"; cat "$t/s0.txt"; exit 1; }
+grep -q "STRENGTH: 6 insert" "$t/s0.txt" || { echo "baseline strength run broken"; cat "$t/s0.txt"; exit 1; }
 # fasteners: the head-crossing block/cover pair (one FAIL) and the clean pair (PASS)
 for fx in fasteners_head_cross_fail fasteners_pass; do
     mkdir -p "$t/$fx"; cp "$here/../$fx"/*.scad "$here/../$fx/fasteners.json" "$t/$fx/"

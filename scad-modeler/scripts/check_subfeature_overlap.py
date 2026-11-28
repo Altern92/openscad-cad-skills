@@ -90,11 +90,13 @@ def load_exempt(path):
 
 
 def is_exempt(exempt, path_a, path_b):
-    a = os.path.basename(path_a).lower()
-    b = os.path.basename(path_b).lower()
+    # audit A9 (2026-11-28): substrings matched the <part>__ prefix validate_scad.sh adds ("tower" in
+    # motor_tower__cradle.stl); compare the exact sub-feature names, as templates/fusions.json documents
+    name = lambda p: os.path.splitext(os.path.basename(p))[0].lower().rsplit("__", 1)[-1]
+    a, b = name(path_a), name(path_b)
     for entry in exempt:
         n1, n2 = (str(x).lower() for x in entry["pair"])
-        if (n1 in a and n2 in b) or (n1 in b and n2 in a):
+        if (n1 == a and n2 == b) or (n1 == b and n2 == a):
             return entry
     return None
 

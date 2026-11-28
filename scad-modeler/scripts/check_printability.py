@@ -79,6 +79,7 @@ Exit codes:
     4  usage error
 """
 import argparse
+import math
 import os
 import sys
 
@@ -235,6 +236,47 @@ def check_overhang(mesh, build_axis, overhang_deg, baseplate_eps):
             out["regions"].append((a, centre(c)))
             out["faces"][c] = True
     return out
+
+
+def check_layer_support(mesh, build_axis, overhang_deg, layer):
+    """Audit A2 (2026-11-28): support propagated layer by layer, as a slicer prints. A layer's material is
+    supported where it lies within layer*tan(overhang) of the supported material one layer below (the plate
+    supports the first layer); material within BRIDGE_MAX/2 of it counts as bridged. Returns the largest
+    unsupported area of any layer as (area mm2, height, (x, y)), or None. Face normals alone passed an
+    egg-crate underside (each flat under the region floor) and a ledge held by a lip that hangs in air.
+    shortcut: the bridge allowance also accepts a cantilever up to BRIDGE_MAX/2 long; upgrade to a
+    two-sided carried test per region if a short cantilever must fail."""
+    import numpy as np
+    import trimesh
+    from shapely.ops import unary_union
+    up = np.array(build_axis, float); up /= np.linalg.norm(up)
+    m = mesh.copy()
+    m.apply_transform(trimesh.geometry.align_vectors(up, [0, 0, 1]))
+    z0, z1 = m.bounds[0][2], m.bounds[1][2]
+    zs = np.arange(z0 + layer / 2, z1, layer)
+    if len(zs) < 2:
+        return None
+    secs = m.section_multiplane(plane_origin=[0, 0, 0], plane_normal=[0, 0, 1], heights=list(zs))
+    grow = layer * math.tan(math.radians(overhang_deg))
+    sup, worst = None, None
+    for z, sec in zip(zs, secs):
+        P = unary_union(sec.polygons_full).buffer(0) if sec is not None and len(sec.polygons_full) else None
+        if P is None or P.is_empty:
+            sup = None
+            continue
+        if sup is None:   # first layer (on the plate), or material starting again above a gap: count from here
+            if z - z0 < layer:
+                sup = P
+                continue
+            sup = P.buffer(-1e9)   # nothing below: empty supported set
+        held = P.intersection(sup.buffer(grow))
+        bridged = P.difference(held).intersection(sup.buffer(BRIDGE_MAX_MM / 2))
+        free = P.difference(held).difference(bridged)
+        if free.area >= MIN_REGION_MM2 and (worst is None or free.area > worst[0]):
+            c = free.centroid
+            worst = (float(free.area), float(z), (c.x, c.y))
+        sup = held.union(bridged)
+    return worst
 
 
 def check_knife_edges(mesh):
@@ -524,6 +566,15 @@ def main():
                 f"(build axis {build_axis}) "
                 f"-- will need support material or a different print orientation. Hint: change the "
                 f"print orientation, or add a chamfer/45 deg slope on the overhanging faces.")
+
+    if args.overhang_deg < 90.0 and not sum(a for a, _ in ov["regions"]):
+        ls = check_layer_support(mesh, build_axis, args.overhang_deg, args.layer)
+        if ls:
+            a, z, (x, y) = ls
+            failures.append(f"UNSUPPORTED LAYER: {a:.1f} mm^2 of the layer at height {z:.2f} (near {x:.1f}, {y:.1f} in "
+                            f"build coordinates) is neither on the plate nor within {args.overhang_deg:.0f} deg / "
+                            f"{BRIDGE_MAX_MM / 2:g} mm of supported material below -- it starts printing in air (face "
+                            "normals missed it). Hint: add support, a 45 deg slope from the part below, or reorient.")
 
     if ov["total_down_area"] and ov["faces"].any():
         vol = check_support_volume(mesh, ov["faces"], build_axis)
