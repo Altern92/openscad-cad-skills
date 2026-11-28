@@ -13,8 +13,11 @@ openscad -q --backend=Manifold -o "$tmp/switch.stl" "$here/src/parts/vit_switche
 python3 - "$SCAD_MODELER_SCRIPTS" "$tmp" <<'PY' || exit 1
 import sys, math, trimesh; sys.path.insert(0, sys.argv[1]); import check_collisions as c
 t = sys.argv[2]; p = trimesh.load(f"{t}/plate.stl"); s = trimesh.load(f"{t}/switch.stl")
-k = s.copy(); a = math.radians(15); k.apply_translation([0, 0.5 * math.sin(a), -0.5 * math.cos(a)])
-d0, d1 = c.bounded_depth(5.0, p, s), c.bounded_depth(5.0, p, k)   # 5.0 = what FCL reported
-print("contact", d0, "sunk 0.5 mm", d1)
-sys.exit(0 if d0 <= 0.05 and d1 >= 0.4 else 1)
+a = math.radians(15)
+def sunk(h):
+    k = s.copy(); k.apply_translation([0, h * math.sin(a), -h * math.cos(a)]); return c.bounded_depth(5.0, p, k)
+d0, d1, d5 = c.bounded_depth(5.0, p, s), sunk(0.1), sunk(0.5)   # 5.0 = what FCL reported
+print("contact", d0, "sunk 0.1 mm", d1, "sunk 0.5 mm", d5)
+# P28 (2026-11-28): a 0.1 mm sink read 1.5 mm (oriented box of slab + zero-volume side sheets); now exact
+sys.exit(0 if d0 <= 0.05 and abs(d1 - 0.1) <= 0.02 and abs(d5 - 0.5) <= 0.05 else 1)
 PY

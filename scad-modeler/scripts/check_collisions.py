@@ -180,6 +180,7 @@ EXIT_FAIL = 3
 EXIT_USAGE = 4
 
 try:
+    import numpy as np
     import trimesh
 except ImportError:
     __import__("mesh_python").reexec()
@@ -349,6 +350,35 @@ def pair_penetration_depth(contact_data, name_a, name_b):
     return max(depths) if depths else None
 
 
+def piece_depth(q, n_samples=64):
+    """Penetration of one intersection piece: its oriented box's thinnest extent, lowered to the largest local
+    thickness along each big flat face's normal (rays from that face inward, first exit).
+
+    P28 (2026-11-28): a switch housing sunk 0.1 mm into a 15 deg plate gave a piece = 0.1 mm slab plus zero-volume
+    side sheets; its oriented box (and every vertex extent) read 1.5 mm. Rays through a sheet exit at once (~0),
+    so the slab's own thickness wins. shortcut: 64 rays per face direction; a spike narrower than that can be missed.
+    """
+    best = float(q.bounding_box_oriented.primitive.extents.min())
+    if not len(q.facets):
+        return best
+    rng = np.random.default_rng(0)
+    for n in q.facets_normal[q.facets_area >= 0.1 * q.facets_area.max()]:
+        fi = np.flatnonzero(q.face_normals @ n > 0.99)
+        if not len(fi):
+            continue
+        pick = fi[rng.choice(len(fi), n_samples, p=q.area_faces[fi] / q.area_faces[fi].sum())]
+        tri, r = q.triangles[pick], rng.random((n_samples, 2))
+        r[r.sum(1) > 1] = 1 - r[r.sum(1) > 1]
+        org = tri[:, 0] + r[:, :1] * (tri[:, 1] - tri[:, 0]) + r[:, 1:] * (tri[:, 2] - tri[:, 0]) - 1e-5 * n
+        try:
+            loc, ray, _ = q.ray.intersects_location(org, np.tile(-n, (n_samples, 1)), multiple_hits=False)
+        except Exception:
+            continue
+        if len(ray):   # no hit at all = ray engine trouble, not a zero depth
+            best = min(best, float(np.linalg.norm(loc - org[ray], axis=1).max()))
+    return best
+
+
 def bounded_depth(depth, mesh_a, mesh_b):
     """FCL depth capped by the boolean intersection (P16, 2026-11-01).
 
@@ -377,7 +407,7 @@ def bounded_depth(depth, mesh_a, mesh_b):
     # bbox as thick as the tilt makes it (15.6 mm face at 15 deg read as 4.04 mm deep).
     # A piece whose mean thickness 2V/A is under 0.01 mm is a contact sheet (a square ring
     # around a switch in its cutout), not an overlap; a real 0.03 mm cube still counts.
-    depths = [float(q.bounding_box_oriented.primitive.extents.min()) for q in pieces
+    depths = [piece_depth(q) for q in pieces
               if abs(q.volume) > 1e-6 and 2 * abs(q.volume) / max(q.area, 1e-9) >= 0.01]
     capped = min(depth, max(depths)) if depths else 0.0
     # P28 (2026-11-27): a part wholly inside the other (plate sunk in a block) has an

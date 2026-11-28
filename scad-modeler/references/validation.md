@@ -600,8 +600,12 @@ Declare a fit on a `joints.json` contact (`peg` and `hole` are positioned part n
   peg's longest bounding-box axis): 24 rays from the section centre, median first hit. Round pegs and holes only.
 - `clearance_mm`: FAIL when hole minus peg is outside clearance +- 0.05 mm (`--tol`, provisional).
 - `iso286`: classes H7 H8 (hole) and g6 h6 k6 p6 (peg), nominal over 3 up to 50 mm (ISO 286-2 limits, table in the
-  script with its source: RoyMech ISO 286-2 hole/shaft tolerance tables, checked 2026-11-27). FAIL when the hole or
+  script with its source: RoyMech ISO 286-2 hole/shaft tolerance tables, checked 2026-11-27); also H9 H11 | c11 d9 f7
+  n6 s6 u6 up to 30 mm (u6 to 18), read from the Bethune 2016 appendix tables (ANSI B4.2). FAIL when the hole or
   the peg is outside its limits by more than 0.01 mm (`--meas-tol`, mesh noise). Other classes or sizes = usage error (exit 4).
+- `seat_depth_mm` (optional, P32 2026-11-28): FAIL when the bore of the measured hole Ø (+-0.1 mm) runs shorter than
+  this along the axis around `at`: a bearing or bushing not seated its full width (a shoulder or a smaller hole ends
+  the seat). Measured in 0.1 mm steps, accepted down to the value - 0.15 mm.
 - Reusable geometry: `mate(d, h, clearance, removing)` in `openscad-cad/references/patterns.scad` (Pattern 6) builds
   the peg and its cutter from one module and one `params.scad` clearance variable.
 - P36: two parts whose surfaces are within 0.3 mm (`--near`) over at least 1 mm2 (`--min-area`) that no `joints.json`
@@ -767,3 +771,6 @@ inside the part's own mesh: a shelf 110 mm above its base passed every gate (rc 
 - `limits.lock` also pins `EXPECTED_BODIES`, `LIBRARY_FILE`, bare `PREVIEW_FILE`, loads `reach` and
   (any change) `material`, `print_up`, `support`, `at`, `part`, and `motion[].min_clearance_mm`;
   deleting the lock after it existed FAILs. The marker regexes live in `scripts/markers.py`.
+- It also pins top-level `$fn`/`$fa`/`$fs` in part and project `.scad` files (P28, 2026-11-28): a smaller `$fn`
+  or larger `$fa`/`$fs` (coarser facets shrink holes, pins and overlaps) is loosened; one added after approval is
+  compared with OpenSCAD's defaults (`$fn` 0, `$fa` 12, `$fs` 2). Module-local (indented) assignments are not read.

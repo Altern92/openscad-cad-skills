@@ -82,3 +82,7 @@ fasteners_tol_negative_ok	check_fasteners	            if not math.isfinite(T) or
 hint_fits_peg	check_fits	 -- Hint: resize the peg to the class limits		fail_hints
 fasteners_tol_floating_full	check_fasteners	end = tf if fixed else (tf or L)	end = tf if fixed else L	fasteners_position_tol
 fasteners_tol_fixed_no_tf_ok	check_fasteners	            if T and (f.get("into") or f.get("insert")) and float(f.get("thread_from", 0)) <= 0:	            if False:	fasteners_position_tol
+collisions_obb_depth_only	check_collisions	            best = min(best, float(np.linalg.norm(loc - org[ray], axis=1).max()))	            pass	collisions_tilted_contact
+limits_fn_direction	check_limits	"min" if m.group(1) == "fn" else "max"	"max"	limits_lock
+limits_res_no_default	check_limits	        return RES_DEFAULT[m.group(1)]	        return None	limits_lock
+fits_seat_unchecked	check_fits	                if seat < want_seat - 0.15:	                if False:	fits_seat_depth

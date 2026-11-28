@@ -33,6 +33,10 @@ OPT_OUT = re.compile(r"^\s*//\s*(NO_JOINT|NO_RETENTION|NO_BBOX|NO_THROUGH_HOLES_
                      r"|MARGIN_EXCLUDES_OK)\b(?:[ \t]*:[ \t]*(\S*))?", re.M)
 COUNTS = re.compile(r"^\s*//\s*(EXPECTED_BODIES|EXPECTED_CAVITIES)\s*:\s*([0-9]+)", re.M)
 BBOX_TOL = re.compile(r"^\s*//\s*EXPECTED_BBOX_TOL\s*:\s*(\[[^\]]*\]|[-0-9.eE]+)", re.M)
+# P28 (2026-11-28): top-level tessellation. Coarser facets shrink holes, pins and overlaps, so they can turn a FAIL
+# green: a smaller $fn, a larger $fa or $fs is looser. shortcut: unindented top-level lines only (not module-local).
+RESOLUTION = re.compile(r"^\$(fn|fa|fs)\s*=\s*([0-9.eE+-]+)\s*;", re.M)
+RES_DEFAULT = {"fn": 0.0, "fa": 12.0, "fs": 2.0}   # OpenSCAD's built-in values (OpenSCAD manual, "Special variables")
 ESTIMATE = re.compile(r"estimate|◇|PATIKRINTI|unverified|guess", re.I)
 # direction: "max" = a bigger value is looser, "min" = a smaller value is looser, "flag" = presence is looser,
 # "eq" = any change is a different check (material, print direction, support/load points; value = hash)
@@ -150,6 +154,11 @@ def inventory(d):
             vals = json.loads(m.group(1)) if m.group(1).startswith("[") else [float(m.group(1))] * 3
             for axis, v in zip("xyz", vals):
                 put(f"{rel} EXPECTED_BBOX_TOL.{axis}", v, "max")
+        for m in RESOLUTION.finditer(text):
+            try:
+                put(f"{rel} ${m.group(1)}", float(m.group(2)), "min" if m.group(1) == "fn" else "max")
+            except ValueError:
+                pass
         for m in COUNTS.finditer(text):
             put(f"{rel} {m.group(1)}", int(m.group(2)), "max")
         for m in OPT_OUT.finditer(text):
@@ -165,6 +174,9 @@ def default_for(k, locked):
         return float(locked["behavior.json clearance.default"][0])
     if re.match(r"joints\.json contacts\[.*\]\.expected_interference_mm\[(lo|hi)\]$", k):
         return 0.0
+    m = re.match(r".*\.scad \$(fn|fa|fs)$", k)
+    if m:   # a $fn/$fa/$fs written after approval overrides OpenSCAD's own default
+        return RES_DEFAULT[m.group(1)]
     m = re.match(r"joints\.json contacts\[.*\]\.min_clearance_mm$", k)
     if m:   # a contact's own clearance overrides the smallest motion clearance that was approved
         vals = [float(v[0]) for kk, v in locked.items() if kk.endswith("].min_clearance_mm") and kk.startswith("joints.json motion[")]

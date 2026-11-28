@@ -54,7 +54,12 @@ Priority order: P30 → P38 → P35 → P31 → P32 → P36 → P37 → P39 → 
 - [ ] **P32 More assembly checks (the unique advantage).** Wave 2 (2026-11-27) done: worm and bevel
   `gear_mesh` (`kind`), thread engagement + bottoming out, `mate()` (Pattern 6) + `check_fits.py`
   (hole = peg + clearance, ISO 286 H7/H8/H9/H11 with c11 d9 f7 g6 h6 k6 n6 p6 s6 u6). Left: bevel
-  pitch-cone apex, bearing seat depth, spring length.
+  pitch-cone apex, spring length. Bearing seat depth ✅ 2026-11-28: fit `seat_depth_mm` in check_fits (bore run along
+  the axis, fixture `fits_seat_depth`, mutant `fits_seat_unchecked`).
+  Bevel apex tried 2026-11-28, not shipped: (1) static gap between the teeth fails because pairs are
+  not phase-aligned (the p32 fixture pair interferes at every pose); (2) a linear fit of the tooth-tip envelope r_max(t)
+  tracks an axial slide exactly (0.3 → 0.300 mm) but its absolute apex is biased (13.9 mm off for BOSL2 12T/20T m2),
+  so a check needs a BOSL2 reference render with every declared gear parameter (face width, spiral, shift) — fragile.
   - Worm and bevel gears (today a `gear_mesh` on non-parallel axes says NOT CHECKED; RC
     `steering_reduction_gearbox` declares worm/bevel pairs as `gear_mesh`).
   - Bearing and shaft tolerances (fit classes, seat depth).
@@ -138,11 +143,13 @@ Priority order: P30 → P38 → P35 → P31 → P32 → P36 → P37 → P39 → 
   - ~~angle `echo` only from the top-level scad~~ ✅ 2026-11-27: joint bodies' own `scad` read too.
   - ~~`bounded_depth`: a thin plate deep inside a block is measured by its thickness~~ ✅ 2026-11-27
     wave 2 (contained part → distance to move it out; fixture `collisions_sunk_plate`).
-  - `bounded_depth` overestimates shallow tilted contacts: in `collisions_tilted_contact` a 0.1 mm sink
+  - ~~`bounded_depth` overestimates shallow tilted contacts~~ ✅ 2026-11-28: `piece_depth` (rays along big-face
+    normals) reads 0.1 → 0.100, 0.5 → 0.500; fixture asserts exact values, mutant `collisions_obb_depth_only`. Was: in `collisions_tilted_contact` a 0.1 mm sink
     reads 1.5 mm (smallest extent of the contact ring's box, pre-existing). The fixture only asserts
     ≥ 0.4, so it cannot catch it; a tolerated small interference may FAIL its window. Needs a
     tighter depth (e.g. along the contact normal) and an exact-value fixture.
-  - `$fn/$fa/$fs` into `limits.lock`; HMAC receipts; hook installation from `install.sh`.
+  - ~~`$fn/$fa/$fs` into `limits.lock`~~ ✅ 2026-11-28: top-level values locked (smaller $fn / larger $fa, $fs =
+    loosened; a new one is compared with OpenSCAD's defaults 0/12/2). Left: HMAC receipts; hook installation from `install.sh`.
   - Second external audit: DOF/ground, joint_graph `bridge`, `hole_radius`, printability,
     attachment, bores, subfeature, `--all` end to end.
   - Mutant-coverage gate per checker; more metamorphic and analytic reference cases.
@@ -166,6 +173,8 @@ Priority order: P30 → P38 → P35 → P31 → P32 → P36 → P37 → P39 → 
 - [ ] **Exit-code unification** — deliberately not done: `validate_scad.sh` and fixtures rely on
   the current codes (6 checkers return 1, 6 return 3). Only together with a `check_*.py` v2 and
   a compatibility layer.
-- [ ] **Cost re-measurement** — agent cost was not re-measured after the context-leak fix and
+- [x] **Cost re-measurement** ✅ 2026-11-28 with the bench (`bench/README.md`, skills 4271c78, Opus 5.5): $0.56-$2.19
+  API-equivalent per task (openscad-cad single part $0.56-0.71, scad-modeler assembly $1.12-2.19), 0.9-7.6 min, 8-76 turns;
+  output 4-31 k tokens, cache reads 0.4-3.5 M. Was: agent cost was not re-measured after the context-leak fix and
   P18/P19 slimming; measure together with coverage, not alone (needs approval if it uses paid
   runs).

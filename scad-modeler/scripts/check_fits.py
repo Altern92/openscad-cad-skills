@@ -9,6 +9,8 @@ peg surface is closest to the hole part). Peg and hole Ø are measured on the pl
 normal to the axis: 24 rays from the section centre, median first-hit distance (so a stepped peg is
 measured at the contact, not at its head).
   clearance_mm: FAIL when hole - peg is outside clearance +- --tol (default 0.05 mm, provisional).
+  seat_depth_mm (optional): FAIL when the bore of Ø hole (+-0.1) runs shorter than this along the axis around "at"
+  (a bearing or bushing not seated its full width; a shoulder or smaller hole ends the seat).
   iso286: FAIL when the hole is outside its class limits or the peg outside its own (+- --meas-tol,
   0.01 mm of mesh/tessellation noise). Subset: H7 H8 | g6 h6 k6 p6, nominal over 3 up to 50 mm.
 
@@ -87,6 +89,21 @@ def section_dia(mesh, c, ax, n=24):
     if len(ray) < 0.75 * n:
         return None
     return 2 * float(np.median(np.linalg.norm(loc - c, axis=1)))
+
+
+def seat_length(hole, cen, ax, hd, step=0.1, limit=200.0):
+    """P32 (2026-11-28): length of the bore around cen whose Ø stays within 0.1 mm of hd (a shoulder, a step to a
+    smaller hole or an open end stops it). shortcut: 0.1 mm steps, so the result is good to ~0.1 mm."""
+    n = 0
+    for sgn in (1, -1):
+        t = step
+        while t < limit:
+            d = section_dia(hole, cen + sgn * t * ax, ax)
+            if d is None or abs(d - hd) > 0.1:
+                break
+            t += step
+        n += t - step
+    return n
 
 
 def section_centre(mesh, at, ax):
@@ -184,6 +201,18 @@ def main():
                 fails.append(f"{tag}: cannot measure Ø ({'peg' if pd is None else 'hole'} section has no closed wall "
                              f"along axis {np.round(ax, 2).tolist()}); give \"axis\" and \"at\" -- Hint: add \"axis\" and \"at\" to the fit in joints.json")
                 continue
+            if "seat_depth_mm" in f:   # P32: a bearing / bushing must sit its full width in the bore
+                try:
+                    want_seat = float(f["seat_depth_mm"])
+                except (TypeError, ValueError):
+                    print(f"ERROR: {jp}: fit {pn}/{hn}: seat_depth_mm must be a number", file=sys.stderr)
+                    return EXIT_USAGE
+                seat = seat_length(hole, cen, ax, hd)
+                if seat < want_seat - 0.15:
+                    fails.append(f"{tag}: seat {seat:.1f} mm < seat_depth_mm {want_seat:g} (bore Ø{hd:.3f} along "
+                                 f"{np.round(ax, 2).tolist()}) -- Hint: deepen the bore to the part's width, or move the shoulder")
+                else:
+                    oks.append(f"{tag}: seat {seat:.1f} mm >= seat_depth_mm {want_seat:g}")
             if "iso286" in f:
                 try:
                     hc, pc = f["iso286"].split("/")

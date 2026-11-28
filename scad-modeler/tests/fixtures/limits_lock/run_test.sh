@@ -21,7 +21,7 @@ J
  {"name": "pull", "type": "screw_pullout", "part": "arm", "thread_d_mm": 3, "pitch_mm": 0.5, "engagement_mm": 6, "force_N": 50, "material": "PETG Basic", "safety": 2.0},
  {"name": "press", "type": "press_fit", "part": "arm", "shaft_d_mm": 8, "hub_od_mm": 20, "interference_mm": 0.1, "hub_E_mpa": 1500, "hub_nu": 0.35, "shaft_E_mpa": 200000, "shaft_nu": 0.3, "axis": [0,0,1], "material": "PETG Basic", "safety": 2.0}]}' > loads.json
     echo '{"contacts": [{"pair": ["arm", "base"], "expected_interference_mm": [0, 0.05]}], "motion": [{"id": "swing", "min_clearance_mm": 0.2, "drivers": []}]}' > joints.json
-    printf '// EXPECTED_BBOX: [10, 10, 10]\n// EXPECTED_BBOX_TOL: 0.01\ncube(10);\n' > parts/a.scad
+    printf '// EXPECTED_BBOX: [10, 10, 10]\n// EXPECTED_BBOX_TOL: 0.01\n$fn = 64;\n$fs = 0.4;\ncube(10);\n' > parts/a.scad
     echo '[{"name": "arm_boss", "part": "arm", "to": "base", "min_material_mm": 1.5}]' > attachments.json   # bare-list form (RC projects)
 }
 run() { python3 "$C" "$@" --project-dir "$tmp/p" 2>&1; }
@@ -72,6 +72,11 @@ for c in 'd["cases"][1]["pitch_mm"] = 0.25|pitch_mm' 'd["cases"][2]["hub_od_mm"]
 done
 CASE="lock deleted"; mk; cp "$tmp/l" limits.lock; mkdir -p build; echo '{"mode":"--all","limits_locked":true}' > build/.validation_state.json
 rm limits.lock; expect 3 "is gone"
+# P28 (2026-11-28): coarser tessellation shrinks round features and their overlaps, so it can turn a FAIL green
+CASE="lower \$fn"; mk; cp "$tmp/l" limits.lock; sed -i '' 's/^\$fn = 64;/$fn = 12;/' parts/a.scad; expect 3 "loosened" '$fn'
+CASE="raise \$fs"; mk; cp "$tmp/l" limits.lock; sed -i '' 's/^\$fs = 0.4;/$fs = 2;/' parts/a.scad; expect 3 "loosened" '$fs'
+CASE="new \$fa"; mk; cp "$tmp/l" limits.lock; printf '$fa = 30;\n' >> parts/a.scad; expect 3 '$fa'
+CASE="finer \$fn"; mk; cp "$tmp/l" limits.lock; sed -i '' 's/^\$fn = 64;/$fn = 128;/' parts/a.scad; expect 0 "tightened"
 CASE="tighten"; mk; cp "$tmp/l" limits.lock; edit behavior.json 'd["joints"][0]["max_gap"] = 0.1'; expect 0 "tightened"
 CASE="bad json"; mk; cp "$tmp/l" limits.lock; echo '{' > loads.json; expect 4 "loads.json"
 # validate_scad.sh wiring: a loosened BBOX_TOL turns the run red
